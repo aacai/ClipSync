@@ -5,6 +5,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlinx.coroutines.test.runTest
 
 /**
  * Golden vectors generated with WebCrypto (Node) — the same implementation family the
@@ -21,12 +22,12 @@ class RoomCryptoTest {
     private val expectedPlaintext = "{\"text\":\"hello clipsync\",\"len\":15}"
 
     @Test
-    fun roomHash_matches_webcrypto() = runBlockingTest {
+    fun roomHash_matches_webcrypto() = runTest {
         assertEquals(expectedRoomHash, ClipProtocol.roomHash(roomId))
     }
 
     @Test
-    fun decrypt_browser_payload() = runBlockingTest {
+    fun decrypt_browser_payload() = runTest {
         val crypto = RoomCrypto.open(roomId, password = "")
         val decrypted = crypto.decrypt(expectedWire, aad).decodeToString()
         assertEquals(expectedPlaintext, decrypted)
@@ -34,7 +35,7 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun roundtrip_text() = runBlockingTest {
+    fun roundtrip_text() = runTest {
         val alice = RoomCrypto.open(roomId, password = "hunter2")
         val bob = RoomCrypto.open(roomId, password = "hunter2")
         val wire = alice.encrypt("跨端同步".encodeToByteArray(), aad)
@@ -44,7 +45,7 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun wrong_password_fails() = runBlockingTest {
+    fun wrong_password_fails() = runTest {
         val alice = RoomCrypto.open(roomId, password = "hunter2")
         val eve = RoomCrypto.open(roomId, password = "wrong")
         val wire = alice.encrypt("secret".encodeToByteArray(), aad)
@@ -54,7 +55,7 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun safetyNumber_stable_across_sessions() = runBlockingTest {
+    fun safetyNumber_stable_across_sessions() = runTest {
         val first = RoomCrypto.open(roomId, password = "hunter2").safetyNumber()
         val second = RoomCrypto.open(roomId, password = "hunter2").safetyNumber()
         val otherRoom = RoomCrypto.open("OTHERROOM", password = "hunter2").safetyNumber()
@@ -63,7 +64,7 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun topic_parsing() = runBlockingTest {
+    fun topic_parsing() = runTest {
         val hash = ClipProtocol.roomHash(roomId)
         assertEquals(hash, "61232506")
         assertContentEquals(

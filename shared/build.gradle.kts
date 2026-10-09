@@ -10,6 +10,11 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+compose.resources {
+    packageOfResClass = "zhiqiu.app.cs.resources"
+    publicResClass = false
+}
+
 // Broker credentials live in local.properties (gitignored) and are materialized into a
 // gitignored source file at configuration time, so nothing secret ends up in version control.
 // NOTE: the "App ID / App Secret" on the EMQX overview page are API credentials, NOT MQTT login
@@ -29,9 +34,13 @@ val brokerProps = Properties().apply {
         ?.inputStream()
         ?.use { load(it) }
 }
-fun brokerProperty(key: String): String =
-    (brokerProps.getProperty(key) ?: brokerDefaults.getValue(key))
-        .replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
+fun brokerProperty(key: String): String {
+    val envKey = key.replace("mqtt.", "MQTT_").uppercase()
+    val raw = System.getenv(envKey)
+        ?: brokerProps.getProperty(key)
+        ?: brokerDefaults.getValue(key)
+    return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
+}
 
 val secretsFile = layout.projectDirectory
     .file("src/commonMain/kotlin/zhiqiu/app/cs/core/MqttSecrets.kt").asFile
@@ -108,6 +117,9 @@ kotlin {
             implementation(libs.mqtt.client.transport.ws)
             implementation(libs.cryptography.core)
             implementation(libs.cryptography.provider.optimal)
+            implementation(libs.haze.core)
+            implementation(libs.haze.blur)
+            implementation(libs.haze.blur.materials)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
@@ -118,7 +130,7 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(libs.mqtt.client.transport.tcp)
-            implementation(libs.ktor.client.okhttp)
+            implementation(libs.ktor.client.cio)
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.androidx.activity.compose)
@@ -128,9 +140,11 @@ kotlin {
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.ktor.client.websockets)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }

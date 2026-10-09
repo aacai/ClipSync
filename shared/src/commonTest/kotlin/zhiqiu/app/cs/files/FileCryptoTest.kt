@@ -1,13 +1,13 @@
 package zhiqiu.app.cs.files
 
 import zhiqiu.app.cs.core.RoomCrypto
-import zhiqiu.app.cs.core.runBlockingTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class FileCryptoTest {
 
@@ -29,7 +29,7 @@ class FileCryptoTest {
         )
 
     @Test
-    fun roundtrip_preserves_content() = runBlockingTest {
+    fun roundtrip_preserves_content() = runTest {
         val alice = RoomCrypto.open(room, password = "")
         val bob = RoomCrypto.open(room, password = "")
         val enc = FileCrypto(alice).encrypt("shot.png", "image/png", payload)
@@ -44,7 +44,7 @@ class FileCryptoTest {
     }
 
     @Test
-    fun tampered_cipher_fails() = runBlockingTest {
+    fun tampered_cipher_fails() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
         val enc = FileCrypto(crypto).encrypt("a.bin", "application/octet-stream", payload)
         val flipped = enc.cipher.copyOf().also { it[it.size / 2] = (it[it.size / 2].toInt() xor 0xFF).toByte() }
@@ -53,7 +53,7 @@ class FileCryptoTest {
     }
 
     @Test
-    fun wrong_room_password_fails() = runBlockingTest {
+    fun wrong_room_password_fails() = runTest {
         val alice = RoomCrypto.open(room, password = "pw1")
         val mallory = RoomCrypto.open(room, password = "pw2")
         val enc = FileCrypto(alice).encrypt("a.bin", "application/octet-stream", payload)
@@ -63,7 +63,7 @@ class FileCryptoTest {
     }
 
     @Test
-    fun metadata_substitution_fails() = runBlockingTest {
+    fun metadata_substitution_fails() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
         val enc = FileCrypto(crypto).encrypt("real.png", "image/png", payload)
         // 攻击者把文件名/大小换成别的，头部参与 AAD，必须解密失败
@@ -73,7 +73,7 @@ class FileCryptoTest {
     }
 
     @Test
-    fun empty_file_roundtrip() = runBlockingTest {
+    fun empty_file_roundtrip() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
         val enc = FileCrypto(crypto).encrypt("empty.txt", "text/plain", ByteArray(0))
         val dec = FileCrypto(crypto).decrypt(clipFor(enc), enc.cipher)

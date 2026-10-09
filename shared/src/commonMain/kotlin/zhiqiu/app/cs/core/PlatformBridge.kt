@@ -1,5 +1,6 @@
 package zhiqiu.app.cs.core
 
+import io.ktor.client.engine.HttpClientEngine
 import org.meshtastic.mqtt.MqttEndpoint
 import org.meshtastic.mqtt.MqttTransportFactory
 
@@ -11,6 +12,12 @@ import org.meshtastic.mqtt.MqttTransportFactory
 internal expect fun mqttTransportFactory(): MqttTransportFactory
 
 internal expect fun mqttEndpoint(): MqttEndpoint
+
+/**
+ * File upload/download engine. Declared per platform instead of letting Ktor probe the
+ * classpath at runtime, so adding an engine can't silently change which one is picked.
+ */
+internal expect fun platformHttpClientEngine(): HttpClientEngine
 
 /** Stable per-install id, persisted on the device. */
 internal expect fun installId(): String

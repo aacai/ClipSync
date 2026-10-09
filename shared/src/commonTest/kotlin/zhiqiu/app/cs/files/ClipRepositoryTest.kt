@@ -1,6 +1,5 @@
 package zhiqiu.app.cs.files
 
-import zhiqiu.app.cs.core.runBlockingTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -8,6 +7,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 private class FakeClipStore(
     var data: List<ClipItem> = emptyList(),
@@ -52,7 +52,7 @@ class ClipRepositoryTest {
         )
 
     @Test
-    fun add_keeps_newest_first_and_dedupes() = runBlockingTest {
+    fun add_keeps_newest_first_and_dedupes() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
         repo.add(text("a", ts = 1))
@@ -71,7 +71,7 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun load_restores_persisted_items() = runBlockingTest {
+    fun load_restores_persisted_items() = runTest {
         val store = FakeClipStore(data = listOf(text("x", ts = 5)))
         val repo = ClipRepository(store)
         repo.load()
@@ -79,7 +79,7 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun pinned_sorts_before_time() = runBlockingTest {
+    fun pinned_sorts_before_time() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
         repo.add(text("old", ts = 1))
@@ -91,14 +91,14 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun cap_evicts_oldest() = runBlockingTest {
+    fun cap_evicts_oldest() = runTest {
         val repo = ClipRepository(FakeClipStore(), maxItems = 3)
         for (i in 1..5) repo.add(text("i$i", ts = i.toLong()))
         assertEquals(listOf("i5", "i4", "i3"), repo.items.value.map { it.id })
     }
 
     @Test
-    fun search_matches_text_and_file_names() = runBlockingTest {
+    fun search_matches_text_and_file_names() = runTest {
         val repo = ClipRepository(FakeClipStore())
         repo.add(text("t1", ts = 1, body = "Hello 世界 clipboard"))
         repo.add(file("f1", ts = 2, name = "Screenshot.png"))
@@ -112,23 +112,23 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun mark_cached_updates_item_and_persists() = runBlockingTest {
+    fun mark_cached_updates_item_and_persists() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
         repo.add(file("f1", ts = 1, name = "a.png"))
-        val path = repo.writeCache("f1", "a.png", byteArrayOf(1, 2, 3))
+        val path = repo.writeCache("f1", "a.png", byteArrayOf(1, 2, 3)) ?: error("可缓存的 store 必须返回路径")
         repo.markCached("f1", path)
 
         val item = repo.items.value.single { it.id == "f1" }
         assertNotNull(item.file)
-        assertTrue(item.file!!.cached)
-        assertEquals(path, item.file!!.localPath)
+        assertTrue(item.file.cached)
+        assertEquals(path, item.file.localPath)
         assertTrue(store.caches.containsKey("f1"))
         assertTrue(store.data.single { it.id == "f1" }.file!!.cached)
     }
 
     @Test
-    fun remove_and_clear_delete_file_caches() = runBlockingTest {
+    fun remove_and_clear_delete_file_caches() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
         repo.add(file("f1", ts = 1, name = "a.png", localPath = "/cache/f1"))
@@ -146,7 +146,7 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun remove_text_item_does_not_touch_files() = runBlockingTest {
+    fun remove_text_item_does_not_touch_files() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
         repo.add(file("f1", ts = 1, name = "a.png", localPath = "/cache/f1"))
@@ -176,10 +176,134 @@ class ClipRepositoryTest {
     }
 
     @Test
-    fun file_item_search_uses_file_metadata_field() = runBlockingTest {
+    fun file_item_search_uses_file_metadata_field() = runTest {
         val repo = ClipRepository(FakeClipStore())
         repo.add(file("f1", ts = 1, name = "clip.mp4"))
         assertTrue(repo.search("mp4").isNotEmpty())
         assertTrue(repo.search("video").isEmpty())
+    }
+
+    @Test
+    fun undo_restores_the_last_deleted_item() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        repo.add(text("a", ts = 1))
+        repo.add(text("b", ts = 2))
+        assertTrue(repo.remove("b"))
+        assertEquals(listOf("a"), repo.items.value.map { it.id })
+        assertEquals(1, repo.undoDepth.value)
+
+        assertEquals(listOf("b"), repo.undo()?.map { it.id })
+        assertEquals(listOf("b", "a"), repo.items.value.map { it.id })
+        assertEquals(0, repo.undoDepth.value)
+        assertNull(repo.undo())
+    }
+
+    @Test
+    fun undo_clear_as_one_step() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        listOf("a", "b", "c").forEachIndexed { i, id -> repo.add(text(id, ts = i.toLong())) }
+        assertEquals(3, repo.clear())
+        assertTrue(repo.items.value.isEmpty())
+        assertEquals(1, repo.undoDepth.value)
+
+        assertEquals(3, repo.undo()?.size)
+        assertEquals(3, repo.items.value.size)
+        assertEquals(0, repo.undoDepth.value)
+    }
+
+    @Test
+    fun undo_restores_file_without_its_deleted_cache() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(file("f1", ts = 1, name = "a.png"))
+        val path = repo.writeCache("f1", "a.png", byteArrayOf(1)) ?: error("store 应返回缓存路径")
+        repo.markCached("f1", path)
+
+        repo.remove("f1")
+        assertTrue(store.deleted.contains(path))
+        val restored = repo.undo()?.single()?.file
+        assertNull(restored?.localPath)
+        assertFalse(restored?.cached == true)
+    }
+
+    @Test
+    fun undo_stack_is_bounded_and_peels_one_batch_at_a_time() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        val total = ClipRepository.MAX_UNDO + 5
+        val ids = (0 until total).map { "i$it" }
+        ids.forEachIndexed { i, id -> repo.add(text(id, ts = i.toLong())) }
+        ids.forEach { repo.remove(it) }
+        assertEquals(ClipRepository.MAX_UNDO, repo.undoDepth.value)
+
+        var batches = 0
+        while (repo.undo() != null) batches++
+        assertEquals(ClipRepository.MAX_UNDO, batches)
+        assertEquals(ClipRepository.MAX_UNDO, repo.items.value.size)
+    }
+
+    @Test
+    fun move_swaps_rank_with_the_visual_neighbour() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        repo.add(text("a", ts = 300))
+        repo.add(text("b", ts = 200))
+        repo.add(text("c", ts = 100))
+        assertEquals(listOf("a", "b", "c"), repo.sorted().map { it.id })
+
+        assertTrue(repo.move("c", -1))
+        assertEquals(listOf("a", "c", "b"), repo.sorted().map { it.id })
+        assertEquals(200L, repo.items.value.first { it.id == "c" }.order)
+
+        assertFalse(repo.move("a", -1))
+        assertEquals(listOf("a", "c", "b"), repo.sorted().map { it.id })
+    }
+
+    @Test
+    fun pinned_wins_over_manual_order() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        listOf("a", "b", "c").forEachIndexed { i, id -> repo.add(text(id, ts = (3 - i) * 100L)) }
+        repo.move("c", -1)
+        repo.setPinned(listOf("b"), true)
+        assertEquals(listOf("b", "a", "c"), repo.sorted().map { it.id })
+    }
+
+    @Test
+    fun update_text_and_note_persist() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(text("a", ts = 1))
+        repo.updateText("a", "changed")
+        repo.updateNote("a", "sticky note")
+
+        val item = repo.items.value.single()
+        assertEquals("changed", item.text)
+        assertEquals("sticky note", item.note)
+        assertEquals(item, store.data.single())
+    }
+
+    @Test
+    fun duplicate_gets_a_fresh_id_and_copies_content() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        repo.add(text("a", ts = 10))
+        assertTrue(repo.duplicate("a", "a-copy", now = 20))
+
+        val copy = repo.items.value.first { it.id == "a-copy" }
+        assertEquals("body-a", copy.text)
+        assertEquals(20L, copy.order)
+        assertEquals(listOf("a-copy", "a"), repo.sorted().map { it.id })
+    }
+
+    @Test
+    fun search_supports_regex_and_case() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        repo.add(text("a", ts = 1, body = "Alpha 42"))
+        repo.add(text("b", ts = 2, body = "beta"))
+
+        assertEquals(listOf("b", "a"), repo.search("beta|42", regex = true).map { it.id })
+        assertEquals(listOf("a"), repo.search("\\d+", regex = true).map { it.id })
+        assertEquals(emptyList<String>(), repo.search("[", regex = true).map { it.id })
+        assertEquals(listOf("a"), repo.search("Alpha", caseSensitive = true).map { it.id })
+        assertEquals(emptyList<String>(), repo.search("alpha", caseSensitive = true).map { it.id })
+        assertEquals(listOf("a"), repo.search("ALPHA").map { it.id })
+        assertEquals(listOf("b", "a"), repo.search("a").map { it.id })
     }
 }

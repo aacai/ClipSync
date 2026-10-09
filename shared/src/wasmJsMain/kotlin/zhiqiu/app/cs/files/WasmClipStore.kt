@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package zhiqiu.app.cs.files
 
 /** Web(wasmJs) 端：历史存 localStorage，文件不缓存（浏览器沙箱内无本地路径概念）。 */
@@ -12,8 +14,8 @@ class WasmClipStore(private val storage: WebStorage) : ClipStore {
 
     override suspend fun deleteCache(localPath: String?) = Unit
 
-    override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String =
-        "memory://$id/${sanitizeFileName(name)}"
+    /** 浏览器沙箱里没有可复用的本地文件，缓存直接放弃，界面也不会谎称“已缓存”。 */
+    override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String? = null
 
     private companion object {
         const val KEY = "clipsync.history.v1"
@@ -27,15 +29,24 @@ interface WebStorage {
 }
 
 /**
- * 内存实现：Kotlin/Wasm 不支持 `dynamic`，localStorage 的跨类型绑定留到 Web 端正式支持时补。
- * Web 端历史仅在会话内有效（文件本来也没有本地路径可缓存）。
+ * 真实的 `localStorage`：历史刷新页面后还在。
+ *
+ * 隐私模式 / 被 iframe 屏蔽时访问 localStorage 会抛异常，这时退回内存，
+ * 同步照常工作，只是不再持久化。
  */
 class LocalWebStorage : WebStorage {
-    private val map = LinkedHashMap<String, String>()
+    private val memory = LinkedHashMap<String, String>()
 
-    override fun getItem(key: String): String? = map[key]
+    override fun getItem(key: String): String? =
+        runCatching { jsGetItem(key) }.getOrElse { memory[key] }
 
     override fun setItem(key: String, value: String) {
-        map[key] = value
+        runCatching { jsSetItem(key, value) }.onFailure { memory[key] = value }
     }
 }
+
+@JsFun("(k) => globalThis.localStorage.getItem(k)")
+private external fun jsGetItem(key: String): String?
+
+@JsFun("(k, v) => { globalThis.localStorage.setItem(k, v); }")
+private external fun jsSetItem(key: String, value: String)

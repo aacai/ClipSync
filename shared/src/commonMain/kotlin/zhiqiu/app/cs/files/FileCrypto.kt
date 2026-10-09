@@ -2,11 +2,10 @@ package zhiqiu.app.cs.files
 
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.SHA256
+import dev.whyoleg.cryptography.random.CryptographyRandom
 import zhiqiu.app.cs.core.RoomCrypto
 import kotlin.io.encoding.Base64
-import kotlin.random.Random
 
-/** 解密后的文件缓存条目（明文只落本机磁盘）。 */
 data class DecryptedFile(
     val bytes: ByteArray,
     val sha256: String,
@@ -15,10 +14,7 @@ data class DecryptedFile(
     override fun hashCode(): Int = sha256.hashCode()
 }
 
-/**
- * 文件内容加密：房间密钥 + AES-256-GCM，仓库前缀绑定文件 id（防换包）。
- * 输出 = base64(iv || ciphertext || tag)，可直接交给 [zhiqiu.app.cs.files.FileTransferClient] 上传。
- */
+// AAD 用 name/mime/size/sha256 拼出，等于把密文钉死在这份元数据上：换包、改大小、改名都会在 GCM 阶段失败。
 class FileCrypto(private val room: RoomCrypto) {
 
     suspend fun encrypt(name: String, mime: String, plain: ByteArray): EncryptedFile {
@@ -34,13 +30,12 @@ class FileCrypto(private val room: RoomCrypto) {
         )
     }
 
-    /** 解密并校验：头部不符或 sha256 不匹配都会抛错（防止链接被替换/篡改）。 */
     suspend fun decrypt(file: FileClip, cipher: ByteArray): DecryptedFile {
         val header = "${file.name}\n${file.mime}\n${file.size}\n${file.sha256}".encodeToByteArray()
         val plain = room.decryptBytes(cipher, header)
         val sha = sha256Hex(plain)
-        check(sha == file.sha256) { "文件校验失败：sha256 不匹配" }
-        check(plain.size.toLong() == file.size) { "文件校验失败：大小不匹配" }
+        check(sha == file.sha256) { "sha256 mismatch" }
+        check(plain.size.toLong() == file.size) { "size mismatch" }
         return DecryptedFile(plain, sha)
     }
 
@@ -52,7 +47,7 @@ class FileCrypto(private val room: RoomCrypto) {
         /** 上传用的随机文件名：托管方只知道随机 id，看不到原名。 */
         fun uploadFileName(): String {
             val alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-            val id = ByteArray(16).also { Random.nextBytes(it) }
+            val id = ByteArray(16).also { CryptographyRandom.Default.nextBytes(it) }
                 .joinToString("") { alphabet[(it.toInt() and 0xFF) % alphabet.length].toString() }
                 .take(16)
             return "cs-$id.bin"

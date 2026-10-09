@@ -1,5 +1,7 @@
 package zhiqiu.app.cs.core
 
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.java.Java
 import org.meshtastic.mqtt.MqttEndpoint
 import org.meshtastic.mqtt.MqttTransportFactory
 import org.meshtastic.mqtt.plus
@@ -7,7 +9,6 @@ import org.meshtastic.mqtt.transport.tcp.TcpTransportFactory
 import org.meshtastic.mqtt.transport.ws.WebSocketTransportFactory
 import java.io.File
 import java.util.UUID
-
 private val installIdFile: File
     get() = File(System.getProperty("user.home"), ".clipsync/install-id")
 
@@ -16,6 +17,8 @@ internal actual fun mqttTransportFactory(): MqttTransportFactory =
 
 internal actual fun mqttEndpoint(): MqttEndpoint =
     MqttEndpoint.parse("${MqttSecrets.SCHEME}://${MqttSecrets.HOST}:${MqttSecrets.PORT_TLS}")
+
+internal actual fun platformHttpClientEngine(): HttpClientEngine = Java.create()
 
 internal actual fun installId(): String {
     installIdFile.parentFile?.mkdirs()

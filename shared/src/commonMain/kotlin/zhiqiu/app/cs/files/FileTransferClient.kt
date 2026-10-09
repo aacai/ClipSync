@@ -20,6 +20,7 @@ import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import kotlinx.io.writeString
 import kotlinx.serialization.json.Json
+import zhiqiu.app.cs.core.platformHttpClientEngine
 
 /**
  * Litterbox（catbox 临时文件托管）：
@@ -129,7 +130,7 @@ internal fun String.toLitterboxTime(): String = when (lowercase()) {
 }
 
 /** 与 Destiny 一致的共享 Ktor 客户端。 */
-fun createSharedHttpClient(): HttpClient = HttpClient {
+fun createSharedHttpClient(): HttpClient = HttpClient(platformHttpClientEngine()) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; isLenient = true })
     }

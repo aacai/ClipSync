@@ -22,7 +22,6 @@ import zhiqiu.app.cs.files.FileCrypto
 import zhiqiu.app.cs.files.FileClip
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FilePayload
-import zhiqiu.app.cs.files.FileRejectReason
 import zhiqiu.app.cs.files.FileTransferClient
 import zhiqiu.app.cs.files.createSharedHttpClient
 import zhiqiu.app.cs.files.sanitizeFileName
@@ -89,8 +88,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     private val _transfer = MutableStateFlow<TransferProgress?>(null)
     val transfer: StateFlow<TransferProgress?> = _transfer.asStateFlow()
 
-    private val _fileErrors = MutableSharedFlow<String>(extraBufferCapacity = 16)
-    val fileErrors: SharedFlow<String> = _fileErrors.asSharedFlow()
+    private val _fileIssues = MutableSharedFlow<FileIssue>(extraBufferCapacity = 16)
+    val fileIssues: SharedFlow<FileIssue> = _fileIssues.asSharedFlow()
 
     private var repository: ClipRepository? = null
     private var transferClient: FileTransferClient? = null
@@ -190,7 +189,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val cfg = config ?: error("engine not started")
         val validator = validateOutgoingFile(name, bytes.size.toLong(), bytes.size)
         if (validator != null) {
-            _fileErrors.emit(rejectMessage(validator))
+            _fileIssues.emit(FileIssue.Rejected(validator, name))
             return null
         }
         val safeName = sanitizeFileName(name)
@@ -200,7 +199,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val encrypted = runCatching {
             crypto.encrypt(safeName, mime, bytes)
         }.getOrElse { e ->
-            _fileErrors.emit("加密失败：${e.message}")
+            _fileIssues.emit(FileIssue.EncryptFailed(safeName, e.message))
             return null
         }
 
@@ -211,7 +210,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             }
         }.getOrElse { e ->
             _transfer.value = null
-            _fileErrors.emit("上传失败：${e.message}")
+            _fileIssues.emit(FileIssue.UploadFailed(safeName, e.message))
             return null
         }
         _transfer.value = null
@@ -248,7 +247,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val crypto = fileCrypto ?: return null
         val transfer = transferClient ?: return null
         if (file.size > FileLimits.MAX_FILE_BYTES) {
-            _fileErrors.emit("文件超过 50MB，暂不支持：${file.name}")
+            _fileIssues.emit(FileIssue.TooLargeIncoming(file.name))
             return null
         }
         val cipher = runCatching {
@@ -257,13 +256,13 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             }
         }.getOrElse { e ->
             _transfer.value = null
-            _fileErrors.emit("下载失败：${e.message}")
+            _fileIssues.emit(FileIssue.DownloadFailed(file.name, e.message))
             return null
         }
         _transfer.value = null
 
         val decrypted = runCatching { crypto.decrypt(file, cipher) }.getOrElse { e ->
-            _fileErrors.emit("文件校验/解密失败：${e.message}")
+            _fileIssues.emit(FileIssue.DecryptFailed(file.name, e.message))
             return null
         }
         val localPath = runCatching { repository?.writeCache(file.id, file.name, decrypted.bytes) }.getOrNull()
@@ -384,7 +383,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         }.getOrElse { return }
         val payload = runCatching { ClipProtocol.decode<FilePayload>(json) }.getOrNull() ?: return
         if (payload.size > FileLimits.MAX_FILE_BYTES) {
-            _fileErrors.emit("收到超过 50MB 的文件，已忽略：${payload.name}")
+            _fileIssues.emit(FileIssue.TooLargeIncoming(payload.name))
             return
         }
         val file = FileClip(
@@ -421,12 +420,17 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.dev == cfg.deviceId) return
         val existing = _devices.value.associateBy { it.id }.toMutableMap()
-        existing[envelope.dev] = DevicePresence(
-            id = envelope.dev,
-            name = envelope.name,
-            online = envelope.online,
-            lastSeen = envelope.ts,
-        )
+        // 设备列表 = 此刻还在屋里的人；收到离线遗嘱就把它摘掉，别让“3 台设备”里躺着已离开的。
+        if (envelope.online) {
+            existing[envelope.dev] = DevicePresence(
+                id = envelope.dev,
+                name = envelope.name,
+                online = true,
+                lastSeen = envelope.ts,
+            )
+        } else {
+            existing.remove(envelope.dev)
+        }
         _devices.value = existing.values.sortedBy { it.name }
     }
 
@@ -473,12 +477,6 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
 
         internal fun expiryFrom(expires: String, nowMs: Long = currentTimeMillis()): Long =
             nowMs + (EXPIRY_HOURS[expires.lowercase()] ?: 72L) * 3_600_000L
-
-        internal fun rejectMessage(reason: FileRejectReason): String = when (reason) {
-            FileRejectReason.TooLarge -> "文件超过 ${FileLimits.MAX_FILE_BYTES / 1024 / 1024}MB，暂不支持"
-            FileRejectReason.Empty -> "空文件无法分享"
-            is FileRejectReason.InvalidName -> "文件名不合法：${reason.detail}"
-        }
     }
 }
 @OptIn(ExperimentalTime::class)

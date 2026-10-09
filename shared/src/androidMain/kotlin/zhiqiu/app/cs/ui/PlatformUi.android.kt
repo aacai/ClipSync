@@ -70,26 +70,34 @@ private fun Uri.toPickedSource(context: Context): PickedSource {
         mime = mime,
         sizeHint = size,
         open = {
-            resolver.openInputStream(this)?.use { it.readBytes() } ?: error("无法读取 $name")
+            resolver.openInputStream(this)?.use { it.readBytes() } ?: error("cannot read $name")
         },
     )
 }
 
 private class AndroidClipboard(private val context: Context) : PlatformClipboard {
+    override val canWriteFiles: Boolean = true
+
     private val manager: ClipboardManager
         get() = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
-    override fun read(): String? = runCatching {
+    override suspend fun read(): String? = runCatching {
         if (!manager.hasPrimaryClip()) return null
         val clip = manager.primaryClip
         if (clip == null || clip.itemCount == 0) return null
         clip.getItemAt(0).coerceToText(context)?.toString()
     }.getOrNull()
 
-    override fun write(text: String) {
-        runCatching {
-            manager.setPrimaryClip(ClipData.newPlainText("ClipSync", text))
-        }
+    override suspend fun write(text: String) {
+        manager.setPrimaryClip(ClipData.newPlainText("ClipSync", text))
+    }
+
+    /** 图片/文件都走 content:// URI：接收方应用按图片或其他文件类型处理。 */
+    override suspend fun writeFiles(paths: List<String>) {
+        val file = paths.map { File(it) }.firstOrNull { it.isFile } ?: error("file is not cached locally")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        // ClipData.newUri 会让系统带上临时读授权，接收方粘贴后可直接访问。
+        manager.setPrimaryClip(ClipData.newUri(context.contentResolver, file.name, uri))
     }
 }
 

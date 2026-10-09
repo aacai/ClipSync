@@ -9,17 +9,18 @@ import platform.UIKit.UIPasteboard
 @Composable
 internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     clipboard = IosClipboard,
-    picker = object : PlatformFilePicker {
-        override fun pick(onDone: (List<PickedSource>) -> Unit) = onDone(emptyList())
-    },
-    opener = PlatformFileOpener { },
+    picker = UnavailableFilePicker,
+    opener = UnavailableFileOpener,
     store = remember { InMemoryClipStore() },
 )
 
 private object IosClipboard : PlatformClipboard {
-    override fun read(): String? = UIPasteboard.generalPasteboard.string
+    // iOS 16+ 后台读剪贴板会触发权限提示并返回空，自动同步不可靠 → 交给用户点按钮发送。
+    override val supportsAutoSync: Boolean = false
 
-    override fun write(text: String) {
+    override suspend fun read(): String? = UIPasteboard.generalPasteboard.string
+
+    override suspend fun write(text: String) {
         UIPasteboard.generalPasteboard.string = text
     }
 }

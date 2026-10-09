@@ -117,11 +117,8 @@ internal fun mimeForName(name: String): String {
 
 internal fun isImage(mime: String): Boolean = mime.startsWith("image/")
 
-/** 文件条目在列表中的显示标题（图片显示“图片：xxx”之类的粗粒度归类）。 */
-internal fun displayTitle(file: FileClip): String = when {
-    isImage(file.mime) -> "图片 · ${file.name}"
-    else -> file.name
-}
+/** 文件条目在列表中的显示标题；归类交给 UI 用图标表达。 */
+internal fun displayTitle(file: FileClip): String = file.name
 
 internal fun humanSize(size: Long): String = when {
     size < 1024 -> "$size B"

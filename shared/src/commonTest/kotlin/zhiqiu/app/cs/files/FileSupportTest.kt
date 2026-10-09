@@ -1,12 +1,13 @@
 package zhiqiu.app.cs.files
 
 import zhiqiu.app.cs.core.ClipSyncEngine
-import zhiqiu.app.cs.core.runBlockingTest
+import zhiqiu.app.cs.core.FileIssue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.test.runTest
 
 class FileSupportTest {
 
@@ -67,7 +68,7 @@ class FileSupportTest {
             sha256 = "00", link = "http://x", expiresAt = 0, ts = 0,
             senderId = "d", senderName = "n",
         )
-        assertEquals("图片 · shot.png", displayTitle(file))
+        assertEquals("shot.png", displayTitle(file))
         val doc = file.copy(name = "doc.pdf", mime = "application/pdf")
         assertEquals("doc.pdf", displayTitle(doc))
 
@@ -88,14 +89,14 @@ class FileSupportTest {
     }
 
     @Test
-    fun reject_messages_are_user_facing() {
-        assertTrue(ClipSyncEngine.rejectMessage(FileRejectReason.TooLarge).contains("50MB"))
-        assertTrue(ClipSyncEngine.rejectMessage(FileRejectReason.Empty).isNotBlank())
-        assertTrue(ClipSyncEngine.rejectMessage(FileRejectReason.InvalidName("x")).contains("x"))
+    fun rejected_issue_carries_limit_for_the_ui_to_render() {
+        val issue = FileIssue.Rejected(FileRejectReason.TooLarge, "a.png")
+        assertEquals(50, issue.maxMb)
+        assertEquals("a.png", issue.name)
     }
 
     @Test
-    fun file_clip_fields_are_serializable_metadata() = runBlockingTest {
+    fun file_clip_fields_are_serializable_metadata() = runTest {
         val file = FileClip(
             id = "m1", name = "a.png", mime = "image/png", size = 3,
             sha256 = "abcd", link = "https://litterbox/x", expiresAt = 42,

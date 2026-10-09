@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tagline">同一房间码的设备互相同步剪贴板</string>
+    <string name="room_code">房间码</string>
+    <string name="room_code_hint">在其他设备上输入同一个房间码即可互联；随机生成适合新开一间。</string>
+    <string name="room_password">房间密码</string>
+    <string name="room_password_placeholder">可选，留空即只用房间码</string>
+    <string name="enter_room">进入房间</string>
+    <string name="connecting">连接中…</string>
+    <string name="browse_offline">先离线看看历史</string>
+    <string name="cd_random_room">换一个随机房间码</string>
+
+    <string name="status_connected">已连接</string>
+    <string name="status_disconnected">未连接</string>
+    <string name="offline_history">离线历史</string>
+    <string name="safety_number">安全码 %1$s</string>
+    <string name="peers_in_room">同屋 %1$d 台：%2$s</string>
+    <string name="cd_copy_safety">复制安全码</string>
+    <string name="cd_devices">同屋设备</string>
+    <string name="cd_leave">离开房间</string>
+
+    <string name="banner_readonly">已退出房间，现在是只读模式：可搜索、复制、清理本机历史</string>
+    <string name="banner_disconnected">与房间 %1$s 的连接已断开</string>
+    <string name="reconnect">重连</string>
+
+    <string name="search_hint">搜索历史</string>
+    <string name="cd_clear_search">清空搜索</string>
+    <string name="cd_regex">按正则搜索</string>
+    <string name="cd_case">区分大小写</string>
+    <string name="cd_select">多选条目</string>
+    <string name="cd_exit_select">退出多选</string>
+    <string name="cd_export_json">导出所选为 JSON</string>
+    <string name="selection_count">已选 %1$d 条</string>
+    <string name="send_clipboard">发送剪贴板</string>
+    <string name="new_entry">新建一条</string>
+    <string name="send_file">发送文件</string>
+    <string name="cd_clear_history">清空历史</string>
+    <string name="hint_offline">未连接：这里只做本机历史浏览</string>
+    <string name="hint_manual_send">浏览器不会后台读剪贴板：复制后点“发送剪贴板”，或用“新建”手动粘贴</string>
+    <string name="hint_no_picker">本机暂不支持挑选文件</string>
+    <string name="shortcuts_hint">↑↓ 选择 · Enter 复制/打开 · F2 编辑 · Ctrl+D 副本 · Ctrl+Shift+↑↓ 排序 · Del 删除 · Ctrl+Z 撤销 · Ctrl+A 多选 · Ctrl+N 新建 · Ctrl+F 搜索 · Esc 取消</string>
+
+    <string name="clear_all_title">清空全部历史？</string>
+    <string name="clear_all_body">只删除本机保存的这些条目，房间另一端的历史与已经收到的文件不受影响。</string>
+    <string name="clear">清空</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="new_entry_title">新建一条</string>
+    <string name="new_entry_placeholder">输入或粘贴要同步的文本</string>
+    <string name="send">发送</string>
+    <string name="edit_title">编辑内容</string>
+    <string name="note_title">备注</string>
+    <string name="note_placeholder">给这条记点什么，只在本机可见</string>
+    <string name="note_hint">备注只保存在本机，不会同步给其他设备</string>
+    <string name="transform_title">文本处理</string>
+    <string name="transform_hint">处理结果会直接替换这条内容</string>
+    <string name="detail_title">条目详情</string>
+    <string name="detail_note">备注</string>
+    <string name="detail_id">记录 ID</string>
+
+    <string name="empty_title">还没有剪贴板记录\n复制过的内容会显示在这里</string>
+    <string name="empty_no_match">没有匹配「%1$s」的记录</string>
+    <string name="empty_text">（空文本）</string>
+    <string name="from_sender">来自 %1$s</string>
+    <string name="cached">已缓存</string>
+    <string name="not_downloaded">未下载</string>
+    <string name="expires_in">%1$s后过期</string>
+    <string name="pinned">已置顶</string>
+    <string name="note_flag">有备注</string>
+    <string name="moved">已手动排序</string>
+
+    <string name="cd_copy_text">复制到剪贴板</string>
+    <string name="cd_copy_file">复制文件到剪贴板</string>
+    <string name="cd_copy_image">复制图片到剪贴板</string>
+    <string name="cd_open">打开</string>
+    <string name="cd_download">下载</string>
+    <string name="cd_edit">编辑这条内容</string>
+    <string name="cd_more">更多操作</string>
+    <string name="cd_pin">置顶</string>
+    <string name="cd_unpin">取消置顶</string>
+
+    <string name="act_undo">撤销</string>
+    <string name="cd_undo">撤销删除</string>
+    <string name="act_note">写备注</string>
+    <string name="act_transform">文本处理</string>
+    <string name="act_detail">查看详情</string>
+    <string name="act_duplicate">生成副本</string>
+    <string name="act_move_up">向上移</string>
+    <string name="act_move_down">向下移</string>
+    <string name="act_delete">删除</string>
+
+    <string name="op_trim">去掉每行首尾空白</string>
+    <string name="op_strip_blank">删掉空行</string>
+    <string name="op_sort">按行升序排列</string>
+    <string name="op_sort_desc">按行降序排列</string>
+    <string name="op_unique">删掉重复行</string>
+    <string name="op_upper">转成大写</string>
+    <string name="op_lower">转成小写</string>
+    <string name="op_join">合并成一行</string>
+    <string name="op_url_encode">URL 编码</string>
+    <string name="op_url_decode">URL 解码</string>
+    <string name="op_b64_encode">Base64 编码</string>
+    <string name="op_b64_decode">Base64 解码</string>
+
+    <string name="rel_just_now">刚刚</string>
+    <string name="rel_minutes">%1$d 分钟前</string>
+    <string name="rel_hours">%1$d 小时前</string>
+    <string name="rel_days">%1$d 天前</string>
+    <string name="rel_months">%1$d 个月前</string>
+    <string name="dur_minutes">%1$d 分钟</string>
+    <string name="dur_hours">%1$d 小时</string>
+    <string name="dur_days">%1$d 天</string>
+    <string name="progress_upload">上传</string>
+    <string name="progress_download">下载</string>
+    <string name="progress_line">%1$s %2$s · %3$s</string>
+
+    <string name="fb_clipboard_empty">剪贴板是空的</string>
+    <string name="fb_read_blocked">读取剪贴板失败：%1$s</string>
+    <string name="fb_write_blocked">写入剪贴板失败：%1$s</string>
+    <string name="reason_denied">浏览器拒绝了剪贴板权限，请在地址栏允许后重试</string>
+    <string name="reason_insecure">请通过 https 或 localhost 打开页面</string>
+    <string name="fb_sent">已同步 %1$d 字</string>
+    <string name="fb_received">收到 %1$s 的文本，已进剪贴板</string>
+    <string name="fb_received_blocked">收到 %1$s 的文本（剪贴板写入被拒：%2$s）</string>
+    <string name="fb_copied_text">已复制</string>
+    <string name="fb_copied_file">已把文件放进剪贴板，可直接粘贴</string>
+    <string name="fb_copied_image">已把图片放进剪贴板，可直接粘贴</string>
+    <string name="fb_send_failed">发送失败：%1$s</string>
+    <string name="fb_connect_failed">连接失败：%1$s</string>
+    <string name="fb_room_required">请输入房间码</string>
+    <string name="fb_pinned">已置顶 %1$d 条</string>
+    <string name="fb_unpinned">已取消置顶 %1$d 条</string>
+    <string name="fb_invalid_regex">正则表达式写错了，暂时搜不出结果</string>
+    <string name="fb_downloaded">已下载 %1$s</string>
+    <string name="fb_download_failed">下载失败：%1$s</string>
+    <string name="fb_file_sent">已发送 %1$s</string>
+    <string name="fb_local_read_failed">读取失败：%1$s（%2$s）</string>
+    <plurals name="fb_deleted">
+        <item quantity="other">已删除 %1$d 条</item>
+    </plurals>
+    <plurals name="fb_undeleted">
+        <item quantity="other">已恢复 %1$d 条</item>
+    </plurals>
+    <plurals name="fb_edit">
+        <item quantity="other">已改好 %1$d 条</item>
+    </plurals>
+    <plurals name="fb_duplicated">
+        <item quantity="other">已生成 %1$d 个副本</item>
+    </plurals>
+    <plurals name="fb_exported">
+        <item quantity="other">已把 %1$d 条导出到剪贴板</item>
+    </plurals>
+    <string name="issue_too_large">文件超过 %1$dMB，暂不支持：%2$s</string>
+    <string name="issue_empty">空文件无法分享：%1$s</string>
+    <string name="issue_bad_name">文件名不合法：%1$s</string>
+    <string name="issue_too_large_incoming">收到超过 %1$dMB 的文件，已忽略：%2$s</string>
+    <string name="issue_encrypt">加密失败：%1$s</string>
+    <string name="issue_upload">上传失败：%1$s</string>
+    <string name="issue_decrypt">文件校验/解密失败：%1$s</string>
+</resources>

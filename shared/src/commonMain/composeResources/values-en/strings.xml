@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tagline">Sync clipboards between devices that share one room code</string>
+    <string name="room_code">Room code</string>
+    <string name="room_code_hint">Enter the same code on another device to link them. Generate a new one for a fresh room.</string>
+    <string name="room_password">Room password</string>
+    <string name="room_password_placeholder">Optional, the room code alone works too</string>
+    <string name="enter_room">Enter room</string>
+    <string name="connecting">Connecting…</string>
+    <string name="browse_offline">Browse history offline</string>
+    <string name="cd_random_room">Generate another room code</string>
+
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Offline</string>
+    <string name="offline_history">Offline history</string>
+    <string name="safety_number">Safety number %1$s</string>
+    <string name="peers_in_room">%1$d in room: %2$s</string>
+    <string name="cd_copy_safety">Copy safety number</string>
+    <string name="cd_devices">Devices in room</string>
+    <string name="cd_leave">Leave room</string>
+
+    <string name="banner_readonly">You left the room. Read-only mode: search, copy and clean up local history</string>
+    <string name="banner_disconnected">Connection to room %1$s was lost</string>
+    <string name="reconnect">Reconnect</string>
+
+    <string name="search_hint">Search history</string>
+    <string name="cd_clear_search">Clear search</string>
+    <string name="cd_regex">Search with a regular expression</string>
+    <string name="cd_case">Match case</string>
+    <string name="cd_select">Select multiple entries</string>
+    <string name="cd_exit_select">Leave multi-select</string>
+    <string name="cd_export_json">Export selection as JSON</string>
+    <string name="selection_count">%1$d selected</string>
+    <string name="send_clipboard">Send clipboard</string>
+    <string name="new_entry">New entry</string>
+    <string name="send_file">Send a file</string>
+    <string name="cd_clear_history">Clear history</string>
+    <string name="hint_offline">Offline: this list is only your local history</string>
+    <string name="hint_manual_send">Browsers never read the clipboard in background: copy, then press Send clipboard, or use New to paste manually</string>
+    <string name="hint_no_picker">This platform cannot pick files yet</string>
+    <string name="shortcuts_hint">Up/Down select · Enter copy/open · F2 edit · Ctrl+D duplicate · Ctrl+Shift+Up/Down reorder · Del remove · Ctrl+Z undo · Ctrl+A select · Ctrl+N new · Ctrl+F search · Esc cancel</string>
+
+    <string name="clear_all_title">Clear all history?</string>
+    <string name="clear_all_body">Only these locally stored entries are deleted. The other end of the room and files already downloaded stay untouched.</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="new_entry_title">New entry</string>
+    <string name="new_entry_placeholder">Type or paste the text to sync</string>
+    <string name="send">Send</string>
+    <string name="edit_title">Edit content</string>
+    <string name="note_title">Note</string>
+    <string name="note_placeholder">Jot something about this entry, local only</string>
+    <string name="note_hint">Notes stay on this device and are never synced</string>
+    <string name="transform_title">Text commands</string>
+    <string name="transform_hint">The result replaces this entry straight away</string>
+    <string name="detail_title">Entry details</string>
+    <string name="detail_note">Note</string>
+    <string name="detail_id">Entry ID</string>
+
+    <string name="empty_title">No clipboard entries yet\nCopied content shows up here</string>
+    <string name="empty_no_match">No entry matches "%1$s"</string>
+    <string name="empty_text">(empty text)</string>
+    <string name="from_sender">from %1$s</string>
+    <string name="cached">cached</string>
+    <string name="not_downloaded">not downloaded</string>
+    <string name="expires_in">expires in %1$s</string>
+    <string name="pinned">pinned</string>
+    <string name="note_flag">noted</string>
+    <string name="moved">manually ordered</string>
+
+    <string name="cd_copy_text">Copy to clipboard</string>
+    <string name="cd_copy_file">Copy file to clipboard</string>
+    <string name="cd_copy_image">Copy image to clipboard</string>
+    <string name="cd_open">Open</string>
+    <string name="cd_download">Download</string>
+    <string name="cd_edit">Edit this entry</string>
+    <string name="cd_more">More actions</string>
+    <string name="cd_pin">Pin</string>
+    <string name="cd_unpin">Unpin</string>
+
+    <string name="act_undo">Undo</string>
+    <string name="cd_undo">Undo delete</string>
+    <string name="act_note">Add a note</string>
+    <string name="act_transform">Text commands</string>
+    <string name="act_detail">Show details</string>
+    <string name="act_duplicate">Duplicate</string>
+    <string name="act_move_up">Move up</string>
+    <string name="act_move_down">Move down</string>
+    <string name="act_delete">Delete</string>
+
+    <string name="op_trim">Trim each line</string>
+    <string name="op_strip_blank">Drop empty lines</string>
+    <string name="op_sort">Sort lines A–Z</string>
+    <string name="op_sort_desc">Sort lines Z–A</string>
+    <string name="op_unique">Drop duplicate lines</string>
+    <string name="op_upper">UPPERCASE</string>
+    <string name="op_lower">lowercase</string>
+    <string name="op_join">Join into one line</string>
+    <string name="op_url_encode">URL encode</string>
+    <string name="op_url_decode">URL decode</string>
+    <string name="op_b64_encode">Base64 encode</string>
+    <string name="op_b64_decode">Base64 decode</string>
+
+    <string name="rel_just_now">just now</string>
+    <string name="rel_minutes">%1$d min ago</string>
+    <string name="rel_hours">%1$d h ago</string>
+    <string name="rel_days">%1$d d ago</string>
+    <string name="rel_months">%1$d mo ago</string>
+    <string name="dur_minutes">%1$d min</string>
+    <string name="dur_hours">%1$d h</string>
+    <string name="dur_days">%1$d d</string>
+    <string name="progress_upload">Upload</string>
+    <string name="progress_download">Download</string>
+    <string name="progress_line">%1$s %2$s · %3$s</string>
+
+    <string name="fb_clipboard_empty">The clipboard is empty</string>
+    <string name="fb_read_blocked">Could not read the clipboard: %1$s</string>
+    <string name="fb_write_blocked">Could not write the clipboard: %1$s</string>
+    <string name="reason_denied">The browser denied clipboard permission, allow it in the address bar and retry</string>
+    <string name="reason_insecure">Open this page over https or localhost</string>
+    <string name="fb_sent">Synced %1$d characters</string>
+    <string name="fb_received">Text from %1$s is now in the clipboard</string>
+    <string name="fb_received_blocked">Got text from %1$s (clipboard write refused: %2$s)</string>
+    <string name="fb_copied_text">Copied</string>
+    <string name="fb_copied_file">File placed on the clipboard, paste it anywhere</string>
+    <string name="fb_copied_image">Image placed on the clipboard, paste it anywhere</string>
+    <string name="fb_send_failed">Send failed: %1$s</string>
+    <string name="fb_connect_failed">Connection failed: %1$s</string>
+    <string name="fb_room_required">Enter a room code first</string>
+    <string name="fb_pinned">Pinned %1$d</string>
+    <string name="fb_unpinned">Unpinned %1$d</string>
+    <string name="fb_invalid_regex">That regular expression is invalid, nothing can match it yet</string>
+    <string name="fb_downloaded">Downloaded %1$s</string>
+    <string name="fb_download_failed">Download failed: %1$s</string>
+    <string name="fb_file_sent">Sent %1$s</string>
+    <string name="fb_local_read_failed">Could not read %1$s (%2$s)</string>
+    <plurals name="fb_deleted">
+        <item quantity="one">Deleted %1$d item</item>
+        <item quantity="other">Deleted %1$d items</item>
+    </plurals>
+    <plurals name="fb_undeleted">
+        <item quantity="one">Restored %1$d item</item>
+        <item quantity="other">Restored %1$d items</item>
+    </plurals>
+    <plurals name="fb_edit">
+        <item quantity="one">Edited %1$d item</item>
+        <item quantity="other">Edited %1$d items</item>
+    </plurals>
+    <plurals name="fb_duplicated">
+        <item quantity="one">Created %1$d copy</item>
+        <item quantity="other">Created %1$d copies</item>
+    </plurals>
+    <plurals name="fb_exported">
+        <item quantity="one">Exported %1$d item to the clipboard</item>
+        <item quantity="other">Exported %1$d items to the clipboard</item>
+    </plurals>
+    <string name="issue_too_large">Files over %1$dMB are not supported yet: %2$s</string>
+    <string name="issue_empty">Empty files cannot be shared: %1$s</string>
+    <string name="issue_bad_name">Invalid file name: %1$s</string>
+    <string name="issue_too_large_incoming">Ignored an incoming file over %1$dMB: %2$s</string>
+    <string name="issue_encrypt">Encryption failed: %1$s</string>
+    <string name="issue_upload">Upload failed: %1$s</string>
+    <string name="issue_decrypt">Verification or decryption failed: %1$s</string>
+</resources>
