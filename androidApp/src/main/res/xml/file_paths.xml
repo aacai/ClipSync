@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ClipSync 的解密文件缓存在 filesDir/clipsync-files -->
+    <files-path name="clipsync_files" path="." />
+    <cache-path name="clipsync_cache" path="." />
+</paths>

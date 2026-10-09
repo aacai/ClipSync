@@ -1,0 +1,307 @@
+name: Build Packages
+
+on:
+  # 手动触发，可勾选要打哪些平台的包
+  workflow_dispatch:
+    inputs:
+      build_android:
+        description: "Build Android (签名 APK)"
+        type: boolean
+        default: true
+      build_desktop:
+        description: "Build Desktop (deb / msi / dmg)"
+        type: boolean
+        default: true
+      build_web:
+        description: "Build Web (WasmJS)"
+        type: boolean
+        default: true
+  # master 日常推送只构建 Web 并部署 Pages；推送 tag（如 v1.0.0）时全量构建并发 Release
+  push:
+    branches: [master]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+# 同一 ref 并发只保留最新一次，取消旧 run
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ----------------------------------------------------------------
+  # Android：签名 release APK
+  # Secrets: KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD
+  # 仅手动触发或推 tag 时构建（main 日常推送不打包）
+  # ----------------------------------------------------------------
+  android:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.build_android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Android signing keystore (from Secrets)
+        # 仅当配置了 KEYSTORE_BASE64 时才还原 keystore；否则 release 自动降级为 debug 签名
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/androidApp/release-key.jks"
+            echo "Keystore restored."
+          else
+            echo "No KEYSTORE_BASE64 secret; building with debug signing."
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Android release APK
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/androidApp/release-key.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :androidApp:assembleRelease --stacktrace
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: androidApp/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------
+  # Desktop：按运行系统分别产出 deb / msi / dmg
+  # macOS x86 runner 已退役，仅打 arm64（Apple Silicon），Intel 经 Rosetta 运行。
+  # 注：本项目 desktopApp 未启用 Exe 目标，Windows 仅产出 msi。
+  # ----------------------------------------------------------------
+  desktop:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.build_desktop
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+            task: packageDeb
+          - os: windows-latest
+            arch: x64
+            task: packageMsi
+          - os: macos-latest
+            arch: arm64
+            task: packageDmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Linux packaging deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build desktop package
+        run: ./gradlew :desktopApp:${{ matrix.task }} --stacktrace
+
+      - name: Add arch suffix to package filenames
+        run: |
+          cd desktopApp/build/compose/binaries/main
+          for ext in deb msi dmg; do
+            find . -type f -name "*.$ext" | while read -r f; do
+              mv "$f" "${f%.$ext}-${{ matrix.arch }}.$ext"
+            done
+          done
+
+      - name: Upload Desktop artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            desktopApp/build/compose/binaries/main/**/*.deb
+            desktopApp/build/compose/binaries/main/**/*.msi
+            desktopApp/build/compose/binaries/main/**/*.dmg
+          if-no-files-found: error
+
+  # arm64 桌面包：仅 Linux 走预览版 arm runner，不可用时不影响主发布
+  desktop-arm:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.build_desktop
+    continue-on-error: true
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Linux packaging deps
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build desktop package
+        run: ./gradlew :desktopApp:packageDeb --stacktrace
+
+      - name: Add arch suffix to package filenames
+        run: |
+          cd desktopApp/build/compose/binaries/main
+          find . -type f -name "*.deb" | while read -r f; do
+            mv "$f" "${f%.deb}-arm64.deb"
+          done
+
+      - name: Upload Desktop ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-ubuntu-24.04-arm-arm64
+          path: desktopApp/build/compose/binaries/main/**/*.deb
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------
+  # Web：WasmJS 产物（main 推送也要跑，供 Pages 部署）
+  # ----------------------------------------------------------------
+  web:
+    if: github.event_name == 'push' || inputs.build_web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Web (WasmJS)
+        run: ./gradlew :webApp:wasmJsBrowserDistribution --stacktrace
+
+      - name: Upload Web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: webApp/build/dist/wasmJs/productionExecutable
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------
+  # GitHub Pages：master 推送或手动触发时部署 web 产物
+  # ----------------------------------------------------------------
+  pages:
+    needs: web
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: _site
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ----------------------------------------------------------------
+  # Release：推送 v* tag 时把所有产物汇总发布到 GitHub Release
+  # ----------------------------------------------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [android, desktop, desktop-arm, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Package web zip
+        run: |
+          cd artifacts/web
+          zip -r "$GITHUB_WORKSPACE/web.zip" .
+
+      - name: Delete existing release (clean stale assets)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --yes || true
+
+      - name: Generate release notes manifest
+        run: |
+          {
+            echo "# ClipSync ${GITHUB_REF_NAME} 发布包"
+            echo
+            find artifacts -type f | sort | while read -r f; do
+              NAME=$(basename "$f")
+              case "$NAME" in
+                *.apk) desc="Android 安装包（已签名，可直接安装）" ;;
+                *-arm64.dmg|*-x64.dmg|*.dmg) desc="macOS 安装包（arm64，拖入应用程序即可）" ;;
+                *-arm64.msi|*-x64.msi|*.msi) desc="Windows 安装包（MSI）" ;;
+                *-x64.deb) desc="Linux 安装包（x64，dpkg -i 安装）" ;;
+                *-arm64.deb) desc="Linux 安装包（arm64，dpkg -i 安装）" ;;
+                *) desc="其他产物" ;;
+              esac
+              printf -- '- `%s` — %s\n' "$NAME" "$desc"
+            done
+            printf -- '- `web.zip` — Web 端（WasmJS），解压后静态托管即可，在线版：https://aacai.github.io/ClipSync/\n'
+          } > release_notes.md
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/android/*.apk
+            artifacts/desktop-*/**/*.deb
+            artifacts/desktop-*/**/*.msi
+            artifacts/desktop-*/**/*.dmg
+            web.zip
+          body_path: release_notes.md

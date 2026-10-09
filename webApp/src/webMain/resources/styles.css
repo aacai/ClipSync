@@ -1,0 +1,34 @@
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* 与 Compose 主题背景一致，避免加载/挂载瞬间白屏（深色系统下白字白底） */
+:root {
+    --bg: #f6f8fa;
+    --spinner-track: #d0d7de;
+    --spinner-head: #1f2328;
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0d1117;
+        --spinner-track: #30363d;
+        --spinner-head: #e6edf3;
+    }
+}
+
+body {
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+#loader-track { stroke: var(--spinner-track); }
+#loader-head { stroke: var(--spinner-head); }

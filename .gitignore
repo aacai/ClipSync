@@ -1,0 +1,51 @@
+# ---- IDE / editor ----
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# ---- Kotlin / Gradle ----
+.kotlin/
+.gradle/
+**/build/
+!src/**/build/
+
+# ---- secrets / local machine config ----
+# MQTT broker credentials & generated secrets (never commit)
+local.properties
+shared/src/commonMain/kotlin/zhiqiu/app/cs/core/MqttSecrets.kt
+# signing material
+*.jks
+*.keystore
+keyconf.txt
+androidApp/signing.properties
+# local TLS test artifact (public CA, not needed in repo)
+emqxsl-ca.crt
+
+# ---- Android ----
+captures/
+*.apk
+*.aab
+*.hprof
+.externalNativeBuild
+.cxx
+
+# ---- Apple / Xcode ----
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+
+# ---- Node (local test tooling) ----
+node_modules/
+npm-debug.log*
+
+# ---- OS / misc ----
+.DS_Store
+Thumbs.db
+*.log
