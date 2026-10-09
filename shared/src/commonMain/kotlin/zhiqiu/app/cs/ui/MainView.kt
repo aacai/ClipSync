@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,13 +65,14 @@ import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.resources.*
 
 @Composable
-internal fun MainView(model: AppModel, roomCode: String?, onLeave: () -> Unit) {
+internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?, onLeave: () -> Unit) {
     val status by model.status.collectAsState()
     val devices by model.devices.collectAsState()
     val items by model.items.collectAsState()
@@ -105,6 +105,7 @@ internal fun MainView(model: AppModel, roomCode: String?, onLeave: () -> Unit) {
     var noting by remember { mutableStateOf<ClipItem?>(null) }
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
+    var settingsOpen by remember { mutableStateOf(false) }
 
     val cursorItem = items.getOrNull(selected)
     val targets = if (picking && picked.isNotEmpty()) items.filter { it.id in picked } else listOfNotNull(cursorItem)
@@ -359,7 +360,7 @@ internal fun MainView(model: AppModel, roomCode: String?, onLeave: () -> Unit) {
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
                         shape = MaterialTheme.shapes.medium,
                 ) {
-                    Header(model, status, roomCode, devices.map { it.name }, onLeave)
+                    Header(model, status, roomCode, devices.map { it.name }, onLeave, onSettings = { settingsOpen = true })
                     Toolbar(
                             model = model,
                             query = query,
@@ -445,6 +446,9 @@ internal fun MainView(model: AppModel, roomCode: String?, onLeave: () -> Unit) {
                 onDismiss = { inspecting = null },
                 onCopy = { model.copy(item) },
         )
+    }
+    if (settingsOpen) {
+        SettingsDialog(settings, onDismiss = { settingsOpen = false })
     }
 }
 
@@ -540,8 +544,9 @@ private fun Header(
         roomCode: String?,
         deviceNames: List<String>,
         onLeave: () -> Unit,
+        onSettings: () -> Unit,
 ) {
-    val dark = isSystemInDarkTheme()
+    val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
     val dotColor =
             when {
@@ -615,6 +620,7 @@ private fun Header(
             Text("${deviceNames.size}", style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.width(6.dp))
         }
+        RowAction(AppIcons.Settings, stringResource(Res.string.cd_settings), onClick = onSettings)
         RowAction(AppIcons.Logout, stringResource(Res.string.cd_leave), onClick = onLeave)
     }
 }

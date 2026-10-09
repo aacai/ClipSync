@@ -157,4 +157,16 @@
     <string name="issue_encrypt">加密失败：%1$s</string>
     <string name="issue_upload">上传失败：%1$s</string>
     <string name="issue_decrypt">文件校验/解密失败：%1$s</string>
+    <string name="cd_settings">设置</string>
+    <string name="settings_title">设置</string>
+    <string name="settings_done">完成</string>
+    <string name="setting_theme">主题</string>
+    <string name="setting_language">语言</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_chinese">简体中文</string>
+    <string name="language_english">English</string>
+    <string name="language_restart_hint">语言改动会在下次启动应用后生效</string>
 </resources>

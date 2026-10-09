@@ -2,6 +2,8 @@
 
 package zhiqiu.app.cs.core
 
+import com.russhwolf.settings.Settings
+import com.russhwolf.settings.StorageSettings
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.js.Js
 import org.meshtastic.mqtt.MqttEndpoint
@@ -36,3 +38,32 @@ internal actual fun installId(): String {
 }
 
 internal actual fun deviceName(): String = "Web"
+
+internal actual fun platformSettings(): Settings = StorageSettings()
+
+internal actual val appLanguageSupport: AppLanguageSupport
+    get() = AppLanguageSupport.Immediate
+
+internal actual fun applyAppLanguage(language: AppLanguage) {
+    patchNavigatorLocale(language.tag ?: "")
+}
+
+private fun patchNavigatorLocale(tag: String) {
+    js(
+        """
+        var nav = globalThis.navigator;
+        if (!nav) return;
+        if (!globalThis.__clipSyncLocale) {
+            globalThis.__clipSyncLocale = {
+                languages: nav.languages ? Array.prototype.slice.call(nav.languages) : [],
+                language: nav.language
+            };
+        }
+        var base = globalThis.__clipSyncLocale;
+        var langs = tag ? [tag] : base.languages;
+        var first = tag || base.language;
+        Object.defineProperty(nav, 'languages', { configurable: true, get: function () { return langs.slice(); } });
+        Object.defineProperty(nav, 'language', { configurable: true, get: function () { return first; } });
+        """
+    )
+}

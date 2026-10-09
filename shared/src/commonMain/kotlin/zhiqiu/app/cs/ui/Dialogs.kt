@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,12 +30,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.app.cs.core.AppLanguage
+import zhiqiu.app.cs.core.AppLanguageSupport
+import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.core.ThemeMode
+import zhiqiu.app.cs.core.appLanguageSupport
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.TextOp
@@ -297,4 +305,102 @@ internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
             shape = MaterialTheme.shapes.large,
     )
+}
+
+@Composable
+internal fun SettingsDialog(settings: AppSettings, onDismiss: () -> Unit) {
+    val themeMode by settings.themeMode.collectAsState()
+    val language by settings.language.collectAsState()
+    val languageSupport = appLanguageSupport
+
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.settings_title), fontSize = 17.sp) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ChoiceSection(
+                            label = Res.string.setting_theme,
+                            options = ThemeMode.entries,
+                            selected = themeMode,
+                            labels = ThemeMode.entries.map { stringResource(themeLabel(it)) },
+                            onSelect = settings::setThemeMode,
+                    )
+                    if (languageSupport != AppLanguageSupport.Unsupported) {
+                        ChoiceSection(
+                                label = Res.string.setting_language,
+                                options = AppLanguage.entries,
+                                selected = language,
+                                labels = AppLanguage.entries.map { stringResource(languageLabel(it)) },
+                                onSelect = settings::setLanguage,
+                        )
+                        if (languageSupport == AppLanguageSupport.AfterRestart) {
+                            Text(
+                                    stringResource(Res.string.language_restart_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(Res.string.settings_done), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+private fun themeLabel(mode: ThemeMode): StringResource =
+        when (mode) {
+            ThemeMode.System -> Res.string.theme_system
+            ThemeMode.Light -> Res.string.theme_light
+            ThemeMode.Dark -> Res.string.theme_dark
+        }
+
+private fun languageLabel(language: AppLanguage): StringResource =
+        when (language) {
+            AppLanguage.System -> Res.string.language_system
+            AppLanguage.Chinese -> Res.string.language_chinese
+            AppLanguage.English -> Res.string.language_english
+        }
+
+@Composable
+private fun <T> ChoiceSection(
+        label: StringResource,
+        options: List<T>,
+        selected: T,
+        labels: List<String>,
+        onSelect: (T) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column {
+        SectionLabel(label)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, option ->
+                val active = option == selected
+                TextButton(
+                        onClick = { onSelect(option) },
+                        modifier = Modifier.weight(1f).height(38.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp),
+                        shape = MaterialTheme.shapes.small,
+                        colors =
+                                ButtonDefaults.textButtonColors(
+                                        containerColor =
+                                                if (active) scheme.primary.copy(alpha = 0.16f) else Color.Transparent,
+                                        contentColor = if (active) scheme.primary else scheme.onSurfaceVariant,
+                                ),
+                ) {
+                    Text(
+                            labels[index],
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    )
+                }
+            }
+        }
+    }
 }

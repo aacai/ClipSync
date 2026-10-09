@@ -16,7 +16,8 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 - **删除可撤销**：Ctrl+Z 或工具栏撤销恢复整批，并自动重下刚删掉的附件；编辑历史不会被撤销覆盖
 - **键盘操作**：↑↓ 光标、Shift+↑↓ 扩展多选、Ctrl+Shift+↑↓ 重排、Enter 复制/打开、F2 编辑、Del 删除、Home/End 首尾、Esc 退出多选/清空搜索；Ctrl/Cmd 组合键 F 搜索、C 复制、N 新建、A 全选、Z 撤销、D 副本
 - **毛玻璃界面**：Haze 2 实时背景模糊（顶部工具条 + 底部多选条浮在列表上），自适应明暗主题
-- **多语言界面**：文案走 Compose Resources，跟随系统语言（中/英，132 条 key 对齐）
+- **应用内设置**：主题（跟随系统 / 浅色 / 深色）+ 语言（跟随系统 / 简体中文 / English），用 multiplatform-settings 落在各平台自己的存储里
+- **多语言界面**：文案走 Compose Resources（中/英，149 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
 - **平台剪贴板桥**：桌面 AWT（文件走 CF_HDROP / file URL，图片走位图）、Android（FileProvider content URI）、Web（navigator.clipboard + ClipboardItem）；iOS 仅文本
 
 ## 架构速览
@@ -24,7 +25,7 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 ```
 shared/src/
   commonMain/
-    core/     ClipProtocol（主题+信封）、RoomCrypto（KDF+AES-GCM）、ClipSyncEngine（MQTT 引擎）
+    core/     ClipProtocol（主题+信封）、RoomCrypto（KDF+AES-GCM）、ClipSyncEngine（MQTT 引擎）、AppSettings（主题/语言）
     files/    FileCrypto、FileTransferClient（litterbox 上传/下载）、ClipRepository（历史+缓存）
     ui/       AppModel（编排）、PlatformUi（平台能力注入）
   jvmMain/    AWT 剪贴板/文件对话框、桌面历史持久化 ~/.clipsync

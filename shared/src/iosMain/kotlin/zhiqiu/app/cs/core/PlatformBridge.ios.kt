@@ -1,5 +1,7 @@
 package zhiqiu.app.cs.core
 
+import com.russhwolf.settings.NSUserDefaultsSettings
+import com.russhwolf.settings.Settings
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.darwin.Darwin
 import org.meshtastic.mqtt.MqttEndpoint
@@ -26,5 +28,20 @@ internal actual fun installId(): String {
 }
 
 internal actual fun deviceName(): String = UIDevice.currentDevice.name
+
+internal actual fun platformSettings(): Settings =
+    NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
+
+internal actual val appLanguageSupport: AppLanguageSupport
+    get() = AppLanguageSupport.AfterRestart
+
+internal actual fun applyAppLanguage(language: AppLanguage) {
+    val defaults = NSUserDefaults.standardUserDefaults
+    val tag = language.tag
+    if (tag == null) defaults.removeObjectForKey(APPLE_LANGUAGES_KEY)
+    else defaults.setObject(listOf(tag), forKey = APPLE_LANGUAGES_KEY)
+}
+
+private const val APPLE_LANGUAGES_KEY = "AppleLanguages"
 
 private const val INSTALL_ID_KEY = "clipsync-install-id"

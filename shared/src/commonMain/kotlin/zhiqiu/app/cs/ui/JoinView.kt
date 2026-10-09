@@ -27,7 +27,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -43,11 +45,12 @@ import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.resources.*
 
 @Composable
-internal fun JoinView(model: AppModel, onBrowseOffline: () -> Unit) {
+internal fun JoinView(model: AppModel, settings: AppSettings, onBrowseOffline: () -> Unit) {
     val roomCode by model.roomCode.collectAsState()
     val password by model.password.collectAsState()
     val connecting by model.connecting.collectAsState()
@@ -55,6 +58,7 @@ internal fun JoinView(model: AppModel, onBrowseOffline: () -> Unit) {
     val status by model.status.collectAsState()
     val hazeState = rememberHazeState()
     val codeFocus = remember { FocusRequester() }
+    var settingsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { codeFocus.requestFocus() }
 
     CompositionLocalProvider(LocalHazeState provides hazeState) {
@@ -70,7 +74,7 @@ internal fun JoinView(model: AppModel, onBrowseOffline: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(AppIcons.Clipboard, size = 38.dp)
                         Spacer(Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                     "ClipSync",
                                     style = MaterialTheme.typography.titleMedium,
@@ -81,6 +85,13 @@ internal fun JoinView(model: AppModel, onBrowseOffline: () -> Unit) {
                                     stringResource(Res.string.tagline),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        IconButton(onClick = { settingsOpen = true }) {
+                            Icon(
+                                    AppIcons.Settings,
+                                    contentDescription = stringResource(Res.string.cd_settings),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -178,5 +189,9 @@ internal fun JoinView(model: AppModel, onBrowseOffline: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (settingsOpen) {
+        SettingsDialog(settings, onDismiss = { settingsOpen = false })
     }
 }

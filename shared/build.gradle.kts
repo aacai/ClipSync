@@ -117,6 +117,7 @@ kotlin {
             implementation(libs.mqtt.client.transport.ws)
             implementation(libs.cryptography.core)
             implementation(libs.cryptography.provider.optimal)
+            implementation(libs.settings.core)
             implementation(libs.haze.core)
             implementation(libs.haze.blur)
             implementation(libs.haze.blur.materials)

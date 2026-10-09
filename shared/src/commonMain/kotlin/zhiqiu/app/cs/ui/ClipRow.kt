@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -103,7 +102,7 @@ internal fun ClipRow(
                             },
                     tint =
                             if (item.pinned) {
-                                if (isSystemInDarkTheme()) PinAmberDark else PinAmber
+                                if (isAppDarkTheme()) PinAmberDark else PinAmber
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -271,7 +270,7 @@ private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
     return when {
         picked -> scheme.primary.copy(alpha = 0.17f)
         cursor -> scheme.surfaceContainerHigh
-        else -> if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.55f)
+        else -> if (isAppDarkTheme()) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.55f)
     }
 }
 
@@ -301,7 +300,7 @@ internal fun RowAction(
                 tint =
                         when {
                             tinted != null -> tinted
-                            active -> if (isSystemInDarkTheme()) PinAmberDark else PinAmber
+                            active -> if (isAppDarkTheme()) PinAmberDark else PinAmber
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                 modifier = Modifier.size(18.dp),

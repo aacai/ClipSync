@@ -2,7 +2,6 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -31,7 +30,7 @@ val LocalHazeState: ProvidableCompositionLocal<HazeState?> = compositionLocalOf 
 /** 背景光晕：毛玻璃层透出来的就是它，所以必须放在 hazeSource 之下。 */
 @Composable
 fun BackdropGlow(modifier: Modifier = Modifier) {
-    val dark = isSystemInDarkTheme()
+    val dark = isAppDarkTheme()
     val accent = if (dark) Color(0xFF1B3B6B) else Color(0xFFB6DDFA)
     val accent2 = if (dark) Color(0xFF3A1D5C) else Color(0xFFD8C7F7)
     val accent3 = if (dark) Color(0xFF0E3A3A) else Color(0xFFC6EBD8)
@@ -75,7 +74,7 @@ fun BackdropGlow(modifier: Modifier = Modifier) {
 @Composable
 fun glassStyle(
         blurRadius: Dp = 28.dp,
-        surfaceAlpha: Float = if (isSystemInDarkTheme()) 0.5f else 0.62f,
+        surfaceAlpha: Float = if (isAppDarkTheme()) 0.5f else 0.62f,
 ): HazeBlurStyle {
     val surface = MaterialTheme.colorScheme.surface
     return HazeBlurStyle {
@@ -92,7 +91,7 @@ fun glassStyle(
 fun Modifier.glassSurface(
         shape: Shape,
         blurRadius: Dp = 28.dp,
-        surfaceAlpha: Float = if (isSystemInDarkTheme()) 0.5f else 0.62f,
+        surfaceAlpha: Float = if (isAppDarkTheme()) 0.5f else 0.62f,
         border: Color? = null,
 ): Modifier {
     val state = LocalHazeState.current
@@ -104,7 +103,7 @@ fun Modifier.glassSurface(
 internal fun GlassPanel(
         modifier: Modifier = Modifier,
         shape: Shape = MaterialTheme.shapes.large,
-        alpha: Float = if (isSystemInDarkTheme()) 0.6f else 0.7f,
+        alpha: Float = if (isAppDarkTheme()) 0.6f else 0.7f,
         content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
