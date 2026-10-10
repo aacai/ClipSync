@@ -327,6 +327,7 @@ internal fun RowAction(
             animateColorAsState(
                     targetValue =
                             when {
+                                !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                                 tinted != null -> tinted
                                 active -> if (isAppDarkTheme()) PinAmberDark else PinAmber
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
