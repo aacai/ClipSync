@@ -4,11 +4,13 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.coroutines.suspendCancellableCoroutine
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.LocalWebStorage
 import zhiqiu.app.cs.files.WasmClipStore
 
@@ -25,6 +27,12 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     opener = UnavailableFileOpener,
     store = remember { WasmClipStore(LocalWebStorage()) },
 )
+
+@Composable
+internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel {
+    val scope = rememberCoroutineScope()
+    return remember(platform, settings) { AppModel(scope, platform, settings) }
+}
 
 private object WebClipboard : PlatformClipboard {
     override val supportsAutoSync: Boolean = false

@@ -29,6 +29,8 @@ internal actual fun installId(): String {
 
 internal actual fun deviceName(): String = UIDevice.currentDevice.name
 
+internal actual val platformSupportsResidentSync: Boolean = false
+
 internal actual fun platformSettings(): Settings =
     NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
 

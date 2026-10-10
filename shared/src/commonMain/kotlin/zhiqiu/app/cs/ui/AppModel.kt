@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
+import zhiqiu.app.cs.core.platformSupportsResidentSync
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.FileClip
@@ -78,10 +80,17 @@ class AppModel(
     val info: StateFlow<Feedback?> = _info.asStateFlow()
 
     val supportsClipboardAutoSync: Boolean = platform.clipboard.supportsAutoSync
-    val supportsFilePicker: Boolean = platform.picker.isAvailable
+    val hasSavedRoom: Boolean = settings.hasRoomSession()
+    val supportsFilePicker: Boolean get() = platform.picker.isAvailable
     val supportsLocalFiles: Boolean = platform.opener.isAvailable
     val supportsClipboardFiles: Boolean = platform.clipboard.canWriteFiles
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
+    val supportsResidentSync: Boolean = platformSupportsResidentSync
+    val deviceName: String = platform.deviceName
+
+    val residentSync: StateFlow<Boolean> = settings.residentSync
+
+    val localCount: StateFlow<Int> = repository.items.map { it.size }.stateIn(scope, SharingStarted.Eagerly, 0)
 
     val items: StateFlow<List<ClipItem>> =
         combine(repository.items, combine(_query, _regex, _caseSensitive) { q, r, c -> Triple(q, r, c) }) { list, (q, r, c) ->
@@ -93,6 +102,7 @@ class AppModel(
     private var receiveJob: Job? = null
     private var lastPublished: String? = null
     private var lastOwnWrite: String? = null
+    private var lastCaptured: String? = null
 
     init {
         scope.launch {
@@ -100,8 +110,55 @@ class AppModel(
         }
         scope.launch {
             repository.load()
+            watchClipboard()
             restoreSavedRoom()
         }
+    }
+
+    /** 剪贴板监听跟着 App 走，不跟着房间走：没共享也要留下记录，桌面端打开就是记录器。
+     *  启动瞬间的内容只当基线，不记成新条目。有事件源的平台不轮询。 */
+    private fun watchClipboard() {
+        if (!platform.clipboard.supportsAutoSync || monitorJob?.isActive == true) return
+        monitorJob = scope.launch {
+            lastCaptured = runCatching { platform.clipboard.read() }.getOrNull()
+            val events = platform.clipboard.changeEvents
+            if (events != null) {
+                events.collect { onClipboardChanged() }
+            } else {
+                while (isActive) {
+                    delay(CLIPBOARD_POLL_MS)
+                    onClipboardChanged()
+                }
+            }
+        }
+    }
+
+    private suspend fun onClipboardChanged() {
+        if (!settings.watchClipboard.value) return
+        val text = runCatching { platform.clipboard.read() }.getOrNull() ?: return
+        if (text.isBlank()) return
+        if (text == lastOwnWrite || text == lastPublished || text == lastCaptured) return
+        lastCaptured = text
+        if (status.value is ClipSyncEngine.Status.Online) {
+            runCatching { engine.publishText(text) }
+                .onSuccess { lastPublished = text }
+                .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
+        } else {
+            recordLocal(text)
+        }
+    }
+
+    private suspend fun recordLocal(text: String) {
+        repository.add(
+                ClipItem(
+                        id = newId(),
+                        kind = ClipRepository.KIND_TEXT,
+                        ts = Clock.System.now().toEpochMilliseconds(),
+                        senderId = platform.installId,
+                        senderName = platform.deviceName,
+                        text = text,
+                ),
+        )
     }
 
     /** 重开就回到上次的房间：房间码 + 派生密钥都在，就不该让用户重新拼一遍。 */
@@ -201,11 +258,17 @@ class AppModel(
 
     fun disconnect() {
         connectJob?.cancel()
-        monitorJob?.cancel()
-        monitorJob = null
         _joinedRoom.value = null
         settings.clearRoomSession()
+        if (settings.residentSync.value) settings.setResidentSync(false)
         scope.launch { engine.stop() }
+    }
+
+    /** 常驻开关只写设置，起停服务由平台侧观察这个 StateFlow 完成。 */
+    fun setResidentSync(enabled: Boolean) {
+        if (!supportsResidentSync) return
+        if (enabled && _joinedRoom.value == null) return
+        settings.setResidentSync(enabled)
     }
 
     fun sendClipboard() {
@@ -481,20 +544,6 @@ class AppModel(
         Feedback.ClipboardWriteBlocked(e.clipboardCode(), e.message)
 
     private fun startSync() {
-        if (platform.clipboard.supportsAutoSync && monitorJob?.isActive != true) {
-            monitorJob = scope.launch {
-                while (isActive) {
-                    delay(CLIPBOARD_POLL_MS)
-                    if (status.value !is ClipSyncEngine.Status.Online) continue
-                    val text = runCatching { platform.clipboard.read() }.getOrNull() ?: continue
-                    if (text.isBlank()) continue
-                    if (text == lastOwnWrite || text == lastPublished) continue
-                    runCatching { engine.publishText(text) }
-                        .onSuccess { lastPublished = text }
-                        .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
-                }
-            }
-        }
         if (receiveJob?.isActive != true) {
             receiveJob = scope.launch {
                 engine.clips.collect { event ->

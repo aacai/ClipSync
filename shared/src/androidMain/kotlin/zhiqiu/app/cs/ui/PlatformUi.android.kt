@@ -10,12 +10,87 @@ import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.core.ClipSyncAppContext
+import zhiqiu.app.cs.core.deviceName
+import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.AndroidClipStore
 import zhiqiu.app.cs.files.mimeForName
 import java.io.File
+
+/**
+ * 进程级运行时：Activity 销毁重建、退到后台都不会重连，前台服务和界面共用同一个引擎。
+ * 组合里只负责把文件选择器接上，其余都在服务侧可用。
+ */
+object ClipSyncRuntime {
+    private val lock = Any()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    val filePicker = RuntimeFilePicker()
+
+    @Volatile
+    private var platformRef: PlatformUi? = null
+
+    @Volatile
+    private var modelRef: AppModel? = null
+
+    fun platform(context: Context): PlatformUi {
+        platformRef?.let { return it }
+        synchronized(lock) {
+            val app = context.applicationContext
+            return platformRef ?: PlatformUi(
+                clipboard = AndroidClipboard(app),
+                picker = filePicker,
+                opener = AndroidFileOpener(app),
+                store = AndroidClipStore(app),
+                deviceName = deviceName(),
+                installId = installId(),
+            ).also { platformRef = it }
+        }
+    }
+
+    fun model(platform: PlatformUi, settings: AppSettings): AppModel {
+        modelRef?.let { return it }
+        synchronized(lock) {
+            return modelRef ?: AppModel(scope, platform, settings).also { modelRef = it }
+        }
+    }
+
+    /** 服务冷启动（没有 Activity）用这条路径。 */
+    fun model(settings: AppSettings): AppModel =
+        model(
+            platform(
+                requireNotNull(ClipSyncAppContext.context) {
+                    "ClipSyncAppContext.context must be set by the Application"
+                },
+            ),
+            settings,
+        )
+}
+
+/** 实现由组合里的 Activity 结果启动器提供；没有可用组合时入口自动禁用。 */
+class RuntimeFilePicker : PlatformFilePicker {
+    var delegate: PlatformFilePicker? by mutableStateOf(null)
+
+    override val isAvailable: Boolean get() = delegate?.isAvailable == true
+
+    override fun pick(onDone: (List<PickedSource>) -> Unit) {
+        (delegate ?: UnavailableFilePicker).pick(onDone)
+    }
+}
 
 @Composable
 internal actual fun rememberPlatformUi(): PlatformUi {
@@ -33,7 +108,7 @@ internal actual fun rememberPlatformUi(): PlatformUi {
         }
     }
 
-    val picker = remember(launcher) {
+    val delegate = remember(launcher) {
         PlatformFilePicker { onDone ->
             if (pending[0] == null) {
                 pending[0] = onDone
@@ -42,13 +117,17 @@ internal actual fun rememberPlatformUi(): PlatformUi {
         }
     }
 
-    return rememberPlatformUi(
-        clipboard = remember { AndroidClipboard(context) },
-        picker = picker,
-        opener = remember { AndroidFileOpener(context) },
-        store = remember { AndroidClipStore(context) },
-    )
+    DisposableEffect(delegate) {
+        ClipSyncRuntime.filePicker.delegate = delegate
+        onDispose { ClipSyncRuntime.filePicker.delegate = null }
+    }
+
+    return ClipSyncRuntime.platform(context)
 }
+
+@Composable
+internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel =
+    ClipSyncRuntime.model(platform, settings)
 
 private fun Uri.toPickedSource(context: Context): PickedSource {
     val resolver = context.contentResolver
@@ -75,11 +154,19 @@ private fun Uri.toPickedSource(context: Context): PickedSource {
     )
 }
 
-private class AndroidClipboard(private val context: Context) : PlatformClipboard {
+internal class AndroidClipboard(private val context: Context) : PlatformClipboard {
     override val canWriteFiles: Boolean = true
 
     private val manager: ClipboardManager
         get() = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+    /** 系统事件驱动，不用轮询：后台零唤醒，比定时读省电。 */
+    override val changeEvents: Flow<Unit>
+        get() = callbackFlow {
+            val listener = ClipboardManager.OnPrimaryClipChangedListener { trySend(Unit) }
+            manager.addPrimaryClipChangedListener(listener)
+            awaitClose { manager.removePrimaryClipChangedListener(listener) }
+        }
 
     override suspend fun read(): String? = runCatching {
         if (!manager.hasPrimaryClip()) return null
@@ -102,7 +189,7 @@ private class AndroidClipboard(private val context: Context) : PlatformClipboard
 }
 
 /** 通过 FileProvider 拿 content:// URI 打开缓存文件（Android 7+ 禁止 file:// 直接分享）。 */
-private class AndroidFileOpener(private val context: Context) : PlatformFileOpener {
+internal class AndroidFileOpener(private val context: Context) : PlatformFileOpener {
     override fun open(path: String) {
         runCatching {
             val file = File(path)

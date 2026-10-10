@@ -24,3 +24,6 @@ internal expect fun installId(): String
 
 /** Human readable device name shown to peers. */
 internal expect fun deviceName(): String
+
+/** 平台能否把同步挂到常驻前台服务上（目前只有 Android）。 */
+internal expect val platformSupportsResidentSync: Boolean

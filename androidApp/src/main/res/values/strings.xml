@@ -1,3 +1,9 @@
 <resources>
-    <string name="app_name">ClipSync</string>
+    <string name="app_name" translatable="false">ClipSync</string>
+    <string name="notif_channel_resident">后台同步</string>
+    <string name="notif_resident_title">剪贴板同步进行中</string>
+    <string name="notif_resident_room">房间 %1$s</string>
+    <string name="notif_resident_devices">房间 %1$s · %2$d 台设备</string>
+    <string name="notif_resident_waiting">正在重连房间…</string>
+    <string name="notif_action_stop">停止同步</string>
 </resources>

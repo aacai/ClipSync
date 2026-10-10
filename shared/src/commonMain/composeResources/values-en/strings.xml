@@ -7,12 +7,15 @@
     <string name="room_password_placeholder">Optional, the room code alone works too</string>
     <string name="enter_room">Enter room</string>
     <string name="connecting">Connecting…</string>
-    <string name="browse_offline">Browse history offline</string>
+    <string name="share_title">Share a room</string>
+    <string name="share_action">Share</string>
     <string name="cd_random_room">Generate another room code</string>
 
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Offline</string>
-    <string name="offline_history">Offline history</string>
+    <string name="status_idle">Not sharing</string>
+    <string name="local_history">Local history</string>
+    <string name="cd_share">Enter or switch room</string>
     <string name="safety_number">Safety number %1$s</string>
     <string name="peers_in_room">%1$d in room: %2$s</string>
     <string name="cd_copy_safety">Copy safety number</string>
@@ -30,7 +33,7 @@
     <string name="safety_close">Got it</string>
     <string name="banner_key_mismatch">%1$s in this room has a different safety number — a room password is probably mistyped, so neither side receives the other's clips</string>
 
-    <string name="banner_offline">Offline browsing: only this device's history — search, copy and clean up all work</string>
+    <string name="banner_local_only">Not sharing: copies stay on this device only, a room is what syncs them to your other devices</string>
     <string name="banner_disconnected">Connection to room %1$s was lost</string>
     <string name="reconnect">Reconnect</string>
 
@@ -175,7 +178,11 @@
     <string name="issue_decrypt">Verification or decryption failed: %1$s</string>
     <string name="cd_settings">Settings</string>
     <string name="settings_title">Settings</string>
-    <string name="settings_done">Done</string>
+    <string name="cd_back">Back</string>
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_group_sync">Sync</string>
+    <string name="settings_group_clipboard">Clipboard</string>
+    <string name="settings_group_about">About</string>
     <string name="setting_theme">Theme</string>
     <string name="setting_language">Language</string>
     <string name="theme_system">System</string>
@@ -187,4 +194,15 @@
     <string name="language_restart_hint">Language changes take effect the next time the app starts</string>
     <string name="setting_remember_room">Remember this room</string>
     <string name="setting_remember_room_hint">Rejoin the last room when the app opens again. Only the derived room key is kept, never the password you typed; leaving the room erases it</string>
+    <string name="setting_watch_clipboard">Watch clipboard</string>
+    <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
+    <string name="setting_room">Room</string>
+    <string name="action_leave_room">Leave room</string>
+    <string name="setting_resident_sync">Sync in background</string>
+    <string name="setting_resident_sync_hint">Keeps the room connection alive when the app goes to the background, shown as an ongoing notification. Leaving the room or switching this off stops it</string>
+    <string name="setting_device">Device name</string>
+    <plurals name="setting_item_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
 </resources>

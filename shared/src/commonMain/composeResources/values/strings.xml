@@ -7,12 +7,15 @@
     <string name="room_password_placeholder">可选，留空即只用房间码</string>
     <string name="enter_room">进入房间</string>
     <string name="connecting">连接中…</string>
-    <string name="browse_offline">先离线看看历史</string>
+    <string name="share_title">房间共享</string>
+    <string name="share_action">共享</string>
     <string name="cd_random_room">换一个随机房间码</string>
 
     <string name="status_connected">已连接</string>
     <string name="status_disconnected">未连接</string>
-    <string name="offline_history">离线历史</string>
+    <string name="status_idle">未共享</string>
+    <string name="local_history">本地记录</string>
+    <string name="cd_share">进入或切换房间</string>
     <string name="safety_number">安全码 %1$s</string>
     <string name="peers_in_room">同屋 %1$d 台：%2$s</string>
     <string name="cd_copy_safety">复制安全码</string>
@@ -30,7 +33,7 @@
     <string name="safety_close">知道了</string>
     <string name="banner_key_mismatch">同屋的 %1$s 安全码与本机不一致：多半是某一端的房间密码打错了，两边收不到彼此的剪贴板</string>
 
-    <string name="banner_offline">离线浏览：这里只有本机历史，搜索、复制、清理都可用</string>
+    <string name="banner_local_only">未共享：复制的内容只留在本机，进房间后才会同步给其他设备</string>
     <string name="banner_disconnected">与房间 %1$s 的连接已断开</string>
     <string name="reconnect">重连</string>
 
@@ -170,7 +173,11 @@
     <string name="issue_decrypt">文件校验/解密失败：%1$s</string>
     <string name="cd_settings">设置</string>
     <string name="settings_title">设置</string>
-    <string name="settings_done">完成</string>
+    <string name="cd_back">返回</string>
+    <string name="settings_group_appearance">外观</string>
+    <string name="settings_group_sync">同步</string>
+    <string name="settings_group_clipboard">剪贴板</string>
+    <string name="settings_group_about">关于</string>
     <string name="setting_theme">主题</string>
     <string name="setting_language">语言</string>
     <string name="theme_system">跟随系统</string>
@@ -182,4 +189,14 @@
     <string name="language_restart_hint">语言改动会在下次启动应用后生效</string>
     <string name="setting_remember_room">记住房间</string>
     <string name="setting_remember_room_hint">重开时自动回到上次的房间。只保存派生出的房间密钥，不保存你输入的密码；离开房间即清除</string>
+    <string name="setting_watch_clipboard">记录剪贴板</string>
+    <string name="setting_watch_clipboard_hint">不进房间也会自动把你复制过的内容留进列表，仅保存在本机；关闭后只记录手动发送的条目</string>
+    <string name="setting_room">房间</string>
+    <string name="action_leave_room">退出房间</string>
+    <string name="setting_resident_sync">后台常驻同步</string>
+    <string name="setting_resident_sync_hint">退到后台也保持房间连接不断开，系统会挂一条常驻通知；离开房间或关掉开关即停止</string>
+    <string name="setting_device">设备名</string>
+    <plurals name="setting_item_count">
+        <item quantity="other">%1$d 条</item>
+    </plurals>
 </resources>

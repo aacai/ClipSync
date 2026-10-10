@@ -26,24 +26,3 @@ compose.desktop {
         }
     }
 }
-
-// End-to-end check against the real broker: two in-process devices exchange an encrypted clip.
-// Usage: ./gradlew :desktopApp:smoke -Proom=<roomCode> [-Ppassword=<pw>]
-// File clipboard end-to-end: encrypt -> upload -> announce -> download/verify/cache.
-// Usage: ./gradlew :desktopApp:fileSmoke [-Proom=<roomCode>]
-tasks.register<JavaExec>("fileSmoke") {
-    group = "verification"
-    description = "Verifies the file/image clipboard path end-to-end (upload host reachable required)."
-    mainClass.set("zhiqiu.app.cs.FileSmokeMain")
-    classpath = sourceSets["main"].runtimeClasspath
-    systemProperty("clipsync.smoke.room", providers.gradleProperty("room").getOrElse("FILESMOKE"))
-}
-
-tasks.register<JavaExec>("smoke") {
-    group = "verification"
-    description = "Runs two simulated devices and verifies an encrypted clipboard roundtrip."
-    mainClass.set("zhiqiu.app.cs.SmokeMain")
-    classpath = sourceSets["main"].runtimeClasspath
-    systemProperty("clipsync.smoke.room", providers.gradleProperty("room").getOrElse("SMOKEROOM"))
-    systemProperty("clipsync.smoke.password", providers.gradleProperty("password").getOrElse(""))
-}

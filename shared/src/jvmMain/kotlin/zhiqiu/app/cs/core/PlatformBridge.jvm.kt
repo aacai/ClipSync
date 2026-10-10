@@ -37,6 +37,8 @@ internal actual fun deviceName(): String {
     return if (user != null) "$os · $user" else os
 }
 
+internal actual val platformSupportsResidentSync: Boolean = false
+
 internal actual fun platformSettings(): Settings =
     PreferencesSettings(Preferences.userRoot().node("clipsync"))
 

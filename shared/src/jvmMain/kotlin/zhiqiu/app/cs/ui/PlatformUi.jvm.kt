@@ -2,6 +2,8 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.JvmClipStore
 import zhiqiu.app.cs.files.mimeForName
 import java.awt.Desktop
@@ -27,6 +29,12 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     opener = DesktopFileOpener,
     store = remember { JvmClipStore.default() },
 )
+
+@Composable
+internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel {
+    val scope = rememberCoroutineScope()
+    return remember(platform, settings) { AppModel(scope, platform, settings) }
+}
 
 /** AWT 系统剪贴板；macOS 上他应用占用剪贴板时读取可能抛异常 → 统一按空处理。 */
 private object AwtClipboard : PlatformClipboard {

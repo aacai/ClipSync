@@ -76,14 +76,18 @@ import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.resources.*
 
 @Composable
-internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?, onLeave: () -> Unit) {
+internal fun MainView(
+        model: AppModel,
+        roomCode: String?,
+        onLeave: () -> Unit,
+        onOpenSettings: () -> Unit,
+) {
     val status by model.status.collectAsState()
     val devices by model.devices.collectAsState()
     val items by model.items.collectAsState()
@@ -116,8 +120,17 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
     var noting by remember { mutableStateOf<ClipItem?>(null) }
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
-    var settingsOpen by remember { mutableStateOf(false) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
+    var shareOpen by remember { mutableStateOf(false) }
+    var sharePrompted by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        if (!sharePrompted) {
+            sharePrompted = true
+            if (!model.supportsClipboardAutoSync && !model.hasSavedRoom && roomCode == null) shareOpen = true
+        }
+    }
+    LaunchedEffect(roomCode) { if (roomCode != null) shareOpen = false }
 
     val cursorItem = items.getOrNull(selected)
     val targets = if (picking && picked.isNotEmpty()) items.filter { it.id in picked } else listOfNotNull(cursorItem)
@@ -286,13 +299,13 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                     handleChord(event.key, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
 
     fun hasOverlay() =
-            composingNew || confirmClear || settingsOpen || safetyNumber != null ||
+            composingNew || confirmClear || safetyNumber != null || shareOpen ||
                     editing != null || noting != null || transforming != null || inspecting != null
 
     fun closeOverlay() {
         when {
             safetyNumber != null -> safetyNumber = null
-            settingsOpen -> settingsOpen = false
+            shareOpen -> shareOpen = false
             confirmClear -> confirmClear = false
             editing != null -> editing = null
             noting != null -> noting = null
@@ -344,7 +357,7 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                     ) { empty ->
                         if (empty) {
                             EmptyState(query, barHeight) {
-                                Banners(model, status, roomCode, transfer, connecting, online, invalidQuery)
+                                Banners(model, status, roomCode, transfer, connecting, online, invalidQuery, onShare = { shareOpen = true })
                             }
                         } else {
                             LazyColumn(
@@ -357,7 +370,7 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                                             ),
                             ) {
                                 item(key = "banners") {
-                                    Banners(model, status, roomCode, transfer, connecting, online, invalidQuery)
+                                    Banners(model, status, roomCode, transfer, connecting, online, invalidQuery, onShare = { shareOpen = true })
                                 }
                                 itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                                     ClipRow(
@@ -403,7 +416,8 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                             roomCode,
                             devices.map { it.name },
                             onLeave,
-                            onSettings = { settingsOpen = true },
+                            onShare = { shareOpen = true },
+                            onSettings = onOpenSettings,
                             onSafety = { safetyNumber = it },
                     )
                     Toolbar(
@@ -504,8 +518,8 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                 onCopy = { model.copy(item) },
         )
     }
-    if (settingsOpen) {
-        SettingsDialog(settings, onDismiss = { settingsOpen = false })
+    if (shareOpen) {
+        ShareDialog(model, onDismiss = { shareOpen = false })
     }
     safetyNumber?.let { number ->
         SafetyDialog(
@@ -526,6 +540,7 @@ private fun Banners(
         connecting: Boolean,
         online: Boolean,
         invalidQuery: Boolean,
+        onShare: () -> Unit,
 ) {
     Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING),
@@ -559,19 +574,27 @@ private fun Banners(
         }
 
         if (!online && !connecting) {
-            InlineMessage(
-                    AppIcons.Warning,
-                    if (roomCode == null) {
-                        stringResource(Res.string.banner_offline)
-                    } else {
-                        stringResource(Res.string.banner_disconnected, roomCode)
-                    },
-                    isError = roomCode != null,
-                    action = if (roomCode == null) null else {
-                        { model.connect() }
-                    },
-                    actionLabel = if (roomCode == null) null else stringResource(Res.string.reconnect),
-            )
+            if (roomCode == null) {
+                InlineMessage(
+                        AppIcons.Key,
+                        stringResource(
+                                if (model.supportsClipboardAutoSync) Res.string.banner_local_only
+                                else Res.string.hint_manual_send,
+                        ),
+                        isError = false,
+                        action = onShare,
+                        actionLabel = stringResource(Res.string.share_action),
+                        actionIcon = AppIcons.Key,
+                )
+            } else {
+                InlineMessage(
+                        AppIcons.Warning,
+                        stringResource(Res.string.banner_disconnected, roomCode),
+                        isError = true,
+                        action = { model.connect() },
+                        actionLabel = stringResource(Res.string.reconnect),
+                )
+            }
         }
 
         val mismatch by model.keyMismatch.collectAsState()
@@ -595,17 +618,20 @@ private fun Header(
         roomCode: String?,
         deviceNames: List<String>,
         onLeave: () -> Unit,
+        onShare: () -> Unit,
         onSettings: () -> Unit,
         onSafety: (String) -> Unit,
 ) {
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
+    val connecting = status is ClipSyncEngine.Status.Connecting
     val dotColor by
             animateColorAsState(
                     targetValue =
                             when {
                                 online -> if (dark) SuccessGreenDark else SuccessGreen
-                                status is ClipSyncEngine.Status.Connecting -> if (dark) PinAmberDark else PinAmber
+                                connecting -> if (dark) PinAmberDark else PinAmber
+                                roomCode == null -> MaterialTheme.colorScheme.outlineVariant
                                 else -> MaterialTheme.colorScheme.error
                             },
                     animationSpec = tween(M3.MEDIUM_2, easing = M3.STANDARD),
@@ -621,7 +647,7 @@ private fun Header(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                        roomCode ?: stringResource(Res.string.offline_history),
+                        roomCode ?: stringResource(Res.string.local_history),
                         style = MaterialTheme.typography.titleSmall,
                         fontFamily = FontFamily.Monospace,
                 )
@@ -629,7 +655,8 @@ private fun Header(
                 Text(
                         when {
                             online -> stringResource(Res.string.status_connected)
-                            status is ClipSyncEngine.Status.Connecting -> stringResource(Res.string.connecting)
+                            connecting -> stringResource(Res.string.connecting)
+                            roomCode == null -> stringResource(Res.string.status_idle)
                             else -> stringResource(Res.string.status_disconnected)
                         },
                         style = MaterialTheme.typography.labelSmall,
@@ -683,8 +710,13 @@ private fun Header(
             }
             Spacer(Modifier.width(6.dp))
         }
+        if (roomCode == null) {
+            RowAction(AppIcons.Key, stringResource(Res.string.cd_share), onClick = onShare)
+        }
         RowAction(AppIcons.Settings, stringResource(Res.string.cd_settings), onClick = onSettings)
-        RowAction(AppIcons.Logout, stringResource(Res.string.cd_leave), onClick = onLeave)
+        if (roomCode != null) {
+            RowAction(AppIcons.Logout, stringResource(Res.string.cd_leave), onClick = onLeave)
+        }
     }
 }
 

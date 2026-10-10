@@ -52,7 +52,27 @@ class AppSettings {
     fun setRememberRoom(enabled: Boolean) {
         _rememberRoom.value = enabled
         store.putBoolean(KEY_REMEMBER_ROOM, enabled)
-        if (!enabled) clearRoomSession()
+        if (!enabled) {
+            clearRoomSession()
+            setResidentSync(false)
+        }
+    }
+
+    private val _watchClipboard = MutableStateFlow(store.getBoolean(KEY_WATCH_CLIPBOARD, true))
+    val watchClipboard: StateFlow<Boolean> = _watchClipboard.asStateFlow()
+
+    fun setWatchClipboard(enabled: Boolean) {
+        _watchClipboard.value = enabled
+        store.putBoolean(KEY_WATCH_CLIPBOARD, enabled)
+    }
+
+    /** 后台常驻：默认关，进房后由用户手动打开。 */
+    private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
+    val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
+
+    fun setResidentSync(enabled: Boolean) {
+        _residentSync.value = enabled
+        store.putBoolean(KEY_RESIDENT_SYNC, enabled)
     }
 
     /**
@@ -64,6 +84,11 @@ class AppSettings {
         store.putString(KEY_ROOM_CODE, roomCode)
         store.putString(KEY_ROOM_KEY, Base64.encode(roomKey))
     }
+
+    fun hasRoomSession(): Boolean =
+        _rememberRoom.value &&
+                store.getStringOrNull(KEY_ROOM_CODE) != null &&
+                store.getStringOrNull(KEY_ROOM_KEY) != null
 
     fun roomSession(): Pair<String, ByteArray>? {
         val code = store.getStringOrNull(KEY_ROOM_CODE) ?: return null
@@ -79,17 +104,22 @@ class AppSettings {
         store.remove(KEY_ROOM_KEY)
     }
 
-    private companion object {
-        const val KEY_THEME = "ui.themeMode"
-        const val KEY_LANGUAGE = "ui.language"
-        const val KEY_REMEMBER_ROOM = "room.remember"
-        const val KEY_ROOM_CODE = "room.code"
-        const val KEY_ROOM_KEY = "room.key"
+    companion object {
+        /** 前台服务与界面必须读同一份开关，所以设置只允许一个实例。 */
+        val shared: AppSettings by lazy { AppSettings() }
 
-        fun themeOf(name: String?): ThemeMode =
+        private const val KEY_THEME = "ui.themeMode"
+        private const val KEY_LANGUAGE = "ui.language"
+        private const val KEY_REMEMBER_ROOM = "room.remember"
+        private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
+        private const val KEY_RESIDENT_SYNC = "sync.resident"
+        private const val KEY_ROOM_CODE = "room.code"
+        private const val KEY_ROOM_KEY = "room.key"
+
+        private fun themeOf(name: String?): ThemeMode =
             ThemeMode.entries.firstOrNull { it.name == name } ?: ThemeMode.System
 
-        fun languageOf(name: String?): AppLanguage =
+        private fun languageOf(name: String?): AppLanguage =
             AppLanguage.entries.firstOrNull { it.name == name } ?: AppLanguage.System
     }
 }

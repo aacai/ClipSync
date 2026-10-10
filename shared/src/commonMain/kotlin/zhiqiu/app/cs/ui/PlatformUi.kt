@@ -2,6 +2,8 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.Flow
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.deviceName
 import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.ClipStore
@@ -19,6 +21,9 @@ interface PlatformClipboard {
     val canWriteFiles: Boolean get() = false
 
     val canWriteImage: Boolean get() = false
+
+    /** 剪贴板变化事件；null 表示平台没有事件源，只能轮询。 */
+    val changeEvents: Flow<Unit>? get() = null
 
     suspend fun read(): String?
     suspend fun write(text: String)
@@ -103,3 +108,7 @@ internal fun rememberPlatformUi(
  * keydown 因此收不到任何快捷键，只能在 document 上兜底；原生平台由 Compose 自己派发。
  */
 internal expect fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit
+
+/** 运行时的生命周期：桌面/网页跟着组合走，Android 跟着进程走。 */
+@Composable
+internal expect fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel

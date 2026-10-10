@@ -14,13 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,18 +39,17 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
-import zhiqiu.app.cs.core.AppLanguage
-import zhiqiu.app.cs.core.AppLanguageSupport
-import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipProtocol
+import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
-import zhiqiu.app.cs.core.ThemeMode
-import zhiqiu.app.cs.core.appLanguageSupport
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.TextOp
@@ -435,116 +436,101 @@ private fun SafetyPoint(index: Int, resource: StringResource) {
 }
 
 @Composable
-internal fun SettingsDialog(settings: AppSettings, onDismiss: () -> Unit) {
-    val themeMode by settings.themeMode.collectAsState()
-    val language by settings.language.collectAsState()
-    val rememberRoom by settings.rememberRoom.collectAsState()
-    val languageSupport = appLanguageSupport
+internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
+    val roomCode by model.roomCode.collectAsState()
+    val password by model.password.collectAsState()
+    val connecting by model.connecting.collectAsState()
+    val failure by model.failure.collectAsState()
+    val status by model.status.collectAsState()
+    val codeFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { codeFocus.requestFocus() }
+
+    val failureText = failure?.let { feedbackText(it) }
+            ?: (status as? ClipSyncEngine.Status.Offline)?.reason
 
     AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.settings_title), fontSize = 17.sp) },
+            title = { Text(stringResource(Res.string.share_title), fontSize = 17.sp) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ChoiceSection(
-                            label = Res.string.setting_theme,
-                            options = ThemeMode.entries,
-                            selected = themeMode,
-                            labels = ThemeMode.entries.map { stringResource(themeLabel(it)) },
-                            onSelect = settings::setThemeMode,
-                    )
-                    if (languageSupport != AppLanguageSupport.Unsupported) {
-                        ChoiceSection(
-                                label = Res.string.setting_language,
-                                options = AppLanguage.entries,
-                                selected = language,
-                                labels = AppLanguage.entries.map { stringResource(languageLabel(it)) },
-                                onSelect = settings::setLanguage,
+                Column {
+                    SectionLabel(Res.string.room_code)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                                value = roomCode,
+                                onValueChange = model::updateRoomCode,
+                                singleLine = true,
+                                enabled = !connecting,
+                                leadingIcon = { FieldIcon(AppIcons.Key) },
+                                keyboardOptions =
+                                        KeyboardOptions(
+                                                keyboardType = KeyboardType.Ascii,
+                                                capitalization = KeyboardCapitalization.Characters,
+                                        ),
+                                shape = MaterialTheme.shapes.small,
+                                modifier = Modifier.weight(1f).focusRequester(codeFocus),
                         )
-                        if (languageSupport == AppLanguageSupport.AfterRestart) {
-                            Text(
-                                    stringResource(Res.string.language_restart_hint),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Tip(stringResource(Res.string.cd_random_room)) {
+                            IconButton(onClick = model::regenerateRoomCode, enabled = !connecting) {
+                                Icon(
+                                        AppIcons.Refresh,
+                                        contentDescription = stringResource(Res.string.cd_random_room),
+                                )
+                            }
                         }
                     }
-                    Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                    Text(
+                            stringResource(Res.string.room_code_hint),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp),
+                    )
+
+                    Spacer(Modifier.height(14.dp))
+                    SectionLabel(Res.string.room_password)
+                    OutlinedTextField(
+                            value = password,
+                            onValueChange = model::updatePassword,
+                            singleLine = true,
+                            enabled = !connecting,
+                            placeholder = { Text(stringResource(Res.string.room_password_placeholder)) },
+                            leadingIcon = { FieldIcon(AppIcons.Lock) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            shape = MaterialTheme.shapes.small,
                             modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            SectionLabel(Res.string.setting_remember_room)
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                    stringResource(Res.string.setting_remember_room_hint),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Switch(checked = rememberRoom, onCheckedChange = settings::setRememberRoom)
+                    )
+
+                    if (!failureText.isNullOrBlank()) {
+                        InlineMessage(
+                                AppIcons.Warning,
+                                failureText,
+                                isError = true,
+                                modifier = Modifier.padding(top = 12.dp),
+                        )
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(Res.string.settings_done), fontWeight = FontWeight.SemiBold)
+                Button(
+                        onClick = model::connect,
+                        enabled = !connecting && roomCode.isNotBlank(),
+                        shape = MaterialTheme.shapes.small,
+                ) {
+                    if (connecting) {
+                        CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Spacer(Modifier.width(9.dp))
+                        Text(stringResource(Res.string.connecting))
+                    } else {
+                        Text(stringResource(Res.string.enter_room), fontWeight = FontWeight.SemiBold)
+                    }
                 }
             },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
             shape = MaterialTheme.shapes.large,
     )
 }
 
-private fun themeLabel(mode: ThemeMode): StringResource =
-        when (mode) {
-            ThemeMode.System -> Res.string.theme_system
-            ThemeMode.Light -> Res.string.theme_light
-            ThemeMode.Dark -> Res.string.theme_dark
-        }
-
-private fun languageLabel(language: AppLanguage): StringResource =
-        when (language) {
-            AppLanguage.System -> Res.string.language_system
-            AppLanguage.Chinese -> Res.string.language_chinese
-            AppLanguage.English -> Res.string.language_english
-        }
-
-@Composable
-private fun <T> ChoiceSection(
-        label: StringResource,
-        options: List<T>,
-        selected: T,
-        labels: List<String>,
-        onSelect: (T) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Column {
-        SectionLabel(label)
-        Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            options.forEachIndexed { index, option ->
-                val active = option == selected
-                TextButton(
-                        onClick = { onSelect(option) },
-                        modifier = Modifier.weight(1f).height(38.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp),
-                        shape = MaterialTheme.shapes.small,
-                        colors =
-                                ButtonDefaults.textButtonColors(
-                                        containerColor =
-                                                if (active) scheme.primary.copy(alpha = 0.16f) else Color.Transparent,
-                                        contentColor = if (active) scheme.primary else scheme.onSurfaceVariant,
-                                ),
-                ) {
-                    Text(
-                            labels[index],
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                }
-            }
-        }
-    }
-}

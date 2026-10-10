@@ -2,6 +2,8 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.InMemoryClipStore
 import platform.UIKit.UIPasteboard
 
@@ -13,6 +15,12 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     opener = UnavailableFileOpener,
     store = remember { InMemoryClipStore() },
 )
+
+@Composable
+internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel {
+    val scope = rememberCoroutineScope()
+    return remember(platform, settings) { AppModel(scope, platform, settings) }
+}
 
 private object IosClipboard : PlatformClipboard {
     // iOS 16+ 后台读剪贴板会触发权限提示并返回空，自动同步不可靠 → 交给用户点按钮发送。

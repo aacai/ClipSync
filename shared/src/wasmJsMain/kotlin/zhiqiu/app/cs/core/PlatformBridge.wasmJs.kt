@@ -39,6 +39,8 @@ internal actual fun installId(): String {
 
 internal actual fun deviceName(): String = "Web"
 
+internal actual val platformSupportsResidentSync: Boolean = false
+
 internal actual fun platformSettings(): Settings = StorageSettings()
 
 internal actual val appLanguageSupport: AppLanguageSupport
