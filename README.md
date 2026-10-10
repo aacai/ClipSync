@@ -12,15 +12,16 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 - **端到端加密**：AES-256-GCM，密钥由 `PBKDF2-SHA256(210k 迭代)` 从房间码+密码派生；Broker 只能见到密文
 - **文本剪贴板**：收到即写入本机剪贴板；本机复制自动广播（带自回环抑制）
 - **文件剪贴板**（≤50MB）：本地加密后上传到临时托管，只广播加密元信息；接收端下载→sha256 校验→解密→落缓存
-- **历史列表**（CopyQ 风格）：搜索（支持正则 / 区分大小写）/ 置顶 / 复制 / 下载 / 打开 / 删除 / 清空，文本与文件混排
+- **历史列表**（CopyQ 风格）：搜索（支持正则 / 区分大小写）/ 置顶 / 复制 / 下载 / 打开 / 删除 / 清空，文本与文件混排；条目不固定行高，正文整段默认就能看完（只有极端长的内容才截断，剩余看「查看详情」）
 - **条目编辑**：F2 改文本、备注（笔记）、Ctrl+Shift+↑↓ 重排、Ctrl+D 副本、详情、12 种文本变换（去空白 / 排序 / 去重 / 大小写 / 拼接 / URL / Base64）——作用于文本条目
+- **排序落点**：行内「更多」菜单里有 向上/向下、移到最顶部/最底部、以及「移动到指定位置」弹窗（数字输入 + 范围校验 + 确定/取消）。位次只重排被跨过的那几条，置顶条目只能在置顶区内移动，普通条目越不过置顶条目
 - **多选批量**：Ctrl+A 全选、行首勾选、Shift+↑↓ 扩展；批量复制 / 置顶 / 导出 JSON / 删除
 - **删除可撤销**：Ctrl+Z 或工具栏撤销恢复整批，并自动重下刚删掉的附件；编辑历史不会被撤销覆盖
 - **键盘操作**：↑↓ 光标、Shift+↑↓ 扩展多选、Ctrl+Shift+↑↓ 重排、Enter 复制/打开、F2 编辑、Del 删除、Home/End 首尾、Esc 退出多选/清空搜索；Ctrl/Cmd 组合键 F 搜索、C 复制、N 新建、A 全选、Z 撤销、D 副本
 - **毛玻璃界面**：Haze 2 实时背景模糊（顶部工具条 + 底部多选条浮在列表上），自适应明暗主题
 - **应用内设置**：独立的设置页（navigation-compose 类型安全路由 + M3 转场），主题（跟随系统 / 浅色 / 深色）+ 语言（跟随系统 / 简体中文 / English）+ 房间/剪贴板开关，用 multiplatform-settings 落在各平台自己的存储里
 - **Android 后台常驻**（默认关，进房后在设置里手动开）：同步挂在 `specialUse` 前台服务上，进程不被系统冻结/回收，切到后台也保持房间连接、继续收内容；常驻通知是 `IMPORTANCE_LOW` 静默常驻条（锁屏隐藏，带「停止同步」），退出房间或关掉开关即停。剪贴板监听改用 `OnPrimaryClipChangedListener` 事件回调，不再定时轮询
-- **多语言界面**：文案走 Compose Resources（中/英，171 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
+- **多语言界面**：文案走 Compose Resources（中/英，180 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
 - **M3 动效**：统一 motion token（`ui/Motion.kt`），列表项 `animateItem` 位移、空态↔列表 fade-through、主题切换颜色交叉淡入、多选条底部滑入；提示用自定义 Toast 胶囊（复用 feedback 流，支持「撤销」动作，不用 Snackbar）
 - **图标提示**：纯图标按钮 / 开关全部包一层 M3 `TooltipBox`（`ui/Tip.kt`），鼠标悬停出中文说明，靠上/靠边自动翻转，网页端同样可用
 - **网页端中文字体**：wasm 上 Skia 拿不到系统字体，`wasmJsMain/composeResources/font/noto_sans_sc.otf` 自带一份 subset 后的 Noto Sans SC（SIL OFL 1.1，只保留 ASCII + CJK 常用区，5MB 不进原生包），避免首屏中文变成方块
@@ -72,12 +73,39 @@ mqtt.password=<MQTT 密码>
 ./gradlew :webApp:wasmJsBrowserDevelopmentRun
 ```
 
+### 3. 打包发布
+
+推 `v*` tag 触发 `.github/workflows/build.yml` 全量构建，并把所有产物汇总成一个 GitHub Release：
+
+```bash
+git tag -a v0.0.1 -m "ClipSync v0.0.1" && git push origin v0.0.1
+```
+
+| 产物 | 说明 |
+| --- | --- |
+| `ClipSync-<版本>-release.apk` | Android 安装包（配了 keystore Secrets 即正式签名） |
+| `ClipSync-<版本>-arm64.dmg` | macOS（Apple Silicon；Intel 经 Rosetta 运行），装完是 `/Applications/ClipSync.app` |
+| `ClipSync-<版本>-x64.msi` | Windows |
+| `ClipSync-<版本>-x64.deb` / `ClipSync-<版本>-arm64.deb` | Linux，`dpkg -i` 安装（deb 内部包名是小写的 `clipsync`，Debian 不允许大写） |
+| `web.zip` | WasmJS 静态站，解压后直接托管 |
+
+文件名里的版本号取自 `desktopApp` 的 `packageVersion` / `androidApp` 的 `versionName`。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS { }` / `windows { }` 里单独写死 `packageVersion = "1.0.0"`（deb 和 APK 仍是 0.0.1）；CI 会把所有下载文件按 0.0.1 重命名，本地直接跑 `packageDmg` 则会看到 `ClipSync-1.0.0.dmg`。
+
+在线版：<https://aacai.github.io/ClipSync/>（推 `master` 时只构建 Web 并部署 Pages）。
+
+**macOS 首次打开被拦**：没有 Apple 开发者签名与公证，Gatekeeper 会报「无法验证开发者 / 已损坏」。把 app 拖进「应用程序」后，用一条命令去掉隔离属性：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/ClipSync.app"
+```
+
+`-d` 只删指定的那一个属性，`-r` 递归进 `.app` 包内部；`xattr -c "/Applications/ClipSync.app"` 则会清掉全部扩展属性。app 名 = `nativeDistributions.packageName` + `.app`，改包名时这条命令要跟着换。右键图标 → 打开 也能放行，但每个版本都要点一次。
+
 ## 测试
 
 ```bash
-./gradlew :shared:jvmTest          # 单测：加解密黄金向量、文件校验、历史仓库、文本变换（45 项）
-./gradlew :desktopApp:smoke -Proom=ROOM1      # 文本端到端（需可达 broker）
-./gradlew :desktopApp:fileSmoke -Proom=ROOM2  # 文件端到端（需可达 broker + 托管站点）
+./gradlew :shared:jvmTest          # 单测：加解密黄金向量、文件校验、历史仓库、文本变换（51 项）
+./gradlew :androidApp:lintDebug    # Android lint
 ```
 
 黄金向量由 WebCrypto（Node）生成，保证桌面/Android 与 Web 派生出逐字节一致的房间密钥。

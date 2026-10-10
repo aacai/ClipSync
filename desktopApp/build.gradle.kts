@@ -21,8 +21,14 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "zhiqiu.app.cs"
-            packageVersion = "1.0.0"
+            // --name：ClipSync.app / ClipSync-<版本>.dmg / .msi 的文件名都跟着它
+            packageName = "ClipSync"
+            packageVersion = "0.0.1"
+            // deb 的 Package: 字段必须全小写，单独给一个合法名
+            linux { packageName = "clipsync" }
+            // jpackage 不让 dmg/msi 的主版本为 0，这两个内部版本号只能从 1 起；发布文件名仍按 0.0.1 打
+            macOS { packageVersion = "1.0.0" }
+            windows { packageVersion = "1.0.0" }
         }
     }
 }

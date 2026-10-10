@@ -80,6 +80,13 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :androidApp:assembleRelease --stacktrace
 
+      - name: Rename Android artifact
+        run: |
+          VER=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' androidApp/build.gradle.kts | head -1)
+          cd androidApp/build/outputs/apk/release
+          for f in *.apk; do mv "$f" "ClipSync-$VER-release.apk"; done
+          ls -1
+
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -133,14 +140,16 @@ jobs:
       - name: Build desktop package
         run: ./gradlew :desktopApp:${{ matrix.task }} --stacktrace
 
-      - name: Add arch suffix to package filenames
+      - name: Rename packages to ClipSync-<version>-<arch>
         run: |
+          VER=$(sed -nE 's/^[[:space:]]*packageVersion = "([^"]+)".*/\1/p' desktopApp/build.gradle.kts | head -1)
           cd desktopApp/build/compose/binaries/main
           for ext in deb msi dmg; do
             find . -type f -name "*.$ext" | while read -r f; do
-              mv "$f" "${f%.$ext}-${{ matrix.arch }}.$ext"
+              mv "$f" "$(dirname "$f")/ClipSync-$VER-${{ matrix.arch }}.$ext"
             done
           done
+          find . -type f \( -name "*.deb" -o -name "*.msi" -o -name "*.dmg" \)
 
       - name: Upload Desktop artifacts
         uses: actions/upload-artifact@v4
@@ -181,12 +190,14 @@ jobs:
       - name: Build desktop package
         run: ./gradlew :desktopApp:packageDeb --stacktrace
 
-      - name: Add arch suffix to package filenames
+      - name: Rename packages to ClipSync-<version>-arm64
         run: |
+          VER=$(sed -nE 's/^[[:space:]]*packageVersion = "([^"]+)".*/\1/p' desktopApp/build.gradle.kts | head -1)
           cd desktopApp/build/compose/binaries/main
           find . -type f -name "*.deb" | while read -r f; do
-            mv "$f" "${f%.deb}-arm64.deb"
+            mv "$f" "$(dirname "$f")/ClipSync-$VER-arm64.deb"
           done
+          find . -type f -name "*.deb"
 
       - name: Upload Desktop ARM artifacts
         uses: actions/upload-artifact@v4
