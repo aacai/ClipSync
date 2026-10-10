@@ -19,7 +19,7 @@
     <string name="cd_devices">Devices in room</string>
     <string name="cd_leave">Leave room</string>
 
-    <string name="banner_readonly">You left the room. Read-only mode: search, copy and clean up local history</string>
+    <string name="banner_offline">Offline browsing: only this device's history — search, copy and clean up all work</string>
     <string name="banner_disconnected">Connection to room %1$s was lost</string>
     <string name="reconnect">Reconnect</string>
 

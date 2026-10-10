@@ -335,13 +335,15 @@ internal fun RowAction(
                     animationSpec = tween(M3.SHORT_4, easing = M3.STANDARD),
                     label = "actionInk",
             )
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(33.dp)) {
-        Icon(
-                icon,
-                contentDescription = description,
-                tint = ink,
-                modifier = Modifier.size(18.dp),
-        )
+    Tip(description) {
+        IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(33.dp)) {
+            Icon(
+                    icon,
+                    contentDescription = description,
+                    tint = ink,
+                    modifier = Modifier.size(18.dp),
+            )
+        }
     }
 }
 

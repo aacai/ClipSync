@@ -511,7 +511,7 @@ private fun Banners(
             InlineMessage(
                     AppIcons.Warning,
                     if (roomCode == null) {
-                        stringResource(Res.string.banner_readonly)
+                        stringResource(Res.string.banner_offline)
                     } else {
                         stringResource(Res.string.banner_disconnected, roomCode)
                     },
@@ -607,14 +607,18 @@ private fun Header(
             }
         }
         if (online) {
-            Icon(
-                    AppIcons.Devices,
-                    contentDescription = stringResource(Res.string.cd_devices),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(17.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text("${deviceNames.size}", style = MaterialTheme.typography.labelMedium)
+            Tip(stringResource(Res.string.cd_devices)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                            AppIcons.Devices,
+                            contentDescription = stringResource(Res.string.cd_devices),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("${deviceNames.size}", style = MaterialTheme.typography.labelMedium)
+                }
+            }
             Spacer(Modifier.width(6.dp))
         }
         RowAction(AppIcons.Settings, stringResource(Res.string.cd_settings), onClick = onSettings)
@@ -728,16 +732,18 @@ private fun ToggleChip(description: StringResource, label: String, active: Boole
     )
     val ink by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant, spec, label = "chipInk")
     val cd = stringResource(description)
-    Box(
-            modifier =
-                    Modifier.size(width = 30.dp, height = 26.dp)
-                            .background(fill, MaterialTheme.shapes.extraSmall)
-                            .border(1.dp, edge, MaterialTheme.shapes.extraSmall)
-                            .semantics { contentDescription = cd }
-                            .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = ink)
+    Tip(cd) {
+        Box(
+                modifier =
+                        Modifier.size(width = 30.dp, height = 26.dp)
+                                .background(fill, MaterialTheme.shapes.extraSmall)
+                                .border(1.dp, edge, MaterialTheme.shapes.extraSmall)
+                                .semantics { contentDescription = cd }
+                                .clickable(onClick = onClick),
+                contentAlignment = Alignment.Center,
+        ) {
+            Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = ink)
+        }
     }
 }
 

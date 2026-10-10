@@ -19,7 +19,7 @@
     <string name="cd_devices">同屋设备</string>
     <string name="cd_leave">离开房间</string>
 
-    <string name="banner_readonly">已退出房间，现在是只读模式：可搜索、复制、清理本机历史</string>
+    <string name="banner_offline">离线浏览：这里只有本机历史，搜索、复制、清理都可用</string>
     <string name="banner_disconnected">与房间 %1$s 的连接已断开</string>
     <string name="reconnect">重连</string>
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -97,6 +98,7 @@ fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () ->
         MaterialTheme(
                 colorScheme = if (dark) DarkColors else LightColors,
                 shapes = AppShapes,
+                typography = Typography(fontFamily = appFontFamily()),
                 content = content,
         )
     }

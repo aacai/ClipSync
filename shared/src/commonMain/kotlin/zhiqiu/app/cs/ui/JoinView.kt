@@ -87,12 +87,14 @@ internal fun JoinView(model: AppModel, settings: AppSettings, onBrowseOffline: (
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(onClick = { settingsOpen = true }) {
-                            Icon(
-                                    AppIcons.Settings,
-                                    contentDescription = stringResource(Res.string.cd_settings),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Tip(stringResource(Res.string.cd_settings)) {
+                            IconButton(onClick = { settingsOpen = true }) {
+                                Icon(
+                                        AppIcons.Settings,
+                                        contentDescription = stringResource(Res.string.cd_settings),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
 
@@ -113,11 +115,13 @@ internal fun JoinView(model: AppModel, settings: AppSettings, onBrowseOffline: (
                                 shape = MaterialTheme.shapes.small,
                                 modifier = Modifier.weight(1f).focusRequester(codeFocus),
                         )
-                        IconButton(onClick = model::regenerateRoomCode, enabled = !connecting) {
-                            Icon(
-                                    AppIcons.Refresh,
-                                    contentDescription = stringResource(Res.string.cd_random_room),
-                            )
+                        Tip(stringResource(Res.string.cd_random_room)) {
+                            IconButton(onClick = model::regenerateRoomCode, enabled = !connecting) {
+                                Icon(
+                                        AppIcons.Refresh,
+                                        contentDescription = stringResource(Res.string.cd_random_room),
+                                )
+                            }
                         }
                     }
                     Text(
