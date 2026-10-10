@@ -302,12 +302,12 @@ jobs:
           {
             echo "# ClipSync ${GITHUB_REF_NAME} 发布包"
             echo
-            find artifacts -type f | sort | while read -r f; do
+            find artifacts -type f -not -path 'artifacts/web/*' | sort | while read -r f; do
               NAME=$(basename "$f")
               case "$NAME" in
-                *.apk) desc="Android 安装包（已签名，可直接安装）" ;;
-                *-arm64.dmg|*-x64.dmg|*.dmg) desc="macOS 安装包（arm64，拖入应用程序即可）" ;;
-                *-arm64.msi|*-x64.msi|*.msi) desc="Windows 安装包（MSI）" ;;
+                *.apk) desc="Android 安装包（正式签名，可直接安装）" ;;
+                *.dmg) desc="macOS 安装包（arm64，拖入「应用程序」；首次打开被 Gatekeeper 拦时执行 xattr -dr com.apple.quarantine \"/Applications/ClipSync.app\"）" ;;
+                *.msi) desc="Windows 安装包（MSI）" ;;
                 *-x64.deb) desc="Linux 安装包（x64，dpkg -i 安装）" ;;
                 *-arm64.deb) desc="Linux 安装包（arm64，dpkg -i 安装）" ;;
                 *) desc="其他产物" ;;
