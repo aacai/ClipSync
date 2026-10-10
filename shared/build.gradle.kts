@@ -36,7 +36,7 @@ val brokerProps = Properties().apply {
 }
 fun brokerProperty(key: String): String {
     val envKey = key.replace("mqtt.", "MQTT_").uppercase()
-    val raw = System.getenv(envKey)
+    val raw = System.getenv(envKey)?.takeIf { it.isNotBlank() }
         ?: brokerProps.getProperty(key)
         ?: brokerDefaults.getValue(key)
     return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")

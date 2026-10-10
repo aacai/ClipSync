@@ -42,6 +42,9 @@ jobs:
   android:
     if: startsWith(github.ref, 'refs/tags/') || inputs.build_android
     runs-on: ubuntu-latest
+    env:
+      MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+      MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -105,6 +108,9 @@ jobs:
             arch: arm64
             task: packageDmg
     runs-on: ${{ matrix.os }}
+    env:
+      MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+      MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -151,6 +157,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || inputs.build_desktop
     continue-on-error: true
     runs-on: ubuntu-24.04-arm
+    env:
+      MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+      MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -192,6 +201,9 @@ jobs:
   web:
     if: github.event_name == 'push' || inputs.build_web
     runs-on: ubuntu-latest
+    env:
+      MQTT_USERNAME: ${{ secrets.MQTT_USERNAME }}
+      MQTT_PASSWORD: ${{ secrets.MQTT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
