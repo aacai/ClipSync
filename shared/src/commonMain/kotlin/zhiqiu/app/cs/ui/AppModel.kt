@@ -404,6 +404,12 @@ class AppModel(
         _info.value = null
     }
 
+    /** 只清掉这一条，避免迟到的定时器把刚弹出的下一条一起关掉。 */
+    fun clearFeedback(feedback: Feedback) {
+        if (_failure.value == feedback) _failure.value = null
+        if (_info.value == feedback) _info.value = null
+    }
+
     private fun publish(text: String) {
         scope.launch {
             runCatching { engine.publishText(text) }

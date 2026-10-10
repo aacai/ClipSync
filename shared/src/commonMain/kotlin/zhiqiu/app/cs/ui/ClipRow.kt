@@ -1,5 +1,12 @@
 package zhiqiu.app.cs.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,6 +70,7 @@ internal fun ClipRow(
         onNote: () -> Unit,
         onDetail: () -> Unit,
         onTransform: () -> Unit,
+        modifier: Modifier = Modifier,
 ) {
     val isFile = item.kind == ClipRepository.KIND_FILE
     val file = item.file
@@ -78,19 +86,43 @@ internal fun ClipRow(
                 else -> stringResource(Res.string.cd_copy_text)
             }
 
+    val colorSpec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
+    val background by animateColorAsState(rowBackground(cursor, picked), colorSpec, label = "rowBg")
+    val edge by animateColorAsState(rowBorder(cursor, picked), colorSpec, label = "rowEdge")
+    val badge by
+            animateColorAsState(
+                    if (item.pinned) {
+                        if (isAppDarkTheme()) PinAmberDark else PinAmber
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    tween(M3.MEDIUM_1, easing = M3.STANDARD),
+                    label = "rowBadge",
+            )
+
     Surface(
-            color = rowBackground(cursor, picked),
-            border = BorderStroke(1.dp, rowBorder(cursor, picked)),
+            color = background,
+            border = BorderStroke(1.dp, edge),
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 3.dp),
+            modifier = modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 3.dp),
     ) {
         Row(
                 modifier = Modifier.clickable(onClick = onActivate).padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (selectionActive) {
-                PickBox(picked = picked, onToggle = onTogglePick)
-                Spacer(Modifier.width(10.dp))
+            AnimatedVisibility(
+                    visible = selectionActive,
+                    enter =
+                            fadeIn(tween(M3.SHORT_4, easing = M3.EMPHASIZED_IN)) +
+                                    expandHorizontally(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)),
+                    exit =
+                            fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
+                                    shrinkHorizontally(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    PickBox(picked = picked, onToggle = onTogglePick)
+                    Spacer(Modifier.width(10.dp))
+                }
             }
 
             IconBadge(
@@ -100,12 +132,7 @@ internal fun ClipRow(
                                 file != null && isImage(file.mime) -> AppIcons.Image
                                 else -> AppIcons.Description
                             },
-                    tint =
-                            if (item.pinned) {
-                                if (isAppDarkTheme()) PinAmberDark else PinAmber
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
+                    tint = badge,
             )
 
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -237,13 +264,16 @@ private fun MenuAction(
 
 @Composable
 private fun PickBox(picked: Boolean, onToggle: () -> Unit) {
+    val fill by
+            animateColorAsState(
+                    if (picked) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    tween(M3.SHORT_4, easing = M3.STANDARD),
+                    label = "pickFill",
+            )
     Box(
             modifier =
                     Modifier.size(20.dp)
-                            .background(
-                                    if (picked) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                    RoundedCornerShape(6.dp),
-                            )
+                            .background(fill, RoundedCornerShape(6.dp))
                             .clickable(onClick = onToggle),
             contentAlignment = Alignment.Center,
     ) {
@@ -293,16 +323,22 @@ internal fun RowAction(
         tinted: Color? = null,
         onClick: () -> Unit,
 ) {
+    val ink by
+            animateColorAsState(
+                    targetValue =
+                            when {
+                                tinted != null -> tinted
+                                active -> if (isAppDarkTheme()) PinAmberDark else PinAmber
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                    animationSpec = tween(M3.SHORT_4, easing = M3.STANDARD),
+                    label = "actionInk",
+            )
     IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(33.dp)) {
         Icon(
                 icon,
                 contentDescription = description,
-                tint =
-                        when {
-                            tinted != null -> tinted
-                            active -> if (isAppDarkTheme()) PinAmberDark else PinAmber
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                tint = ink,
                 modifier = Modifier.size(18.dp),
         )
     }

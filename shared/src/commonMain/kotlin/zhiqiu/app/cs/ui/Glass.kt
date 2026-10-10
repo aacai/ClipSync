@@ -1,5 +1,7 @@
 package zhiqiu.app.cs.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,10 +34,26 @@ val LocalHazeState: ProvidableCompositionLocal<HazeState?> = compositionLocalOf 
 @Composable
 fun BackdropGlow(modifier: Modifier = Modifier) {
     val dark = isAppDarkTheme()
-    val accent = if (dark) Color(0xFF1B3B6B) else Color(0xFFB6DDFA)
-    val accent2 = if (dark) Color(0xFF3A1D5C) else Color(0xFFD8C7F7)
-    val accent3 = if (dark) Color(0xFF0E3A3A) else Color(0xFFC6EBD8)
-    val base = MaterialTheme.colorScheme.background
+    val themeSpec = tween<Color>(M3.MEDIUM_3, easing = M3.STANDARD)
+    val accent by
+            animateColorAsState(
+                    if (dark) Color(0xFF1B3B6B) else Color(0xFFB6DDFA),
+                    themeSpec,
+                    label = "glowAccent",
+            )
+    val accent2 by
+            animateColorAsState(
+                    if (dark) Color(0xFF3A1D5C) else Color(0xFFD8C7F7),
+                    themeSpec,
+                    label = "glowAccent2",
+            )
+    val accent3 by
+            animateColorAsState(
+                    if (dark) Color(0xFF0E3A3A) else Color(0xFFC6EBD8),
+                    themeSpec,
+                    label = "glowAccent3",
+            )
+    val base by animateColorAsState(MaterialTheme.colorScheme.background, themeSpec, label = "glowBase")
     Box(
             modifier =
                     modifier

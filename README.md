@@ -18,6 +18,7 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 - **毛玻璃界面**：Haze 2 实时背景模糊（顶部工具条 + 底部多选条浮在列表上），自适应明暗主题
 - **应用内设置**：主题（跟随系统 / 浅色 / 深色）+ 语言（跟随系统 / 简体中文 / English），用 multiplatform-settings 落在各平台自己的存储里
 - **多语言界面**：文案走 Compose Resources（中/英，149 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
+- **M3 动效**：统一 motion token（`ui/Motion.kt`），列表项 `animateItem` 位移、空态↔列表 fade-through、主题切换颜色交叉淡入、多选条底部滑入；提示用自定义 Toast 胶囊（复用 feedback 流，支持「撤销」动作，不用 Snackbar）
 - **平台剪贴板桥**：桌面 AWT（文件走 CF_HDROP / file URL，图片走位图）、Android（FileProvider content URI）、Web（navigator.clipboard + ClipboardItem）；iOS 仅文本
 
 ## 架构速览

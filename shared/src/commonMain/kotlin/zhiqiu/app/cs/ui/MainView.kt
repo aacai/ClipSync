@@ -1,5 +1,16 @@
 package zhiqiu.app.cs.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -109,6 +120,7 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
 
     val cursorItem = items.getOrNull(selected)
     val targets = if (picking && picked.isNotEmpty()) items.filter { it.id in picked } else listOfNotNull(cursorItem)
+    val barLift by animateDpAsState(if (picking) 78.dp else 0.dp, tween(M3.MEDIUM_2, easing = M3.STANDARD), label = "barLift")
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
     LaunchedEffect(items.size) { if (selected >= items.size) selected = items.size - 1 }
@@ -117,13 +129,6 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
         while (true) {
             delay(30_000)
             now = nowMs()
-        }
-    }
-    LaunchedEffect(info) {
-        if (info != null) {
-            // 带「撤销」动作的提示要留出反应时间，其余照旧 5 秒走开。
-            delay(if (info is Feedback.Deleted) 10_000 else 5_000)
-            model.dismissInfo()
         }
     }
 
@@ -291,63 +296,60 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
 
             Box(modifier = Modifier.widthIn(max = 940.dp).fillMaxSize().padding(horizontal = 6.dp)) {
                 Column(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
-                    if (items.isEmpty()) {
-                        EmptyState(query, barHeight) {
-                            Banners(
-                                    model,
-                                    status,
-                                    roomCode,
-                                    transfer,
-                                    failure,
-                                    info,
-                                    connecting,
-                                    online,
-                                    invalidQuery,
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding =
-                                        PaddingValues(
-                                                top = barHeight + 8.dp,
-                                                bottom = if (picking) 92.dp else 28.dp,
-                                        ),
-                        ) {
-                            item(key = "banners") {
-                                Banners(
-                                        model,
-                                        status,
-                                        roomCode,
-                                        transfer,
-                                        failure,
-                                        info,
-                                        connecting,
-                                        online,
-                                        invalidQuery,
-                                )
+                    AnimatedContent(
+                            targetState = items.isEmpty(),
+                            transitionSpec = {
+                                fadeIn(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)) togetherWith
+                                        fadeOut(tween(M3.SHORT_4, easing = M3.EMPHASIZED_OUT)) +
+                                        scaleOut(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_OUT), targetScale = 0.97f)
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            label = "body",
+                    ) { empty ->
+                        if (empty) {
+                            EmptyState(query, barHeight) {
+                                Banners(model, status, roomCode, transfer, connecting, online, invalidQuery)
                             }
-                            itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
-                                ClipRow(
-                                        model = model,
-                                        item = item,
-                                        now = now,
-                                        cursor = index == selected,
-                                        picked = item.id in picked,
-                                        selectionActive = picking,
-                                        canMoveUp = index > 0,
-                                        canMoveDown = index < items.lastIndex,
-                                        onActivate = {
-                                            selected = index
-                                            if (picking) togglePick(item) else model.activate(item)
-                                        },
-                                        onTogglePick = { togglePick(item) },
-                                        onEdit = { editing = item },
-                                        onNote = { noting = item },
-                                        onDetail = { inspecting = item },
-                                        onTransform = { transforming = item },
-                                )
+                        } else {
+                            LazyColumn(
+                                    state = listState,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentPadding =
+                                            PaddingValues(
+                                                    top = barHeight + 8.dp,
+                                                    bottom = 28.dp + barLift,
+                                            ),
+                            ) {
+                                item(key = "banners") {
+                                    Banners(model, status, roomCode, transfer, connecting, online, invalidQuery)
+                                }
+                                itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+                                    ClipRow(
+                                            model = model,
+                                            item = item,
+                                            now = now,
+                                            cursor = index == selected,
+                                            picked = item.id in picked,
+                                            selectionActive = picking,
+                                            canMoveUp = index > 0,
+                                            canMoveDown = index < items.lastIndex,
+                                            onActivate = {
+                                                selected = index
+                                                if (picking) togglePick(item) else model.activate(item)
+                                            },
+                                            onTogglePick = { togglePick(item) },
+                                            onEdit = { editing = item },
+                                            onNote = { noting = item },
+                                            onDetail = { inspecting = item },
+                                            onTransform = { transforming = item },
+                                            modifier =
+                                                    Modifier.animateItem(
+                                                            placementSpec = tween(M3.MEDIUM_3, easing = M3.EMPHASIZED),
+                                                            fadeInSpec = tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN),
+                                                            fadeOutSpec = tween(M3.SHORT_4, easing = M3.EMPHASIZED_OUT),
+                                                    ),
+                                    )
+                                }
                             }
                         }
                     }
@@ -380,12 +382,22 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                     )
                 }
 
-                if (picking) {
+                AnimatedVisibility(
+                        visible = picking,
+                        enter =
+                                fadeIn(tween(M3.SHORT_4, easing = M3.EMPHASIZED_IN)) +
+                                        slideInVertically(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)) { it },
+                        exit =
+                                fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
+                                        slideOutVertically(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) { it },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
+                        label = "selectionBar",
+                ) {
                     val allPinned = targets.isNotEmpty() && targets.all { it.pinned }
                     SelectionBar(
                             count = picked.size,
                             allPinned = allPinned,
-                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
+                            modifier = Modifier,
                             onCopy = { model.copySelection(targets) },
                             onTogglePin = { model.setPinned(targets, !allPinned) },
                             onExport = { model.exportJson(targets) },
@@ -396,6 +408,8 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                             onClose = { endPicking() },
                     )
                 }
+
+                ToastHost(model, bottom = 22.dp + barLift, modifier = Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -458,8 +472,6 @@ private fun Banners(
         status: ClipSyncEngine.Status,
         roomCode: String?,
         transfer: ClipSyncEngine.TransferProgress?,
-        failure: Feedback?,
-        info: Feedback?,
         connecting: Boolean,
         online: Boolean,
         invalidQuery: Boolean,
@@ -514,26 +526,6 @@ private fun Banners(
         if (invalidQuery) {
             InlineMessage(AppIcons.Warning, stringResource(Res.string.fb_invalid_regex), isError = true)
         }
-
-        failure?.let {
-            InlineMessage(
-                    icon = AppIcons.Warning,
-                    text = feedbackText(it),
-                    isError = true,
-                    action = model::dismissFailure,
-            )
-        }
-        info?.let {
-            val undoable = it is Feedback.Deleted
-            InlineMessage(
-                    icon = if (it.level == Level.Info) AppIcons.Check else AppIcons.Warning,
-                    text = feedbackText(it),
-                    isError = false,
-                    action = if (undoable) model::undoDelete else model::dismissInfo,
-                    actionLabel = if (undoable) stringResource(Res.string.act_undo) else null,
-                    actionIcon = AppIcons.Undo,
-            )
-        }
     }
 }
 
@@ -548,12 +540,17 @@ private fun Header(
 ) {
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
-    val dotColor =
-            when {
-                online -> if (dark) SuccessGreenDark else SuccessGreen
-                status is ClipSyncEngine.Status.Connecting -> if (dark) PinAmberDark else PinAmber
-                else -> MaterialTheme.colorScheme.error
-            }
+    val dotColor by
+            animateColorAsState(
+                    targetValue =
+                            when {
+                                online -> if (dark) SuccessGreenDark else SuccessGreen
+                                status is ClipSyncEngine.Status.Connecting -> if (dark) PinAmberDark else PinAmber
+                                else -> MaterialTheme.colorScheme.error
+                            },
+                    animationSpec = tween(M3.MEDIUM_2, easing = M3.STANDARD),
+                    label = "statusDot",
+            )
 
     Row(
             modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 11.dp, bottom = 5.dp),
@@ -718,29 +715,29 @@ private fun hintFor(model: AppModel, online: Boolean): String =
 @Composable
 private fun ToggleChip(description: StringResource, label: String, active: Boolean, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
+    val spec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
+    val fill by animateColorAsState(
+            if (active) scheme.primary.copy(alpha = 0.18f) else Color.Transparent,
+            spec,
+            label = "chipFill",
+    )
+    val edge by animateColorAsState(
+            if (active) scheme.primary.copy(alpha = 0.6f) else scheme.outlineVariant.copy(alpha = 0.6f),
+            spec,
+            label = "chipEdge",
+    )
+    val ink by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant, spec, label = "chipInk")
     val cd = stringResource(description)
     Box(
             modifier =
                     Modifier.size(width = 30.dp, height = 26.dp)
-                            .background(
-                                    if (active) scheme.primary.copy(alpha = 0.18f) else Color.Transparent,
-                                    MaterialTheme.shapes.extraSmall,
-                            )
-                            .border(
-                                    1.dp,
-                                    if (active) scheme.primary.copy(alpha = 0.6f) else scheme.outlineVariant.copy(alpha = 0.6f),
-                                    MaterialTheme.shapes.extraSmall,
-                            )
+                            .background(fill, MaterialTheme.shapes.extraSmall)
+                            .border(1.dp, edge, MaterialTheme.shapes.extraSmall)
                             .semantics { contentDescription = cd }
                             .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
     ) {
-        Text(
-                label,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                color = if (active) scheme.primary else scheme.onSurfaceVariant,
-        )
+        Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = ink)
     }
 }
 
