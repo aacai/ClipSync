@@ -40,6 +40,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -116,6 +117,7 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var safetyNumber by remember { mutableStateOf<String?>(null) }
 
     val cursorItem = items.getOrNull(selected)
     val targets = if (picking && picked.isNotEmpty()) items.filter { it.id in picked } else listOfNotNull(cursorItem)
@@ -174,11 +176,8 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
         return true
     }
 
-    fun handleKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
-        if (event.type != KeyEventType.KeyDown) return false
-        val modifier = event.isCtrlPressed || event.isMetaPressed
-        val shifting = event.isShiftPressed
-        return when (event.key) {
+    fun handleChord(key: Key, modifier: Boolean, shifting: Boolean): Boolean {
+        return when (key) {
             Key.F -> modifier && !searchFocused && run {
                 searchFocus.requestFocus()
                 true
@@ -282,6 +281,44 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
         }
     }
 
+    fun handleKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean =
+            event.type == KeyEventType.KeyDown &&
+                    handleChord(event.key, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
+
+    fun hasOverlay() =
+            composingNew || confirmClear || settingsOpen || safetyNumber != null ||
+                    editing != null || noting != null || transforming != null || inspecting != null
+
+    fun closeOverlay() {
+        when {
+            safetyNumber != null -> safetyNumber = null
+            settingsOpen -> settingsOpen = false
+            confirmClear -> confirmClear = false
+            editing != null -> editing = null
+            noting != null -> noting = null
+            transforming != null -> transforming = null
+            inspecting != null -> inspecting = null
+            composingNew -> composingNew = false
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val removeChords =
+                installKeyChords { name, mod, shift ->
+                        if (hasOverlay()) {
+                            if (name == "Escape") {
+                                closeOverlay()
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            chordKey(name)?.let { handleChord(it, mod, shift) } == true
+                        }
+                    }
+        onDispose(removeChords)
+    }
+
     CompositionLocalProvider(LocalHazeState provides hazeState) {
         Box(
                 modifier =
@@ -361,7 +398,14 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
                         shape = MaterialTheme.shapes.medium,
                 ) {
-                    Header(model, status, roomCode, devices.map { it.name }, onLeave, onSettings = { settingsOpen = true })
+                    Header(
+                            status,
+                            roomCode,
+                            devices.map { it.name },
+                            onLeave,
+                            onSettings = { settingsOpen = true },
+                            onSafety = { safetyNumber = it },
+                    )
                     Toolbar(
                             model = model,
                             query = query,
@@ -463,6 +507,14 @@ internal fun MainView(model: AppModel, settings: AppSettings, roomCode: String?,
     if (settingsOpen) {
         SettingsDialog(settings, onDismiss = { settingsOpen = false })
     }
+    safetyNumber?.let { number ->
+        SafetyDialog(
+                safety = number,
+                peers = devices,
+                onDismiss = { safetyNumber = null },
+                onCopy = { model.copyToClipboard(number) },
+        )
+    }
 }
 
 @Composable
@@ -539,12 +591,12 @@ private fun Banners(
 
 @Composable
 private fun Header(
-        model: AppModel,
         status: ClipSyncEngine.Status,
         roomCode: String?,
         deviceNames: List<String>,
         onLeave: () -> Unit,
         onSettings: () -> Unit,
+        onSafety: (String) -> Unit,
 ) {
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
@@ -592,27 +644,27 @@ private fun Header(
                 },
             ).joinToString(" · ")
             if (detail.isNotEmpty()) {
-                Tip(
-                        stringResource(Res.string.tip_safety),
-                        modifier = Modifier.clickable(enabled = safety != null) { safety?.let(model::copyToClipboard) },
+                Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                                Modifier.clickable(enabled = safety != null) { safety?.let(onSafety) }
+                                        .padding(top = 3.dp, bottom = 3.dp, end = 8.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (safety != null) {
-                            Icon(
-                                    AppIcons.Shield,
-                                    contentDescription = stringResource(Res.string.cd_copy_safety),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(13.dp),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                        }
-                        Text(
-                                detail,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
+                    if (safety != null) {
+                        Icon(
+                                AppIcons.Shield,
+                                contentDescription = stringResource(Res.string.cd_safety_detail),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(13.dp),
                         )
+                        Spacer(Modifier.width(4.dp))
                     }
+                    Text(
+                            detail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                    )
                 }
             }
         }
@@ -724,6 +776,26 @@ private fun hintFor(model: AppModel, online: Boolean): String =
             !model.supportsClipboardAutoSync -> stringResource(Res.string.hint_manual_send)
             !model.supportsFilePicker -> stringResource(Res.string.hint_no_picker)
             else -> stringResource(Res.string.shortcuts_hint)
+        }
+
+/** 浏览器 keydown 的 key 字段 → Compose 的 Key；Mac 的 delete 键在网页里是 Backspace。 */
+private fun chordKey(name: String): Key? =
+        when (name.lowercase()) {
+            "a" -> Key.A
+            "c" -> Key.C
+            "d" -> Key.D
+            "f" -> Key.F
+            "n" -> Key.N
+            "z" -> Key.Z
+            "f2" -> Key.F2
+            "escape" -> Key.Escape
+            "enter" -> Key.Enter
+            "delete", "backspace" -> Key.Delete
+            "arrowup" -> Key.DirectionUp
+            "arrowdown" -> Key.DirectionDown
+            "home" -> Key.MoveHome
+            "end" -> Key.MoveEnd
+            else -> null
         }
 
 @Composable

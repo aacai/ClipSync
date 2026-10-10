@@ -120,3 +120,5 @@ private class AndroidFileOpener(private val context: Context) : PlatformFileOpen
         }
     }
 }
+
+internal actual fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit = {}

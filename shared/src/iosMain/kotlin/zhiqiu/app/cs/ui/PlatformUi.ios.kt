@@ -24,3 +24,5 @@ private object IosClipboard : PlatformClipboard {
         UIPasteboard.generalPasteboard.string = text
     }
 }
+
+internal actual fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit = {}

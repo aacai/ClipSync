@@ -18,7 +18,16 @@
     <string name="cd_copy_safety">复制安全码</string>
     <string name="cd_devices">同屋设备</string>
     <string name="cd_leave">离开房间</string>
-    <string name="tip_safety">安全码是房间密钥的指纹：两台设备显示一致，才说明房间码和密码都对上了。不一致就会各自连上、却解不开对方的内容</string>
+    <string name="cd_safety_detail">查看安全码说明</string>
+    <string name="safety_title">安全码</string>
+    <string name="safety_point_what">安全码是本房间密钥的指纹：由房间码加上房间密码算出来，只用来当面核对，本身泄露不了内容。</string>
+    <string name="safety_point_verify">两台设备每一段数字都对得上，才说明房间码和密码完全一致，彼此的内容才解得开。</string>
+    <string name="safety_point_mismatch">数字不一致时先别查网络：几乎一定是某一端的房间密码打错了，两边都显示已连接，却收不到对方的剪贴板。</string>
+    <string name="safety_peers">同屋设备</string>
+    <string name="safety_match">一致</string>
+    <string name="safety_diff">不一致</string>
+    <string name="safety_unknown">未知</string>
+    <string name="safety_close">知道了</string>
     <string name="banner_key_mismatch">同屋的 %1$s 安全码与本机不一致：多半是某一端的房间密码打错了，两边收不到彼此的剪贴板</string>
 
     <string name="banner_offline">离线浏览：这里只有本机历史，搜索、复制、清理都可用</string>

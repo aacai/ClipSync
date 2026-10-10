@@ -18,7 +18,16 @@
     <string name="cd_copy_safety">Copy safety number</string>
     <string name="cd_devices">Devices in room</string>
     <string name="cd_leave">Leave room</string>
-    <string name="tip_safety">The safety number fingerprints the room key: both devices have to show the same one, which proves the room code and password match. If they differ you each stay connected but can't read what the other sends</string>
+    <string name="cd_safety_detail">What the safety number means</string>
+    <string name="safety_title">Safety number</string>
+    <string name="safety_point_what">It fingerprints this room's encryption key, derived from the room code plus the room password. It exists so you can compare it out loud — it never exposes your content.</string>
+    <string name="safety_point_verify">Only when every group matches on both devices are you in the same room with the same password, which is what lets each side decrypt the other.</string>
+    <string name="safety_point_mismatch">If the digits differ, don't debug the network first: a room password is almost certainly mistyped. Both ends still report Connected yet receive nothing from each other.</string>
+    <string name="safety_peers">Devices in this room</string>
+    <string name="safety_match">Match</string>
+    <string name="safety_diff">Different</string>
+    <string name="safety_unknown">Unknown</string>
+    <string name="safety_close">Got it</string>
     <string name="banner_key_mismatch">%1$s in this room has a different safety number — a room password is probably mistyped, so neither side receives the other's clips</string>
 
     <string name="banner_offline">Offline browsing: only this device's history — search, copy and clean up all work</string>

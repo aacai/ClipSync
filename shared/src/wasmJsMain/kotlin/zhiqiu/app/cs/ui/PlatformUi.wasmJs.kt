@@ -67,6 +67,37 @@ private suspend fun clipboardWriteBlob(base64: String, mime: String): Unit = sus
     )
 }
 
+internal actual fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit {
+    jsInstallKeyChords(onChord)
+    return { jsUninstallKeyChords() }
+}
+
+/**
+ * 快捷键挂在 document 上：Compose 的 keydown 只在 canvas 拿到 DOM 焦点时才会触发，
+ * 而网页端的焦点几乎总停在隐藏输入框里。defaultPrevented 用来跳过 Compose 已经吃掉的事件，
+ * 避免同一个组合键被处理两次。
+ */
+@JsFun(
+    """(onChord) => {
+        if (window.__csChords) document.removeEventListener('keydown', window.__csChords);
+        window.__csChords = (e) => {
+            if (e.defaultPrevented) return;
+            if (onChord(String(e.key), e.ctrlKey || e.metaKey, e.shiftKey)) e.preventDefault();
+        };
+        document.addEventListener('keydown', window.__csChords);
+    }"""
+)
+private external fun jsInstallKeyChords(onChord: (String, Boolean, Boolean) -> Boolean)
+
+@JsFun(
+    """() => {
+        if (!window.__csChords) return;
+        document.removeEventListener('keydown', window.__csChords);
+        window.__csChords = null;
+    }"""
+)
+private external fun jsUninstallKeyChords()
+
 /**
  * Promise 的等待留在 JS 侧，回调只传字符串：Kotlin/Wasm 里 `kotlin.String` 与 JS string 同源，
  * 这样不必碰 JsPromise 的类型参数，也不会因为非安全上下文（非 https/localhost）抛未捕获异常。

@@ -95,3 +95,11 @@ internal fun rememberPlatformUi(
         installId = installId(),
     )
 }
+
+/**
+ * 监听全局组合键，[onChord] 消费后返回 true。
+ *
+ * 网页端的 DOM 焦点长期停在 Compose 的隐藏输入框上，Compose 只挂在 canvas 上的
+ * keydown 因此收不到任何快捷键，只能在 document 上兜底；原生平台由 Compose 自己派发。
+ */
+internal expect fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit

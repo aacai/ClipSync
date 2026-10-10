@@ -132,3 +132,5 @@ private object DesktopFileOpener : PlatformFileOpener {
         }
     }
 }
+
+internal actual fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit = {}
