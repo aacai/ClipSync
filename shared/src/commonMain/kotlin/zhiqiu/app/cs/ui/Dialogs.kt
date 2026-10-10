@@ -52,6 +52,7 @@ import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
+import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.TextOp
 import zhiqiu.app.cs.files.displayTitle
 import zhiqiu.app.cs.files.humanSize
@@ -218,6 +219,56 @@ private fun opLabel(op: TextOp): String =
                     TextOp.Base64Decode -> Res.string.op_b64_decode
                 }
         )
+
+@Composable
+internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmit: (Int) -> Unit) {
+    var input by remember { mutableStateOf(info.position.toString()) }
+    val target = input.trim().toIntOrNull()
+    val outOfRange = target != null && target !in info.from..info.to
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.move_to_title), fontSize = 17.sp) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it.filter(Char::isDigit).take(6) },
+                            singleLine = true,
+                            isError = outOfRange,
+                            label = { Text(stringResource(Res.string.move_to_position)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                    )
+                    Text(
+                            if (outOfRange) stringResource(Res.string.move_to_invalid, info.from, info.to)
+                            else stringResource(Res.string.move_to_hint, info.from, info.to, info.position),
+                            style = MaterialTheme.typography.labelSmall,
+                            color =
+                                    if (outOfRange) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                            modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                        onClick = { target?.let(onSubmit) },
+                        enabled = target != null && !outOfRange && target != info.position,
+                ) {
+                    Text(stringResource(Res.string.confirm), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            shape = MaterialTheme.shapes.large,
+    )
+}
 
 @Composable
 internal fun DetailDialog(item: ClipItem, now: Long, onDismiss: () -> Unit, onCopy: () -> Unit) {

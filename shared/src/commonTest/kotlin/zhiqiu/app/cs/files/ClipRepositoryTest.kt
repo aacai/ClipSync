@@ -258,6 +258,38 @@ class ClipRepositoryTest {
     }
 
     @Test
+    fun moveTo_repositions_inside_the_pinned_partition() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        listOf("a", "b", "c", "d", "e").forEachIndexed { i, id -> repo.add(text(id, ts = (5 - i) * 100L)) }
+        assertEquals(listOf("a", "b", "c", "d", "e"), repo.sorted().map { it.id })
+
+        assertEquals(4, repo.moveTo("a", 4))
+        assertEquals(listOf("b", "c", "d", "a", "e"), repo.sorted().map { it.id })
+        assertEquals(0L, repo.items.value.first { it.id == "e" }.order) // 没跨过的条目不动位次
+
+        assertEquals(1, repo.moveTo("e", 1))
+        assertEquals(listOf("e", "b", "c", "d", "a"), repo.sorted().map { it.id })
+        assertNull(repo.moveTo("e", 1))
+        assertEquals(5, repo.moveTo("e", 999))
+        assertEquals(listOf("b", "c", "d", "a", "e"), repo.sorted().map { it.id })
+
+        repo.setPinned(listOf("c"), true)
+        assertEquals(listOf("c", "b", "d", "a", "e"), repo.sorted().map { it.id })
+        assertNull(repo.moveTo("c", 5)) // 置顶项只在置顶区内移动
+        assertNull(repo.moveTo("b", 1)) // 普通项也越不过置顶项
+        assertEquals(
+            mapOf(
+                "c" to MoveInfo(1, 1, 1),
+                "b" to MoveInfo(2, 2, 5),
+                "d" to MoveInfo(3, 2, 5),
+                "a" to MoveInfo(4, 2, 5),
+                "e" to MoveInfo(5, 2, 5),
+            ),
+            repo.moveInfos(),
+        )
+    }
+
+    @Test
     fun pinned_wins_over_manual_order() = runTest {
         val repo = ClipRepository(FakeClipStore())
         listOf("a", "b", "c").forEachIndexed { i, id -> repo.add(text(id, ts = (3 - i) * 100L)) }

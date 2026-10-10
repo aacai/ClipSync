@@ -11,12 +11,16 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,7 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -47,12 +52,16 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
+import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.displayTitle
 import zhiqiu.app.cs.files.humanSize
 import zhiqiu.app.cs.files.isImage
 import zhiqiu.app.cs.resources.*
 
 internal val ROW_HORIZONTAL_PADDING = 14.dp
+
+/** 正文整段显示，行高跟着内容走；只给超长内容留个兜底上限。 */
+private const val MAX_BODY_LINES = 24
 
 @Composable
 internal fun ClipRow(
@@ -62,14 +71,16 @@ internal fun ClipRow(
         cursor: Boolean,
         picked: Boolean,
         selectionActive: Boolean,
-        canMoveUp: Boolean,
-        canMoveDown: Boolean,
+        moveInfo: MoveInfo?,
         onActivate: () -> Unit,
         onTogglePick: () -> Unit,
         onEdit: () -> Unit,
         onNote: () -> Unit,
         onDetail: () -> Unit,
         onTransform: () -> Unit,
+        onMoveTop: () -> Unit,
+        onMoveBottom: () -> Unit,
+        onMoveTo: () -> Unit,
         modifier: Modifier = Modifier,
 ) {
     val isFile = item.kind == ClipRepository.KIND_FILE
@@ -78,6 +89,8 @@ internal fun ClipRow(
     val copyAsFile = file != null && cached && model.supportsClipboardFiles
     val copyAsImage = file != null && isImage(file.mime) && model.supportsClipboardImage
     var menu by remember { mutableStateOf(false) }
+    val canUp = moveInfo != null && moveInfo.position > moveInfo.from
+    val canDown = moveInfo != null && moveInfo.position < moveInfo.to
 
     val copyLabel =
             when {
@@ -108,7 +121,7 @@ internal fun ClipRow(
     ) {
         Row(
                 modifier = Modifier.clickable(onClick = onActivate).padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
         ) {
             AnimatedVisibility(
                     visible = selectionActive,
@@ -119,7 +132,7 @@ internal fun ClipRow(
                             fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
                                     shrinkHorizontally(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     PickBox(picked = picked, onToggle = onTogglePick)
                     Spacer(Modifier.width(10.dp))
                 }
@@ -135,18 +148,16 @@ internal fun ClipRow(
                     tint = badge,
             )
 
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(start = 12.dp, top = 5.dp)) {
                 Text(
                         text =
                                 when {
                                     isFile && file != null -> displayTitle(file)
-                                    else -> item.text.lineSequence().first().ifBlank {
-                                        stringResource(Res.string.empty_text)
-                                    }
+                                    else -> item.text.ifBlank { stringResource(Res.string.empty_text) }
                                 },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (cursor) FontWeight.Medium else FontWeight.Normal,
-                        maxLines = 1,
+                        maxLines = MAX_BODY_LINES,
                         overflow = TextOverflow.Ellipsis,
                 )
                 val meta = buildList {
@@ -200,7 +211,10 @@ internal fun ClipRow(
                             expanded = menu,
                             onDismissRequest = { menu = false },
                             shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.width(232.dp),
+                            tonalElevation = 3.dp,
+                            shadowElevation = 8.dp,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                            modifier = Modifier.width(216.dp),
                     ) {
                         MenuAction(AppIcons.Note, Res.string.act_note) {
                             menu = false
@@ -210,22 +224,36 @@ internal fun ClipRow(
                             menu = false
                             onTransform()
                         }
-                        MenuAction(AppIcons.Info, Res.string.act_detail) {
-                            menu = false
-                            onDetail()
-                        }
                         MenuAction(AppIcons.Duplicate, Res.string.act_duplicate) {
                             menu = false
                             model.duplicate(item)
                         }
-                        MenuAction(AppIcons.Up, Res.string.act_move_up, enabled = canMoveUp) {
+                        MenuAction(AppIcons.Info, Res.string.act_detail) {
+                            menu = false
+                            onDetail()
+                        }
+                        MenuDivider()
+                        MenuAction(AppIcons.Up, Res.string.act_move_up, enabled = canUp) {
                             menu = false
                             model.move(item, -1)
                         }
-                        MenuAction(AppIcons.Down, Res.string.act_move_down, enabled = canMoveDown) {
+                        MenuAction(AppIcons.Down, Res.string.act_move_down, enabled = canDown) {
                             menu = false
                             model.move(item, 1)
                         }
+                        MenuAction(AppIcons.Top, Res.string.act_move_top, enabled = canUp) {
+                            menu = false
+                            onMoveTop()
+                        }
+                        MenuAction(AppIcons.Bottom, Res.string.act_move_bottom, enabled = canDown) {
+                            menu = false
+                            onMoveBottom()
+                        }
+                        MenuAction(AppIcons.Position, Res.string.act_move_to, enabled = canUp || canDown) {
+                            menu = false
+                            onMoveTo()
+                        }
+                        MenuDivider()
                         MenuAction(AppIcons.Delete, Res.string.act_delete, tinted = true) {
                             menu = false
                             model.remove(item)
@@ -238,6 +266,15 @@ internal fun ClipRow(
 }
 
 @Composable
+private fun MenuDivider() {
+    HorizontalDivider(
+            thickness = 0.7.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
+    )
+}
+
+@Composable
 private fun MenuAction(
         icon: ImageVector,
         label: StringResource,
@@ -245,21 +282,38 @@ private fun MenuAction(
         tinted: Boolean = false,
         onClick: () -> Unit,
 ) {
-    val color = if (tinted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    DropdownMenuItem(
-            text = { Text(stringResource(label), fontSize = 13.sp, color = color) },
-            leadingIcon = {
-                Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(17.dp),
-                        tint = if (tinted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            },
-            enabled = enabled,
-            onClick = onClick,
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-    )
+    val scheme = MaterialTheme.colorScheme
+    val fade = if (enabled) 1f else 0.38f
+    val ink = (if (tinted) scheme.error else scheme.onSurface).copy(alpha = fade)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val hovered by interaction.collectIsHoveredAsState()
+    val highlight by
+            animateColorAsState(
+                    if (enabled && (pressed || hovered)) scheme.onSurface.copy(alpha = 0.07f) else Color.Transparent,
+                    tween(M3.SHORT_4, easing = M3.STANDARD),
+                    label = "menuHighlight",
+            )
+    Row(
+            modifier =
+                    Modifier.padding(horizontal = 5.dp)
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(highlight)
+                            .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick)
+                            .height(32.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = (if (tinted) scheme.error else scheme.onSurfaceVariant).copy(alpha = fade),
+        )
+        Spacer(Modifier.width(11.dp))
+        Text(stringResource(label), fontSize = 12.5.sp, maxLines = 1, color = ink)
+    }
 }
 
 @Composable

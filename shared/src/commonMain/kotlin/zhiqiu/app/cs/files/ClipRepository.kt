@@ -25,6 +25,9 @@ data class ClipItem(
     val rank: Long get() = if (order != 0L) order else ts
 }
 
+/** 一条条目能落到的可视位置区间（都从 1 起，含两端）；置顶条目只在置顶区内移动。 */
+data class MoveInfo(val position: Int, val from: Int, val to: Int)
+
 class ClipRepository(
     private val store: ClipStore,
     private val maxItems: Int = DEFAULT_MAX_ITEMS,
@@ -96,6 +99,48 @@ class ClipRepository(
         _items.value = next.sortedWith(ordering)
         persist()
         return true
+    }
+
+    /** 把条目移到可视列表的第 [target] 位（1 起），只在同组（置顶/普通）内可落地。返回落点，原地不动则 null。 */
+    suspend fun moveTo(id: String, target: Int): Int? {
+        val view = sorted()
+        val from = view.indexOfFirst { it.id == id }
+        if (from < 0) return null
+        val bounds = boundsOf(view, from)
+        val to = (target - 1).coerceIn(bounds)
+        if (to == from) return null
+        val ranks = (bounds.first..bounds.last).map { view[it].rank }
+        val part = view.subList(bounds.first, bounds.last + 1).toMutableList()
+        part.add(to - bounds.first, part.removeAt(from - bounds.first))
+        val span = minOf(from, to)..maxOf(from, to)
+        val moved = HashMap<String, Long>(span.count())
+        for (slot in span) moved[part[slot - bounds.first].id] = ranks[slot - bounds.first]
+        _items.value = _items.value.map { item -> moved[item.id]?.let { rank -> item.copy(order = rank) } ?: item }
+        persist()
+        return to + 1
+    }
+
+    /** 排序视图里每条条目当前位置与可落点区间。 */
+    fun moveInfos(): Map<String, MoveInfo> {
+        val view = sorted()
+        val out = LinkedHashMap<String, MoveInfo>(view.size)
+        var start = 0
+        while (start < view.size) {
+            var end = start
+            while (end + 1 < view.size && view[end + 1].pinned == view[start].pinned) end++
+            for (i in start..end) out[view[i].id] = MoveInfo(i + 1, start + 1, end + 1)
+            start = end + 1
+        }
+        return out
+    }
+
+    private fun boundsOf(view: List<ClipItem>, index: Int): IntRange {
+        val pinned = view[index].pinned
+        var lo = index
+        while (lo > 0 && view[lo - 1].pinned == pinned) lo--
+        var hi = index
+        while (hi < view.lastIndex && view[hi + 1].pinned == pinned) hi++
+        return lo..hi
     }
 
     suspend fun duplicate(id: String, newId: String, now: Long): Boolean {

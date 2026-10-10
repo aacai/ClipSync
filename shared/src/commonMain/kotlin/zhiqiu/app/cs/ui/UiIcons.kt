@@ -41,6 +41,9 @@ internal object AppIcons {
     val Note: ImageVector = icon("note", EventNotePath)
     val Up: ImageVector = icon("up", ArrowUpwardPath)
     val Down: ImageVector = icon("down", ArrowDownwardPath)
+    val Top: ImageVector = icon("top", VerticalAlignTopPath)
+    val Bottom: ImageVector = icon("bottom", VerticalAlignBottomPath)
+    val Position: ImageVector = icon("position", FormatListNumberedPath)
     val SelectAll: ImageVector = icon("selectAll", DoneAllPath)
     val Duplicate: ImageVector = icon("duplicate", FilterNonePath)
     val Transform: ImageVector = icon("transform", TextFormatPath)
@@ -70,6 +73,13 @@ private const val EventNotePath =
 private const val ArrowUpwardPath = "M4,12l1.41,1.41L11,7.83V20h2V7.83l5.58,5.59L20,12l-8,-8 -8,8z"
 
 private const val ArrowDownwardPath = "M20,12l-1.41,-1.41L13,16.17V4h-2v12.17l-5.58,-5.59L4,12l8,8 8,-8z"
+
+private const val VerticalAlignTopPath = "M8,11h3v10h2V11h3l-4,-4 -4,4zM4,3v2h16V3H4z"
+
+private const val VerticalAlignBottomPath = "M8,13h3V3h2v10h3l-4,4 -4,-4zM4,19v2h16v-2H4z"
+
+private const val FormatListNumberedPath =
+        "M2,17h2v0.5H3v1h1v0.5H2v1h3v-4H2v1zM3,8h1V4H2v1h1v3zM2,11h1.8L2,13.1v0.9h3v-1H3.2L5,10.9V10H2v1zM20,4h-8v2h8V4zM20,12h-8v2h8v-2zM20,20h-8v2h8v-2z"
 
 private const val DoneAllPath =
         "M18,7l-1.41,-1.41 -6.34,6.34 1.41,1.41L18,7zM22.24,5.59L11.66,16.17 7.48,12l-1.41,1.41L11.66,19l12,-12 -1.42,-1.41zM0.41,13.41L4,17l1.41,-1.41L1.83,12 0.41,13.41z"

@@ -59,6 +59,7 @@
     <string name="clear">Clear</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
+    <string name="confirm">OK</string>
     <string name="new_entry_title">New entry</string>
     <string name="new_entry_placeholder">Type or paste the text to sync</string>
     <string name="send">Send</string>
@@ -71,6 +72,10 @@
     <string name="detail_title">Entry details</string>
     <string name="detail_note">Note</string>
     <string name="detail_id">Entry ID</string>
+    <string name="move_to_title">Move to position</string>
+    <string name="move_to_position">Position</string>
+    <string name="move_to_hint">Can move to position %1$d-%2$d, currently #%3$d</string>
+    <string name="move_to_invalid">Enter a position between %1$d and %2$d</string>
 
     <string name="empty_title">No clipboard entries yet\nCopied content shows up here</string>
     <string name="empty_no_match">No entry matches "%1$s"</string>
@@ -101,6 +106,9 @@
     <string name="act_duplicate">Duplicate</string>
     <string name="act_move_up">Move up</string>
     <string name="act_move_down">Move down</string>
+    <string name="act_move_top">Move to the very top</string>
+    <string name="act_move_bottom">Move to the very bottom</string>
+    <string name="act_move_to">Move to position...</string>
     <string name="act_delete">Delete</string>
 
     <string name="op_trim">Trim each line</string>
@@ -144,6 +152,7 @@
     <string name="fb_room_required">Enter a room code first</string>
     <string name="fb_pinned">Pinned %1$d</string>
     <string name="fb_unpinned">Unpinned %1$d</string>
+    <string name="fb_moved">Moved to position #%1$d</string>
     <string name="fb_invalid_regex">That regular expression is invalid, nothing can match it yet</string>
     <string name="fb_downloaded">Downloaded %1$s</string>
     <string name="fb_download_failed">Download failed: %1$s</string>

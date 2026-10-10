@@ -100,6 +100,7 @@ internal fun MainView(
     val transfer by model.transfer.collectAsState()
     val connecting by model.connecting.collectAsState()
     val undoDepth by model.undoDepth.collectAsState()
+    val moveInfos by model.moveInfos.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
 
     val hazeState = rememberHazeState()
@@ -120,6 +121,7 @@ internal fun MainView(
     var noting by remember { mutableStateOf<ClipItem?>(null) }
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
+    var moving by remember { mutableStateOf<ClipItem?>(null) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
     var shareOpen by remember { mutableStateOf(false) }
     var sharePrompted by rememberSaveable { mutableStateOf(false) }
@@ -380,8 +382,7 @@ internal fun MainView(
                                             cursor = index == selected,
                                             picked = item.id in picked,
                                             selectionActive = picking,
-                                            canMoveUp = index > 0,
-                                            canMoveDown = index < items.lastIndex,
+                                            moveInfo = moveInfos[item.id],
                                             onActivate = {
                                                 selected = index
                                                 if (picking) togglePick(item) else model.activate(item)
@@ -391,6 +392,9 @@ internal fun MainView(
                                             onNote = { noting = item },
                                             onDetail = { inspecting = item },
                                             onTransform = { transforming = item },
+                                            onMoveTop = { model.moveToTop(item) },
+                                            onMoveBottom = { model.moveToBottom(item) },
+                                            onMoveTo = { moving = item },
                                             modifier =
                                                     Modifier.animateItem(
                                                             placementSpec = tween(M3.MEDIUM_3, easing = M3.EMPHASIZED),
@@ -517,6 +521,20 @@ internal fun MainView(
                 onDismiss = { inspecting = null },
                 onCopy = { model.copy(item) },
         )
+    }
+    moving?.let { item ->
+        val info = moveInfos[item.id]
+        LaunchedEffect(item, info) { if (info == null) moving = null }
+        if (info != null) {
+            MoveToPositionDialog(
+                    info = info,
+                    onDismiss = { moving = null },
+                    onSubmit = { target ->
+                        model.moveTo(item, target)
+                        moving = null
+                    },
+            )
+        }
     }
     if (shareOpen) {
         ShareDialog(model, onDismiss = { shareOpen = false })

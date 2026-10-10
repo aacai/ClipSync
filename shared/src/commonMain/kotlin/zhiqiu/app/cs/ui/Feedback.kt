@@ -67,6 +67,11 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
+    /** 移动到指定位置后的落点（第 [position] 位）。 */
+    data class Moved(val position: Int) : Feedback() {
+        override val level get() = Level.Info
+    }
+
     data class Exported(val count: Int) : Feedback() {
         override val level get() = Level.Info
     }

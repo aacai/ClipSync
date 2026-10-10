@@ -25,6 +25,7 @@ import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.FileClip
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FileRejectReason
+import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.TextOp
 import zhiqiu.app.cs.files.applyTextOp
 import zhiqiu.app.cs.files.isImage
@@ -96,6 +97,9 @@ class AppModel(
         combine(repository.items, combine(_query, _regex, _caseSensitive) { q, r, c -> Triple(q, r, c) }) { list, (q, r, c) ->
             repository.search(q, r, c, list)
         }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+
+    val moveInfos: StateFlow<Map<String, MoveInfo>> =
+        repository.items.map { repository.moveInfos() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
     private var monitorJob: Job? = null
     private var connectJob: Job? = null
@@ -405,6 +409,17 @@ class AppModel(
     fun move(item: ClipItem, delta: Int) {
         scope.launch { repository.move(item.id, delta) }
     }
+
+    fun moveTo(item: ClipItem, target: Int) {
+        scope.launch {
+            val to = repository.moveTo(item.id, target) ?: return@launch
+            _info.value = Feedback.Moved(to)
+        }
+    }
+
+    fun moveToTop(item: ClipItem) = moveTo(item, 1)
+
+    fun moveToBottom(item: ClipItem) = moveTo(item, Int.MAX_VALUE)
 
     fun duplicate(item: ClipItem) {
         scope.launch {

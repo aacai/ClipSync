@@ -43,6 +43,7 @@ internal fun feedbackText(feedback: Feedback): String =
             is Feedback.Edited -> pluralStringResource(Res.plurals.fb_edit, feedback.count, feedback.count)
             is Feedback.Duplicated ->
                 pluralStringResource(Res.plurals.fb_duplicated, feedback.count, feedback.count)
+            is Feedback.Moved -> stringResource(Res.string.fb_moved, feedback.position)
             is Feedback.Exported -> pluralStringResource(Res.plurals.fb_exported, feedback.count, feedback.count)
             is Feedback.PinChanged ->
                 stringResource(
