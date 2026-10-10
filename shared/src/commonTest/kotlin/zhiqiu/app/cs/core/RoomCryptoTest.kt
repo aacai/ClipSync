@@ -2,6 +2,7 @@ package zhiqiu.app.cs.core
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
@@ -81,5 +82,56 @@ class RoomCryptoTest {
         )
         assertEquals(null, ClipProtocol.parseTopic("cs/v1/$hash/unknown"))
         assertEquals(null, ClipProtocol.parseTopic("other/$hash/clip"))
+    }
+
+    @Test
+    fun restored_key_interoperates_with_derived_key() = runTest {
+        val alice = RoomCrypto.open(roomId, password = "hunter2")
+        val material = alice.keyMaterial()
+        assertEquals(RoomCrypto.KEY_SIZE, material.size)
+        val restored = RoomCrypto.restore(material)
+        material.fill(0)
+        assertEquals(alice.safetyNumber(), restored.safetyNumber())
+        val wire = restored.encrypt("回到房间".encodeToByteArray(), aad)
+        assertEquals("回到房间", alice.decrypt(wire, aad).decodeToString())
+        alice.wipe()
+        restored.wipe()
+    }
+
+    @Test
+    fun keyMaterial_is_a_copy_that_survives_wipe() = runTest {
+        val source = RoomCrypto.open(roomId, password = "hunter2")
+        val expected = source.safetyNumber()
+        val material = source.keyMaterial()
+        source.wipe()
+        val revived = RoomCrypto.restore(material)
+        assertEquals(expected, revived.safetyNumber())
+        revived.wipe()
+    }
+
+    @Test
+    fun restore_rejects_wrong_key_size() {
+        assertFailsWith<IllegalArgumentException> { RoomCrypto.restore(ByteArray(RoomCrypto.KEY_SIZE - 1)) }
+        assertFailsWith<IllegalArgumentException> { RoomCrypto.restore(ByteArray(RoomCrypto.KEY_SIZE + 1)) }
+    }
+
+    @Test
+    fun presence_from_older_client_decodes_without_safety() = runTest {
+        val legacy = """{"v":1,"dev":"d1","name":"Pixel","online":true,"ts":1700000000000}"""
+        val envelope = ClipProtocol.decode<PresenceEnvelope>(legacy)
+        assertEquals("", envelope.sp)
+        assertEquals("d1", envelope.dev)
+        val withSafety = ClipProtocol.encode(envelope.copy(sp = "482"))
+        assertContains(withSafety, "\"sp\":\"482\"")
+        assertEquals("482", ClipProtocol.decode<PresenceEnvelope>(withSafety).sp)
+    }
+
+    @Test
+    fun safety_prefix_is_the_first_group() = runTest {
+        val crypto = RoomCrypto.open(roomId, password = "hunter2")
+        val safety = crypto.safetyNumber()
+        assertEquals(safety.substringBefore(' '), ClipProtocol.safetyPrefix(safety))
+        assertEquals(3, ClipProtocol.safetyPrefix(safety).length)
+        crypto.wipe()
     }
 }

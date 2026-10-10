@@ -18,6 +18,8 @@
     <string name="cd_copy_safety">复制安全码</string>
     <string name="cd_devices">同屋设备</string>
     <string name="cd_leave">离开房间</string>
+    <string name="tip_safety">安全码是房间密钥的指纹：两台设备显示一致，才说明房间码和密码都对上了。不一致就会各自连上、却解不开对方的内容</string>
+    <string name="banner_key_mismatch">同屋的 %1$s 安全码与本机不一致：多半是某一端的房间密码打错了，两边收不到彼此的剪贴板</string>
 
     <string name="banner_offline">离线浏览：这里只有本机历史，搜索、复制、清理都可用</string>
     <string name="banner_disconnected">与房间 %1$s 的连接已断开</string>
@@ -169,4 +171,6 @@
     <string name="language_chinese">简体中文</string>
     <string name="language_english">English</string>
     <string name="language_restart_hint">语言改动会在下次启动应用后生效</string>
+    <string name="setting_remember_room">记住房间</string>
+    <string name="setting_remember_room_hint">重开时自动回到上次的房间。只保存派生出的房间密钥，不保存你输入的密码；离开房间即清除</string>
 </resources>

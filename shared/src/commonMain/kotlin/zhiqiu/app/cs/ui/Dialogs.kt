@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -311,6 +313,7 @@ internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 internal fun SettingsDialog(settings: AppSettings, onDismiss: () -> Unit) {
     val themeMode by settings.themeMode.collectAsState()
     val language by settings.language.collectAsState()
+    val rememberRoom by settings.rememberRoom.collectAsState()
     val languageSupport = appLanguageSupport
 
     AlertDialog(
@@ -340,6 +343,22 @@ internal fun SettingsDialog(settings: AppSettings, onDismiss: () -> Unit) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                    Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            SectionLabel(Res.string.setting_remember_room)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                    stringResource(Res.string.setting_remember_room_hint),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Switch(checked = rememberRoom, onCheckedChange = settings::setRememberRoom)
                     }
                 }
             },

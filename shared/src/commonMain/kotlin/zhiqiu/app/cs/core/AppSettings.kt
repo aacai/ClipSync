@@ -4,6 +4,7 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.io.encoding.Base64
 
 enum class ThemeMode {
     System,
@@ -45,9 +46,45 @@ class AppSettings {
         applyAppLanguage(language)
     }
 
+    private val _rememberRoom = MutableStateFlow(store.getBoolean(KEY_REMEMBER_ROOM, true))
+    val rememberRoom: StateFlow<Boolean> = _rememberRoom.asStateFlow()
+
+    fun setRememberRoom(enabled: Boolean) {
+        _rememberRoom.value = enabled
+        store.putBoolean(KEY_REMEMBER_ROOM, enabled)
+        if (!enabled) clearRoomSession()
+    }
+
+    /**
+     * 上次房间：存 PBKDF2 派生密钥而不是明文密码。密钥是按房间码加盐的，
+     * 存储被翻出来最多丢这一间房，不会牵出用户在别处复用的密码。
+     */
+    fun saveRoomSession(roomCode: String, roomKey: ByteArray) {
+        if (!_rememberRoom.value || roomKey.size != RoomCrypto.KEY_SIZE) return
+        store.putString(KEY_ROOM_CODE, roomCode)
+        store.putString(KEY_ROOM_KEY, Base64.encode(roomKey))
+    }
+
+    fun roomSession(): Pair<String, ByteArray>? {
+        val code = store.getStringOrNull(KEY_ROOM_CODE) ?: return null
+        val key = store.getStringOrNull(KEY_ROOM_KEY)
+            ?.let { runCatching { Base64.decode(it) }.getOrNull() }
+            ?: return null
+        if (code.isBlank() || key.size != RoomCrypto.KEY_SIZE) return null
+        return code to key
+    }
+
+    fun clearRoomSession() {
+        store.remove(KEY_ROOM_CODE)
+        store.remove(KEY_ROOM_KEY)
+    }
+
     private companion object {
         const val KEY_THEME = "ui.themeMode"
         const val KEY_LANGUAGE = "ui.language"
+        const val KEY_REMEMBER_ROOM = "room.remember"
+        const val KEY_ROOM_CODE = "room.code"
+        const val KEY_ROOM_KEY = "room.key"
 
         fun themeOf(name: String?): ThemeMode =
             ThemeMode.entries.firstOrNull { it.name == name } ?: ThemeMode.System

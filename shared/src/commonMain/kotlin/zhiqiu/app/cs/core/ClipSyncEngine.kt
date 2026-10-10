@@ -13,6 +13,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import org.meshtastic.mqtt.ConnectionState
 import org.meshtastic.mqtt.MqttClient
 import org.meshtastic.mqtt.QoS
 import zhiqiu.app.cs.files.ClipItem
@@ -37,6 +38,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     data class Config(
         val roomId: String,
         val password: String = "",
+        /** 非空 = 用上次保存的派生密钥恢复会话，跳过 KDF，此时 [password] 不起作用 */
+        val roomKey: ByteArray? = null,
         val deviceId: String,
         val deviceName: String,
         /** 文件/图片剪贴板的历史仓库（注入以便测试与多端复用） */
@@ -74,6 +77,10 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     private val _devices = MutableStateFlow<List<DevicePresence>>(emptyList())
     val devices: StateFlow<List<DevicePresence>> = _devices.asStateFlow()
 
+    /** 同屋里密钥指纹对不上的设备名：多半是某端房间密码打错，两边解不开彼此的密文。 */
+    private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
+    val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
+
     /** 文件收发进度：上传中 / 下载中 / 失败原因 / null = 空闲 */
     data class TransferProgress(
         val direction: Direction,
@@ -98,7 +105,12 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     private var crypto: RoomCrypto? = null
     private var config: Config? = null
     private var roomHash: String = ""
+    private var safetyPrefix: String = ""
     private var heartbeatJob: Job? = null
+    private var connectionJob: Job? = null
+
+    /** 已派生密钥的副本，供上层持久化；用完请自行清零。 */
+    fun roomKeyMaterial(): ByteArray? = crypto?.keyMaterial()
 
     suspend fun start(config: Config) {
         stop()
@@ -107,13 +119,16 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         _status.value = Status.Connecting
         try {
             val hash = ClipProtocol.roomHash(config.roomId.trim())
-            val roomCrypto = RoomCrypto.open(config.roomId, config.password)
+            val roomCrypto = config.roomKey?.let { RoomCrypto.restore(it) }
+                ?: RoomCrypto.open(config.roomId, config.password)
             roomHash = hash
             crypto = roomCrypto
             this.repository = config.repository
             transferClient = config.transferClient ?: FileTransferClient(createSharedHttpClient())
             fileCrypto = FileCrypto(roomCrypto)
             config.repository?.load()
+            val safety = roomCrypto.safetyNumber()
+            safetyPrefix = ClipProtocol.safetyPrefix(safety)
 
             val mqtt = MqttClient(clientId(config, hash)) {
                 username = MqttSecrets.USERNAME
@@ -121,6 +136,10 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                 transportFactory = mqttTransportFactory()
                 keepAliveSeconds = 45
                 cleanStart = true
+                autoReconnect = true
+                reconnectBaseDelayMs = RECONNECT_BASE_MS
+                reconnectMaxDelayMs = RECONNECT_MAX_MS
+                maxReconnectAttempts = Int.MAX_VALUE
                 will {
                     topic = ClipProtocol.presenceTopic(hash, config.deviceId)
                     payload(ClipProtocol.encode(PresenceEnvelope(
@@ -138,11 +157,11 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             scope.launch {
                 mqtt.messages.collect { message -> onMessage(message.topic, message.payloadAsString()) }
             }
+            watchConnection(mqtt, config, hash)
             // noLocal: the broker does not echo our own publishes back to us (MQTT 5 feature).
             mqtt.subscribe(ClipProtocol.roomFilter(hash), QoS.AT_LEAST_ONCE, noLocal = true)
             publishPresence(online = true)
 
-            val safety = roomCrypto.safetyNumber()
             _status.value = Status.Online(hash, safety)
             startHeartbeat(config, hash)
         } catch (e: Exception) {
@@ -315,6 +334,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     suspend fun stop() {
         heartbeatJob?.cancel()
         heartbeatJob = null
+        connectionJob?.cancel()
+        connectionJob = null
         val current = config
         if (current != null && _status.value is Status.Online) {
             runCatching { publishPresence(current, roomHash, online = false) }
@@ -324,6 +345,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         crypto?.wipe()
         crypto = null
         config = null
+        safetyPrefix = ""
+        _keyMismatch.value = emptyList()
         if (_status.value !is Status.Offline) _status.value = Status.Idle
     }
 
@@ -427,11 +450,15 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                 name = envelope.name,
                 online = true,
                 lastSeen = envelope.ts,
+                safety = envelope.sp,
             )
         } else {
             existing.remove(envelope.dev)
         }
         _devices.value = existing.values.sortedBy { it.name }
+        _keyMismatch.value = _devices.value
+            .filter { it.safety.isNotEmpty() && it.safety != safetyPrefix }
+            .map { it.name }
     }
 
     private suspend fun publishPresence(online: Boolean) {
@@ -441,7 +468,13 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
 
     private suspend fun publishPresence(cfg: Config, hash: String, online: Boolean) {
         val mqtt = client ?: return
-        val envelope = PresenceEnvelope(dev = cfg.deviceId, name = cfg.deviceName, online = online, ts = now())
+        val envelope = PresenceEnvelope(
+            dev = cfg.deviceId,
+            name = cfg.deviceName,
+            online = online,
+            ts = now(),
+            sp = safetyPrefix,
+        )
         runCatching {
             mqtt.publish(
                 topic = ClipProtocol.presenceTopic(hash, cfg.deviceId),
@@ -451,13 +484,38 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         }
     }
 
+    /**
+     * 底层连接状态才是真相：断线重连期间界面要说“连接中”，别继续挂着“已连接”。
+     * 重连成功后补一条 presence，否则同伴要等遗嘱过期才发现我们还在。
+     */
+    private fun watchConnection(mqtt: MqttClient, cfg: Config, hash: String) {
+        connectionJob?.cancel()
+        connectionJob = scope.launch {
+            mqtt.connectionState.collect { state ->
+                when {
+                    state is ConnectionState.Connected && _status.value !is Status.Online -> {
+                        val safety = crypto?.safetyNumber() ?: return@collect
+                        _status.value = Status.Online(hash, safety)
+                        publishPresence(cfg, hash, online = true)
+                    }
+
+                    (state is ConnectionState.Connecting || state is ConnectionState.Reconnecting) &&
+                            _status.value is Status.Online -> _status.value = Status.Connecting
+
+                    state is ConnectionState.Disconnected && state.reason != null &&
+                            config != null -> _status.value = Status.Offline(state.reason?.message)
+                }
+            }
+        }
+    }
+
     private fun startHeartbeat(cfg: Config, hash: String) {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive) {
                 delay(PRESENCE_INTERVAL_MS)
                 if (!isActive) break
-                if (client?.connectionState?.value?.let { it is org.meshtastic.mqtt.ConnectionState.Connected } == true) {
+                if (client?.connectionState?.value is ConnectionState.Connected) {
                     publishPresence(cfg, hash, online = true)
                 }
             }
@@ -468,6 +526,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
 
     companion object {
         private const val PRESENCE_INTERVAL_MS = 25_000L
+        private const val RECONNECT_BASE_MS = 1_000L
+        private const val RECONNECT_MAX_MS = 30_000L
         private val EXPIRY_HOURS = mapOf(
             "1h" to 1L,
             "12h" to 12L,

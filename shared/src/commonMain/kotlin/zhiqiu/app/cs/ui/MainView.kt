@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -523,6 +522,15 @@ private fun Banners(
             )
         }
 
+        val mismatch by model.keyMismatch.collectAsState()
+        if (online && mismatch.isNotEmpty()) {
+            InlineMessage(
+                    AppIcons.Shield,
+                    stringResource(Res.string.banner_key_mismatch, mismatch.joinToString(" · ")),
+                    isError = true,
+            )
+        }
+
         if (invalidQuery) {
             InlineMessage(AppIcons.Warning, stringResource(Res.string.fb_invalid_regex), isError = true)
         }
@@ -584,25 +592,27 @@ private fun Header(
                 },
             ).joinToString(" · ")
             if (detail.isNotEmpty()) {
-                Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                Tip(
+                        stringResource(Res.string.tip_safety),
                         modifier = Modifier.clickable(enabled = safety != null) { safety?.let(model::copyToClipboard) },
                 ) {
-                    if (safety != null) {
-                        Icon(
-                                AppIcons.Shield,
-                                contentDescription = stringResource(Res.string.cd_copy_safety),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(13.dp),
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (safety != null) {
+                            Icon(
+                                    AppIcons.Shield,
+                                    contentDescription = stringResource(Res.string.cd_copy_safety),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(13.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                                detail,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                         )
-                        Spacer(Modifier.width(4.dp))
                     }
-                    Text(
-                            detail,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                    )
                 }
             }
         }
@@ -702,7 +712,7 @@ private fun Toolbar(
                 fontSize = 10.sp,
                 textAlign = TextAlign.End,
                 maxLines = 2,
-                modifier = Modifier.widthIn(max = 340.dp).heightIn(max = 28.dp).padding(end = 6.dp),
+                modifier = Modifier.widthIn(max = 340.dp).padding(end = 6.dp),
         )
     }
 }

@@ -45,11 +45,15 @@ class RoomCrypto private constructor(private val key: ByteArray) {
 
     suspend fun safetyNumber(): String = safetyNumber(key)
 
+    /** 交给调用方持久化的密钥副本；用完请自行 fill(0)。 */
+    fun keyMaterial(): ByteArray = key.copyOf()
+
     fun wipe() {
         key.fill(0)
     }
 
     companion object {
+        const val KEY_SIZE = 32
         const val PBKDF2_ITERATIONS = 210_000
         private const val IV_SIZE = 12
         private const val TAG_SIZE = 16
@@ -69,11 +73,17 @@ class RoomCrypto private constructor(private val key: ByteArray) {
                 .secretDerivation(
                     digest = SHA256,
                     iterations = PBKDF2_ITERATIONS,
-                    outputSize = 32.bytes,
+                    outputSize = KEY_SIZE.bytes,
                     salt = salt,
                 )
                 .deriveSecretToByteArray(input)
             return RoomCrypto(derived)
+        }
+
+        /** 用已保存的派生密钥回到房间：密钥按房间码加盐，泄露了也只影响这一间房，且拿不到明文密码。 */
+        fun restore(roomKey: ByteArray): RoomCrypto {
+            require(roomKey.size == KEY_SIZE) { "room key must be $KEY_SIZE bytes" }
+            return RoomCrypto(roomKey.copyOf())
         }
     }
 }

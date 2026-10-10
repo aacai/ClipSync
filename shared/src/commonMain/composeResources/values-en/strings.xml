@@ -18,6 +18,8 @@
     <string name="cd_copy_safety">Copy safety number</string>
     <string name="cd_devices">Devices in room</string>
     <string name="cd_leave">Leave room</string>
+    <string name="tip_safety">The safety number fingerprints the room key: both devices have to show the same one, which proves the room code and password match. If they differ you each stay connected but can't read what the other sends</string>
+    <string name="banner_key_mismatch">%1$s in this room has a different safety number — a room password is probably mistyped, so neither side receives the other's clips</string>
 
     <string name="banner_offline">Offline browsing: only this device's history — search, copy and clean up all work</string>
     <string name="banner_disconnected">Connection to room %1$s was lost</string>
@@ -174,4 +176,6 @@
     <string name="language_chinese">简体中文</string>
     <string name="language_english">English</string>
     <string name="language_restart_hint">Language changes take effect the next time the app starts</string>
+    <string name="setting_remember_room">Remember this room</string>
+    <string name="setting_remember_room_hint">Rejoin the last room when the app opens again. Only the derived room key is kept, never the password you typed; leaving the room erases it</string>
 </resources>

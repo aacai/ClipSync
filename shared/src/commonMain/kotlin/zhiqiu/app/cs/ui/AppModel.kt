@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
@@ -34,12 +35,14 @@ import kotlin.time.Clock
 class AppModel(
     private val scope: CoroutineScope,
     private val platform: PlatformUi,
+    private val settings: AppSettings,
 ) {
     private val engine = ClipSyncEngine(scope)
     private val repository = ClipRepository(platform.store)
 
     val status: StateFlow<ClipSyncEngine.Status> = engine.status
     val devices: StateFlow<List<DevicePresence>> = engine.devices
+    val keyMismatch: StateFlow<List<String>> = engine.keyMismatch
     val transfer: StateFlow<ClipSyncEngine.TransferProgress?> = engine.transfer
     val undoDepth: StateFlow<Int> = repository.undoDepth
 
@@ -86,6 +89,7 @@ class AppModel(
         }.stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     private var monitorJob: Job? = null
+    private var connectJob: Job? = null
     private var receiveJob: Job? = null
     private var lastPublished: String? = null
     private var lastOwnWrite: String? = null
@@ -94,7 +98,19 @@ class AppModel(
         scope.launch {
             engine.fileIssues.collect { _failure.value = Feedback.FileProblem(it) }
         }
-        scope.launch { repository.load() }
+        scope.launch {
+            repository.load()
+            restoreSavedRoom()
+        }
+    }
+
+    /** 重开就回到上次的房间：房间码 + 派生密钥都在，就不该让用户重新拼一遍。 */
+    private fun restoreSavedRoom() {
+        if (!settings.rememberRoom.value) return
+        if (_joinedRoom.value != null || status.value is ClipSyncEngine.Status.Online) return
+        val (code, key) = settings.roomSession() ?: return
+        _roomCode.value = code
+        connectWith(code, key, retries = RESTORE_RETRIES)
     }
 
     fun updateQuery(value: String) {
@@ -121,34 +137,74 @@ class AppModel(
             return
         }
         if (status.value is ClipSyncEngine.Status.Online || _connecting.value) return
-        _connecting.value = true
-        _failure.value = null
-        scope.launch {
+        connectWith(room, savedKeyFor(room))
+    }
+
+    /** 密码留空但存过这间房的密钥就直接用回去：不然会静默换一把钥匙、进错房间还以为连上了。 */
+    private fun savedKeyFor(room: String): ByteArray? =
+        if (_password.value.isNotEmpty()) null
+        else settings.roomSession()?.takeIf { it.first == room }?.second
+
+    private fun connectWith(room: String, savedKey: ByteArray?, retries: Int = 0) {
+        connectJob?.cancel()
+        connectJob =
+                scope.launch {
+                    _connecting.value = true
+                    _failure.value = null
+                    var left = retries
+                    var backoff = RESTORE_BASE_MS
+                    var lastError = ""
+                    while (true) {
+                        val failure = tryConnect(room, savedKey)
+                        if (failure == null) {
+                            _connecting.value = false
+                            _joinedRoom.value = room
+                            persistRoomSession()
+                            startSync()
+                            return@launch
+                        }
+                        lastError = failure
+                        // 房间码被改过或用户关了开关：别再拿旧房间去试
+                        if (left == 0 || _roomCode.value != room || !settings.rememberRoom.value) break
+                        left--
+                        delay(backoff)
+                        backoff = (backoff * 2).coerceAtMost(RESTORE_MAX_MS)
+                    }
+                    _connecting.value = false
+                    _failure.value = Feedback.ConnectFailed(lastError)
+                }
+    }
+
+    /** 成功返回 null，失败返回平台原始原因交给界面本地化。 */
+    private suspend fun tryConnect(room: String, savedKey: ByteArray?): String? =
             runCatching {
-                engine.start(
-                    ClipSyncEngine.Config(
-                        roomId = room,
-                        password = _password.value,
-                        deviceId = platform.installId,
-                        deviceName = platform.deviceName,
-                        repository = repository,
-                    ),
-                )
-            }.onFailure { e ->
-                _failure.value = Feedback.ConnectFailed(e.message ?: e::class.simpleName.orEmpty())
-            }
-            _connecting.value = false
-            if (status.value is ClipSyncEngine.Status.Online) {
-                _joinedRoom.value = room
-                startSync()
-            }
-        }
+                            engine.start(
+                                    ClipSyncEngine.Config(
+                                            roomId = room,
+                                            password = _password.value,
+                                            roomKey = savedKey,
+                                            deviceId = platform.installId,
+                                            deviceName = platform.deviceName,
+                                            repository = repository,
+                                    ),
+                            )
+                        }
+                        .exceptionOrNull()
+                        ?.let { it.message ?: it::class.simpleName.orEmpty() }
+
+    private fun persistRoomSession() {
+        val room = _joinedRoom.value ?: return
+        val key = engine.roomKeyMaterial() ?: return
+        settings.saveRoomSession(room, key)
+        key.fill(0)
     }
 
     fun disconnect() {
+        connectJob?.cancel()
         monitorJob?.cancel()
         monitorJob = null
         _joinedRoom.value = null
+        settings.clearRoomSession()
         scope.launch { engine.stop() }
     }
 
@@ -459,6 +515,9 @@ class AppModel(
     companion object {
         const val MAX_ROOM_CODE = 24
         private const val CLIPBOARD_POLL_MS = 800L
+        private const val RESTORE_RETRIES = 3
+        private const val RESTORE_BASE_MS = 2_000L
+        private const val RESTORE_MAX_MS = 15_000L
         private const val HEX_DIGITS = "0123456789abcdef"
         /** Crockford base32：去掉易混淆的 I/L/O/U。 */
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"

@@ -31,6 +31,8 @@ data class PresenceEnvelope(
     val name: String,
     val online: Boolean,
     val ts: Long,
+    /** 安全码前缀（密钥指纹）。旧客户端不发，空串=未知；它只用于发现“同屋但密钥不同”。 */
+    val sp: String = "",
 )
 
 data class DevicePresence(
@@ -38,6 +40,7 @@ data class DevicePresence(
     val name: String,
     val online: Boolean,
     val lastSeen: Long,
+    val safety: String = "",
 )
 
 /** Parsed room topic: cs/v1/<roomHash>/<channel>[/<deviceId>]. */
@@ -81,6 +84,9 @@ object ClipProtocol {
     fun syncTopic(roomHash: String): String = "$ROOT/$roomHash/$CH_SYNC"
 
     fun roomFilter(roomHash: String): String = "$ROOT/$roomHash/#"
+
+    /** 安全码的第一组数字：够用来判断“同屋但钥匙不同”，不多泄露。 */
+    fun safetyPrefix(safetyNumber: String): String = safetyNumber.takeWhile { it != ' ' }
 
     /** Parses cs/v1/<roomHash>/<channel>[/<deviceId>]; null when the shape does not match. */
     fun parseTopic(topic: String): RoomTopic? {

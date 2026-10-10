@@ -32,8 +32,8 @@ import zhiqiu.app.cs.ui.rememberPlatformUi
 fun App() {
     val platform = rememberPlatformUi()
     val scope = rememberCoroutineScope()
-    val model = remember(platform) { AppModel(scope, platform) }
     val settings = remember { AppSettings() }
+    val model = remember(platform) { AppModel(scope, platform, settings) }
     val themeMode by settings.themeMode.collectAsState()
     val language by settings.language.collectAsState()
 

@@ -6,8 +6,10 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 ## 特性
 
 - **房间制**：随机 6 位房间码（可自定义）+ 可选密码，加入即同步
+- **记住房间**：重开网页 / App 自动回到上次的房间（设置里可关）。落盘的是 PBKDF2 派生出的房间密钥而不是明文密码——密钥按房间码加盐，存储被翻出来最多丢那一间房，牵不出用户在别处复用的密码；离开房间即清除
+- **断线自愈**：MQTT 层开自动重连（1s→30s 退避），重连后补发 presence；界面按底层真实连接状态显示「连接中 / 已连接」，不会在掉线时继续挂着已连接。启动时若网络还没就绪，恢复房间这条路径会退避重试几次再报错
+- **安全码**：双方界面显示同一组 6 组数字（Safety Number），可口头核对中间人攻击；同屋设备指纹不一致时直接弹警告——这是「两端密码打错 → 各自连上却收不到东西」唯一的发现手段，因为 MQTT 主题只由房间码决定，不含密码
 - **端到端加密**：AES-256-GCM，密钥由 `PBKDF2-SHA256(210k 迭代)` 从房间码+密码派生；Broker 只能见到密文
-- **安全码**：双方界面显示同一组 6 组数字（Safety Number），可口头核对中间人攻击
 - **文本剪贴板**：收到即写入本机剪贴板；本机复制自动广播（带自回环抑制）
 - **文件剪贴板**（≤50MB）：本地加密后上传到临时托管，只广播加密元信息；接收端下载→sha256 校验→解密→落缓存
 - **历史列表**（CopyQ 风格）：搜索（支持正则 / 区分大小写）/ 置顶 / 复制 / 下载 / 打开 / 删除 / 清空，文本与文件混排
@@ -17,7 +19,7 @@ Kotlin Multiplatform + Compose Multiplatform 实现，MQTT + 端到端加密。
 - **键盘操作**：↑↓ 光标、Shift+↑↓ 扩展多选、Ctrl+Shift+↑↓ 重排、Enter 复制/打开、F2 编辑、Del 删除、Home/End 首尾、Esc 退出多选/清空搜索；Ctrl/Cmd 组合键 F 搜索、C 复制、N 新建、A 全选、Z 撤销、D 副本
 - **毛玻璃界面**：Haze 2 实时背景模糊（顶部工具条 + 底部多选条浮在列表上），自适应明暗主题
 - **应用内设置**：主题（跟随系统 / 浅色 / 深色）+ 语言（跟随系统 / 简体中文 / English），用 multiplatform-settings 落在各平台自己的存储里
-- **多语言界面**：文案走 Compose Resources（中/英，149 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
+- **多语言界面**：文案走 Compose Resources（中/英，153 条 key 对齐），语言切换在桌面/网页即时生效，Android 走系统 per-app locale（13+），iOS 下次启动生效
 - **M3 动效**：统一 motion token（`ui/Motion.kt`），列表项 `animateItem` 位移、空态↔列表 fade-through、主题切换颜色交叉淡入、多选条底部滑入；提示用自定义 Toast 胶囊（复用 feedback 流，支持「撤销」动作，不用 Snackbar）
 - **图标提示**：纯图标按钮 / 开关全部包一层 M3 `TooltipBox`（`ui/Tip.kt`），鼠标悬停出中文说明，靠上/靠边自动翻转，网页端同样可用
 - **网页端中文字体**：wasm 上 Skia 拿不到系统字体，`wasmJsMain/composeResources/font/noto_sans_sc.otf` 自带一份 subset 后的 Noto Sans SC（SIL OFL 1.1，只保留 ASCII + CJK 常用区，5MB 不进原生包），避免首屏中文变成方块
