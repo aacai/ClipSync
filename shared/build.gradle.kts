@@ -114,6 +114,7 @@ kotlin {
             implementation(libs.androidx.navigation.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(project(":crypto:crypto-core"))
             implementation(libs.mqtt.client.core)
             implementation(libs.mqtt.client.transport.ws)
             implementation(libs.cryptography.core)
@@ -147,6 +148,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.settings.test)
         }
     }
 }

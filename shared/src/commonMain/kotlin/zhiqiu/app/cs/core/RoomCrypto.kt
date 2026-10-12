@@ -2,13 +2,13 @@
 
 package zhiqiu.app.cs.core
 
-import dev.whyoleg.cryptography.BinarySize.Companion.bytes
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.AES
-import dev.whyoleg.cryptography.algorithms.PBKDF2
-import dev.whyoleg.cryptography.algorithms.SHA256
 import dev.whyoleg.cryptography.random.CryptographyRandom
 import kotlin.io.encoding.Base64
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import zhiqiu.crypto.argon2id
 
 class RoomCrypto private constructor(private val key: ByteArray) {
 
@@ -54,7 +54,14 @@ class RoomCrypto private constructor(private val key: ByteArray) {
 
     companion object {
         const val KEY_SIZE = 32
-        const val PBKDF2_ITERATIONS = 210_000
+
+        /** 存下来的派生密钥属于哪一版 KDF；换版本后旧密钥必须作废，否则两端算不出同一个安全码。 */
+        const val KDF_ID = "argon2id-v1"
+
+        // OWASP 给 Argon2id 的下限档位：纯 Kotlin 在网页端约 1 秒，桌面端约 70 毫秒。
+        private const val ARGON2_T = 2
+        private const val ARGON2_M_KIB = 19_456
+        private const val ARGON2_P = 1
         private const val IV_SIZE = 12
         private const val TAG_SIZE = 16
 
@@ -68,15 +75,10 @@ class RoomCrypto private constructor(private val key: ByteArray) {
             } else {
                 (normalizedRoom + "\u0000" + password).encodeToByteArray()
             }
-            val derived = CryptographyProvider.Default
-                .get(PBKDF2)
-                .secretDerivation(
-                    digest = SHA256,
-                    iterations = PBKDF2_ITERATIONS,
-                    outputSize = KEY_SIZE.bytes,
-                    salt = salt,
-                )
-                .deriveSecretToByteArray(input)
+            val derived =
+                    withContext(Dispatchers.Default) {
+                        argon2id(input, salt, t = ARGON2_T, m = ARGON2_M_KIB, p = ARGON2_P, tagLen = KEY_SIZE)
+                    }
             return RoomCrypto(derived)
         }
 

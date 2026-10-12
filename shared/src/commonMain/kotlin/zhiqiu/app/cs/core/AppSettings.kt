@@ -20,9 +20,12 @@ enum class AppLanguage(val tag: String?) {
 
 internal expect fun platformSettings(): Settings
 
-class AppSettings {
+// 上次房间的落盘键；测试要照着「升级前」的样子伪造，所以不能只藏在类里。
+internal const val KEY_ROOM_CODE = "room.code"
+internal const val KEY_ROOM_KEY = "room.key"
+internal const val KEY_ROOM_KDF = "room.kdf"
 
-    private val store = platformSettings()
+class AppSettings(private val store: Settings = platformSettings()) {
 
     private val _themeMode = MutableStateFlow(themeOf(store.getStringOrNull(KEY_THEME)))
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
@@ -83,21 +86,24 @@ class AppSettings {
     }
 
     /**
-     * 上次房间：存 PBKDF2 派生密钥而不是明文密码。密钥是按房间码加盐的，
+     * 上次房间：存 Argon2id 派生密钥而不是明文密码。密钥是按房间码加盐的，
      * 存储被翻出来最多丢这一间房，不会牵出用户在别处复用的密码。
      */
     fun saveRoomSession(roomCode: String, roomKey: ByteArray) {
         if (!_rememberRoom.value || roomKey.size != RoomCrypto.KEY_SIZE) return
         store.putString(KEY_ROOM_CODE, roomCode)
         store.putString(KEY_ROOM_KEY, Base64.encode(roomKey))
+        store.putString(KEY_ROOM_KDF, RoomCrypto.KDF_ID)
     }
 
-    fun hasRoomSession(): Boolean =
-        _rememberRoom.value &&
-                store.getStringOrNull(KEY_ROOM_CODE) != null &&
-                store.getStringOrNull(KEY_ROOM_KEY) != null
+    fun hasRoomSession(): Boolean = _rememberRoom.value && roomSession() != null
 
     fun roomSession(): Pair<String, ByteArray>? {
+        // KDF 换过版本，旧密钥算不出同一个安全码，留着只会让人以为还连在同一间房。
+        if (store.getString(KEY_ROOM_KDF, "") != RoomCrypto.KDF_ID) {
+            clearRoomSession()
+            return null
+        }
         val code = store.getStringOrNull(KEY_ROOM_CODE) ?: return null
         val key = store.getStringOrNull(KEY_ROOM_KEY)
             ?.let { runCatching { Base64.decode(it) }.getOrNull() }
@@ -109,6 +115,7 @@ class AppSettings {
     fun clearRoomSession() {
         store.remove(KEY_ROOM_CODE)
         store.remove(KEY_ROOM_KEY)
+        store.remove(KEY_ROOM_KDF)
     }
 
     companion object {
@@ -121,8 +128,6 @@ class AppSettings {
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_RESIDENT_SYNC = "sync.resident"
         private const val KEY_NICKNAME = "device.nickname"
-        private const val KEY_ROOM_CODE = "room.code"
-        private const val KEY_ROOM_KEY = "room.key"
 
         private const val MAX_NICKNAME = 24
 

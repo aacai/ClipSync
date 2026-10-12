@@ -6,12 +6,14 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.test.runTest
 
 /**
- * Golden vectors generated with WebCrypto (Node) — the same implementation family the
- * browser build uses. Passing here proves desktop/Android and web derive byte-identical
- * room keys and AES-GCM payloads.
+ * 房间密钥是 Argon2id 派生的，WebCrypto 算不出这一把，所以密钥用钉死的向量守；
+ * 密文向量仍旧由 WebCrypto（Node）生成，用来证明我们的 AES-GCM 和浏览器加解密互通。
  */
 class RoomCryptoTest {
 
@@ -19,8 +21,31 @@ class RoomCryptoTest {
     private val aad = "cs/v1/prefixclip".encodeToByteArray()
     private val expectedRoomHash = "61232506"
     private val expectedWire =
-        "AQIDBAUGBwgJCgsMqX/6mwiZEwOr46w4pKr8lfl8FdKfhnh2UcF+TFWRXWWSHnXM29wVkMQv1B+BuMlLHUs="
+        "AQIDBAUGBwgJCgsMRun4RRMP1HAdGxU8rTS3AW6Lu1BbCHZmcWwF8QXwbuLlaQmfsvfBSPJsNzECFsKzJxg="
     private val expectedPlaintext = "{\"text\":\"hello clipsync\",\"len\":15}"
+
+    private fun ByteArray.toHex(): String =
+        joinToString("") { ((it.toInt() and 0xFF) + 0x100).toString(16).substring(1) }
+
+    @Test
+    fun roomKey_matches_pinned_vectors() = runTest {
+        val empty = RoomCrypto.open(roomId, password = "")
+        assertEquals("93d4209e0e24234aa41373925656009956cf70665afd2d9ce4fd2e2316e52a4c", empty.keyMaterial().toHex())
+        empty.wipe()
+        val withPassword = RoomCrypto.open(roomId, password = "hunter2")
+        assertEquals("4e2a5f0a88f27bacbe50791075e10d6779878281f5b3066cbe62aec8eff52af1", withPassword.keyMaterial().toHex())
+        withPassword.wipe()
+    }
+
+    /** 档位守卫，不是性能基准：把 m/t 提高一个量级会先在这里爆。 */
+    @Test
+    fun roomKey_derivation_stays_in_the_documented_window() = runTest {
+        val started = TimeSource.Monotonic.markNow()
+        val crypto = RoomCrypto.open(roomId, password = "hunter2")
+        val elapsed = started.elapsedNow()
+        crypto.wipe()
+        assertTrue(elapsed < 5L.seconds, "派生花了 $elapsed")
+    }
 
     @Test
     fun roomHash_matches_webcrypto() = runTest {
