@@ -402,16 +402,11 @@ internal fun RowAction(
 }
 
 @Composable
-internal fun IconBadge(
-        icon: ImageVector,
-        modifier: Modifier = Modifier,
-        size: androidx.compose.ui.unit.Dp = 32.dp,
-        tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
+internal fun IconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    val size = 32.dp
     Box(
             modifier =
-                    modifier
-                            .size(size)
+                    Modifier.size(size)
                             .background(
                                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                                     MaterialTheme.shapes.extraSmall,

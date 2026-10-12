@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tagline">Sync clipboards between devices that share one room code</string>
     <string name="room_code">Room code</string>
     <string name="room_code_hint">Enter the same code on another device to link them. Generate a new one for a fresh room.</string>
     <string name="room_password">Room password</string>

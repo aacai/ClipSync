@@ -68,13 +68,13 @@ internal fun clipboardReason(code: String?, detail: String?): String =
 
 @Composable
 internal fun fileIssueText(issue: FileIssue): String {
-    val maxMb = (FileLimits.MAX_FILE_BYTES / 1024 / 1024).toInt()
+    val maxMb = FileLimits.maxMb
     return when (issue) {
         is FileIssue.Rejected ->
             when (issue.reason) {
                 FileRejectReason.TooLarge -> stringResource(Res.string.issue_too_large, maxMb, issue.name)
                 FileRejectReason.Empty -> stringResource(Res.string.issue_empty, issue.name)
-                is FileRejectReason.InvalidName -> stringResource(Res.string.issue_bad_name, issue.name)
+                FileRejectReason.InvalidName -> stringResource(Res.string.issue_bad_name, issue.name)
             }
         is FileIssue.TooLargeIncoming -> stringResource(Res.string.issue_too_large_incoming, maxMb, issue.name)
         is FileIssue.EncryptFailed -> stringResource(Res.string.issue_encrypt, issue.detail.orEmpty())

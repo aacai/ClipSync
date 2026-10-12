@@ -316,16 +316,7 @@ class AppModel(
         }
     }
 
-    fun copyToClipboard(text: String) {
-        scope.launch {
-            runCatching { platform.clipboard.write(text) }
-                .onSuccess {
-                    lastOwnWrite = text
-                    _info.value = Feedback.Copied(CopyTarget.Text)
-                }
-                .onFailure { _failure.value = writeBlocked(it) }
-        }
-    }
+    fun copyToClipboard(text: String) = writeSelection(text, Feedback.Copied(CopyTarget.Text))
 
     /** 条目“复制”：文本进剪贴板；图片按位图进；文件按 file URL / CF_HDROP 进，否则退回下载。 */
     fun copy(item: ClipItem) {
@@ -586,9 +577,9 @@ class AppModel(
         /** Crockford base32：去掉易混淆的 I/L/O/U。 */
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 
-        fun randomRoomCode(len: Int = 6): String {
+        fun randomRoomCode(): String {
             val rnd = CryptographyRandom.Default
-            return buildString(len) { repeat(len) { append(ROOM_ALPHABET[rnd.nextInt(ROOM_ALPHABET.length)]) } }
+            return buildString(6) { repeat(6) { append(ROOM_ALPHABET[rnd.nextInt(ROOM_ALPHABET.length)]) } }
         }
     }
 }

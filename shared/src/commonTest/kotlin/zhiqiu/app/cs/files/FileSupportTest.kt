@@ -16,7 +16,7 @@ class FileSupportTest {
         assertEquals(FileRejectReason.Empty, validateOutgoingFile("a.png", 0, 0))
         assertEquals(FileRejectReason.TooLarge, validateOutgoingFile("a.png", FileLimits.MAX_FILE_BYTES + 1, 1))
         assertNull(validateOutgoingFile("a.png", 1024, 1024))
-        assertEquals(FileLimits.MAX_FILE_BYTES, MAX_FILE_BYTES)
+        assertEquals(50, FileLimits.maxMb)
     }
 
     @Test
@@ -91,7 +91,8 @@ class FileSupportTest {
     @Test
     fun rejected_issue_carries_limit_for_the_ui_to_render() {
         val issue = FileIssue.Rejected(FileRejectReason.TooLarge, "a.png")
-        assertEquals(50, issue.maxMb)
+        assertEquals(FileRejectReason.TooLarge, issue.reason)
+        assertEquals(50, FileLimits.maxMb)
         assertEquals("a.png", issue.name)
     }
 

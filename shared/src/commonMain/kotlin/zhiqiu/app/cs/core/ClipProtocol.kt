@@ -38,8 +38,6 @@ data class PresenceEnvelope(
 data class DevicePresence(
     val id: String,
     val name: String,
-    val online: Boolean,
-    val lastSeen: Long,
     val safety: String = "",
 )
 
@@ -58,10 +56,6 @@ object ClipProtocol {
     const val CH_CLIP = "clip"
     const val CH_PRESENCE = "presence"
     const val CH_SYNC = "sync"
-
-    /** Envelope kinds: a plain text clip, or a file/image whose bytes live on a host. */
-    const val KIND_TEXT = "text"
-    const val KIND_FILE = "file"
 
     val json: Json = Json {
         ignoreUnknownKeys = true

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tagline">同一房间码的设备互相同步剪贴板</string>
     <string name="room_code">房间码</string>
     <string name="room_code_hint">在其他设备上输入同一个房间码即可互联；随机生成适合新开一间。</string>
     <string name="room_password">房间密码</string>

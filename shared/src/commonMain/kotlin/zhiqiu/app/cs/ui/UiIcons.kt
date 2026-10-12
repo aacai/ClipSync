@@ -48,9 +48,7 @@ internal object AppIcons {
     val Duplicate: ImageVector = icon("duplicate", FilterNonePath)
     val Transform: ImageVector = icon("transform", TextFormatPath)
     val More: ImageVector = icon("more", MoreVertPath)
-    val Save: ImageVector = icon("save", SavePath)
     val Export: ImageVector = icon("export", FileUploadPath)
-    val Eye: ImageVector = icon("eye", RemoveRedEyePath)
     val Settings: ImageVector = icon("settings", SettingsPath)
     val ArrowBack: ImageVector = icon("arrowBack", ArrowBackPath)
 }
@@ -95,13 +93,7 @@ private const val TextFormatPath =
 private const val MoreVertPath =
         "M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,16c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"
 
-private const val SavePath =
-        "M17,3H5c-1.11,0 -2,0.9 -2,2v14c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V7l-4,-4zM12,19c-1.66,0 -3,-1.34 -3,-3s1.34,-3 3,-3 3,1.34 3,3 -1.34,3 -3,3zM15,9H5V5h10v4z"
-
 private const val FileUploadPath = "M9,16h6v-6h4l-7,-7 -7,7h4v6zM5,18h14v2H5v-2z"
-
-private const val RemoveRedEyePath =
-        "M12,6c3.79,0 7.17,2.13 8.82,5.5C19.17,14.87 15.79,17 12,17s-7.17,-2.13 -8.82,-5.5C4.83,8.13 8.21,6 12,6zM12,4C7,4 2.73,7.11 1,11.5 2.73,15.89 7,19 12,19s9.27,-3.11 11,-7.5C21.27,7.11 17,4 12,4zM12,9c1.38,0 2.5,1.12 2.5,2.5S13.38,14 12,14s-2.5,-1.12 -2.5,-2.5S10.62,9 12,9zM12,7c-2.48,0 -4.5,2.02 -4.5,4.5S9.52,16 12,16s4.5,-2.02 4.5,-4.5S14.48,7 12,7z"
 
 private const val UndoPath =
         "M12.5,8c-2.65,0 -5.05,0.99 -6.9,2.6L2,9v9h9l-3.62,-3.62c1.39,-1.16 3.16,-1.88 5.12,-1.88 3.95,0 7.29,2.63 8.33,6.26L23.09,14.94C21.88,10.96 17.65,8 12.5,8z"

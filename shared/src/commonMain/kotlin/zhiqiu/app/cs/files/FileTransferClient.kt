@@ -44,7 +44,6 @@ class FileTransferClient(
     suspend fun upload(
         fileName: String,
         bytes: ByteArray,
-        expires: String = DEFAULT_EXPIRES,
         onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> },
     ): String {
         val response = runCatching {
@@ -54,7 +53,7 @@ class FileTransferClient(
                     MultiPartFormDataContent(
                         formData {
                             append("reqtype", "fileupload")
-                            append("time", expires.toLitterboxTime())
+                            append("time", FileLimits.DEFAULT_EXPIRES)
                             append(
                                 "fileToUpload",
                                 bytes,
@@ -116,17 +115,7 @@ class FileTransferClient(
 
     companion object {
         const val DEFAULT_UPLOAD_URL = "https://litterbox.catbox.moe/resources/internals/api.php"
-        const val DEFAULT_EXPIRES = "72h"
     }
-}
-
-/** 把任意有效期描述映射到 Litterbox 支持的档位。 */
-internal fun String.toLitterboxTime(): String = when (lowercase()) {
-    "1h" -> "1h"
-    "12h" -> "12h"
-    "24h" -> "24h"
-    "72h" -> "72h"
-    else -> "72h"
 }
 
 /** 与 Destiny 一致的共享 Ktor 客户端。 */

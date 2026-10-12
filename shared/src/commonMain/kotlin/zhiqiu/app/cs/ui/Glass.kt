@@ -20,7 +20,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.HazeState
@@ -91,46 +90,22 @@ fun BackdropGlow(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun glassStyle(
-        blurRadius: Dp = 28.dp,
-        surfaceAlpha: Float = if (isAppDarkTheme()) 0.5f else 0.62f,
-): HazeBlurStyle {
-    val surface = MaterialTheme.colorScheme.surface
-    return HazeBlurStyle {
-        this.blurRadius(blurRadius)
-        noiseFactor(0.035f)
-        backgroundColor(surface.copy(alpha = surfaceAlpha * 0.55f))
-        colorEffects(listOf(HazeColorEffect.tint(surface.copy(alpha = surfaceAlpha))))
-        fallbackColorEffect(HazeColorEffect.tint(surface.copy(alpha = (surfaceAlpha + 0.35f).coerceAtMost(0.95f))))
-    }
-}
-
-/** 浮动玻璃面板：从最近的 hazeSource 里取像素做真模糊。 */
-@Composable
-fun Modifier.glassSurface(
-        shape: Shape,
-        blurRadius: Dp = 28.dp,
-        surfaceAlpha: Float = if (isAppDarkTheme()) 0.5f else 0.62f,
-        border: Color? = null,
-): Modifier {
-    val state = LocalHazeState.current
-    val base = if (state == null) this else hazeBlur(input = HazeInput.Sources(state), style = glassStyle(blurRadius, surfaceAlpha))
-    return base.clip(shape)
-}
-
-@Composable
 internal fun GlassPanel(
         modifier: Modifier = Modifier,
         shape: Shape = MaterialTheme.shapes.large,
         alpha: Float = if (isAppDarkTheme()) 0.6f else 0.7f,
         content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-            modifier =
-                    modifier
-                            .glassSurface(shape = shape, surfaceAlpha = alpha)
-                            .border(1.dp, glassBorder(), shape),
-    ) {
-        content()
-    }
+    val haze = LocalHazeState.current
+    val surface = MaterialTheme.colorScheme.surface
+    val style =
+            HazeBlurStyle {
+                    this.blurRadius(28.dp)
+                    noiseFactor(0.035f)
+                    backgroundColor(surface.copy(alpha = alpha * 0.55f))
+                    colorEffects(listOf(HazeColorEffect.tint(surface.copy(alpha = alpha))))
+                    fallbackColorEffect(HazeColorEffect.tint(surface.copy(alpha = (alpha + 0.35f).coerceAtMost(0.95f))))
+            }
+    val base = if (haze == null) modifier else modifier.hazeBlur(input = HazeInput.Sources(haze), style = style)
+    Column(modifier = base.clip(shape).border(1.dp, glassBorder(), shape)) { content() }
 }

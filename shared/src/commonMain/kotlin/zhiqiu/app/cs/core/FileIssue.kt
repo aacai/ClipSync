@@ -1,6 +1,5 @@
 package zhiqiu.app.cs.core
 
-import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FileRejectReason
 
 /**
@@ -9,9 +8,7 @@ import zhiqiu.app.cs.files.FileRejectReason
 sealed class FileIssue {
     abstract val name: String
 
-    data class Rejected(val reason: FileRejectReason, override val name: String) : FileIssue() {
-        val maxMb: Int get() = (FileLimits.MAX_FILE_BYTES / 1024 / 1024).toInt()
-    }
+    data class Rejected(val reason: FileRejectReason, override val name: String) : FileIssue()
 
     /** 对端发来的文件超过本机接受上限。 */
     data class TooLargeIncoming(override val name: String) : FileIssue()

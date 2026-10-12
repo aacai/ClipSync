@@ -25,11 +25,9 @@ data class FileClip(
     val localPath: String? = null,
 )
 
-/** 超过这个大小的文件当前不支持（>50MB 暂不支持，见文件协议约定）。 */
-const val MAX_FILE_BYTES: Long = 50L * 1024 * 1024
-
 object FileLimits {
-    const val MAX_FILE_BYTES = zhiqiu.app.cs.files.MAX_FILE_BYTES
+    const val MAX_FILE_BYTES = 50L * 1024 * 1024
+    val maxMb: Int get() = (MAX_FILE_BYTES / 1024 / 1024).toInt()
     const val DEFAULT_EXPIRES = "72h"
 }
 
@@ -47,14 +45,14 @@ data class FilePayload(
 sealed interface FileRejectReason {
     data object TooLarge : FileRejectReason
     data object Empty : FileRejectReason
-    data class InvalidName(val detail: String) : FileRejectReason
+    data object InvalidName : FileRejectReason
 }
 
 /** 上传前的本地校验：空文件与超限文件直接拒绝。 */
 fun validateOutgoingFile(name: String, size: Long, bytes: Int): FileRejectReason? = when {
     size <= 0 || bytes <= 0 -> FileRejectReason.Empty
-    size > MAX_FILE_BYTES -> FileRejectReason.TooLarge
-    sanitizeFileName(name).isBlank() -> FileRejectReason.InvalidName("文件名为空")
+    size > FileLimits.MAX_FILE_BYTES -> FileRejectReason.TooLarge
+    sanitizeFileName(name).isBlank() -> FileRejectReason.InvalidName
     else -> null
 }
 

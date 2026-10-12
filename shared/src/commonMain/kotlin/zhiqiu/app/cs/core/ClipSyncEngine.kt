@@ -44,15 +44,10 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val deviceName: String,
         /** 文件/图片剪贴板的历史仓库（注入以便测试与多端复用） */
         val repository: ClipRepository? = null,
-        /** 文件传输客户端；null 时用默认的 litterbox */
-        val transferClient: FileTransferClient? = null,
     )
 
     data class ClipEvent(
-        val mid: String,
-        val ts: Long,
         val text: String,
-        val senderId: String,
         val senderName: String,
         /** 文件条目（kind = file 时非空） */
         val file: FileClip? = null,
@@ -61,7 +56,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     sealed interface Status {
         data object Idle : Status
         data object Connecting : Status
-        data class Online(val roomHash: String, val safetyNumber: String) : Status
+        data class Online(val safetyNumber: String) : Status
         data class Offline(val reason: String?) : Status
     }
 
@@ -124,7 +119,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             roomHash = hash
             crypto = roomCrypto
             this.repository = config.repository
-            transferClient = config.transferClient ?: FileTransferClient(createSharedHttpClient())
+            transferClient = FileTransferClient(createSharedHttpClient())
             fileCrypto = FileCrypto(roomCrypto)
             config.repository?.load()
             val safety = roomCrypto.safetyNumber()
@@ -162,7 +157,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             mqtt.subscribe(ClipProtocol.roomFilter(hash), QoS.AT_LEAST_ONCE, noLocal = true)
             publishPresence(online = true)
 
-            _status.value = Status.Online(hash, safety)
+            _status.value = Status.Online(safety)
             startHeartbeat(config, hash)
         } catch (e: Exception) {
             _status.value = Status.Offline(e.message ?: e::class.simpleName)
@@ -180,7 +175,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             ts = now(),
             dev = cfg.deviceId,
             name = cfg.deviceName,
-            kind = ClipProtocol.KIND_TEXT,
+            kind = ClipRepository.KIND_TEXT,
             ct = roomCrypto.encrypt(payload.encodeToByteArray(), ClipProtocol.clipTopic(roomHash).encodeToByteArray()),
         )
         client?.publish(
@@ -286,16 +281,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         }
         val localPath = runCatching { repository?.writeCache(file.id, file.name, decrypted.bytes) }.getOrNull()
         if (localPath != null) repository?.markCached(file.id, localPath)
-        _clips.emit(
-            ClipEvent(
-                mid = file.id,
-                ts = file.ts,
-                text = file.name,
-                senderId = file.senderId,
-                senderName = file.senderName,
-                file = file,
-            ),
-        )
+        _clips.emit(ClipEvent(text = file.name, senderName = file.senderName, file = file))
         return decrypted.bytes
     }
 
@@ -317,7 +303,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             ts = file.ts,
             dev = file.senderId,
             name = file.senderName,
-            kind = ClipProtocol.KIND_FILE,
+            kind = ClipRepository.KIND_FILE,
             ct = FileCrypto.encodeCipher(wire),
         )
         client?.publish(
@@ -370,7 +356,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val cfg = config ?: return
         if (envelope.dev == cfg.deviceId) return
 
-        if (envelope.kind == ClipProtocol.KIND_FILE) {
+        if (envelope.kind == ClipRepository.KIND_FILE) {
             onFileClip(envelope, roomCrypto)
             return
         }
@@ -389,13 +375,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                 text = item.text,
             ),
         )
-        _clips.emit(ClipEvent(
-            mid = envelope.mid,
-            ts = envelope.ts,
-            text = item.text,
-            senderId = envelope.dev,
-            senderName = envelope.name,
-        ))
+        _clips.emit(ClipEvent(text = item.text, senderName = envelope.name))
     }
 
     /** 收到文件元信息：入历史，并可后台下载解密缓存（失败只在 fileErrors 报，不打断界面）。 */
@@ -445,13 +425,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val existing = _devices.value.associateBy { it.id }.toMutableMap()
         // 设备列表 = 此刻还在屋里的人；收到离线遗嘱就把它摘掉，别让“3 台设备”里躺着已离开的。
         if (envelope.online) {
-            existing[envelope.dev] = DevicePresence(
-                id = envelope.dev,
-                name = envelope.name,
-                online = true,
-                lastSeen = envelope.ts,
-                safety = envelope.sp,
-            )
+            existing[envelope.dev] = DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp)
         } else {
             existing.remove(envelope.dev)
         }
@@ -495,7 +469,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                 when {
                     state is ConnectionState.Connected && _status.value !is Status.Online -> {
                         val safety = crypto?.safetyNumber() ?: return@collect
-                        _status.value = Status.Online(hash, safety)
+                        _status.value = Status.Online(safety)
                         publishPresence(cfg, hash, online = true)
                     }
 
@@ -536,7 +510,9 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         )
 
         internal fun expiryFrom(expires: String, nowMs: Long = currentTimeMillis()): Long =
-            nowMs + (EXPIRY_HOURS[expires.lowercase()] ?: 72L) * 3_600_000L
+            nowMs +
+                    (EXPIRY_HOURS[expires.lowercase()] ?: EXPIRY_HOURS.getValue(FileLimits.DEFAULT_EXPIRES)) *
+                            3_600_000L
     }
 }
 @OptIn(ExperimentalTime::class)
