@@ -32,6 +32,7 @@ internal object AppIcons {
     val Undo: ImageVector = icon("undo", UndoPath)
     val Edit: ImageVector = icon("edit", EditPath)
     val Info: ImageVector = icon("info", InfoPath)
+    val Help: ImageVector = icon("help", HelpOutlinePath)
     val Note: ImageVector = icon("note", EventNotePath)
     val Up: ImageVector = icon("up", ArrowUpwardPath)
     val Down: ImageVector = icon("down", ArrowDownwardPath)
@@ -61,6 +62,9 @@ private const val EditPath =
 
 private const val InfoPath =
         "M11,7h2v2h-2zM11,11h2v6h-2zM12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM10,17v-4h2v4h-2zM14,17h-2v-6h-2v-2h4v8z"
+
+private const val HelpOutlinePath =
+        "M11,18h2v-2h-2v2zM12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8zM12,6c-2.21,0 -4,1.79 -4,4h2c0,-1.1 0.9,-2 2,-2 1.1,0 2,0.9 2,2 0,2 -3,1.75 -3,5h2c0,-2.25 3,-2.5 3,-5 0,-2.21 -1.79,-4 -4,-4z"
 
 private const val EventNotePath =
         "M17,10L7,10v2h10v-2zM19,3h-1L18,1h-2v2L8,3L8,1L6,1v2L5,3c-1.11,0 -1.99,0.9 -1.99,2L3,19c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2L21,5c0,-1.1 -0.9,-2 -2,-2zM19,19L5,19L5,8h14v11zM14,14L7,14v2h7v-2z"

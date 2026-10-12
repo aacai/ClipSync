@@ -487,6 +487,53 @@ private fun SafetyPoint(index: Int, resource: StringResource) {
 }
 
 @Composable
+internal fun HelpDialog(onDismiss: () -> Unit) {
+    val steps =
+            listOf(
+                    Res.string.help_step1,
+                    Res.string.help_step2,
+                    Res.string.help_step3,
+                    Res.string.help_step4,
+                    Res.string.help_step5,
+                    Res.string.help_step6,
+            )
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.help_title), fontSize = 17.sp) },
+            text = {
+                Column(
+                        modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    steps.forEachIndexed { index, resource ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text(
+                                    "${index + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.width(16.dp),
+                            )
+                            Text(
+                                    stringResource(resource),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = onDismiss, shape = MaterialTheme.shapes.small) {
+                    Text(stringResource(Res.string.safety_close), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
 internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
     val roomCode by model.roomCode.collectAsState()
     val password by model.password.collectAsState()

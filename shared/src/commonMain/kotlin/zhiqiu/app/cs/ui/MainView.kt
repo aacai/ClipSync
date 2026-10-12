@@ -124,6 +124,7 @@ internal fun MainView(
     var moving by remember { mutableStateOf<ClipItem?>(null) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
     var shareOpen by remember { mutableStateOf(false) }
+    var helpOpen by remember { mutableStateOf(false) }
     var sharePrompted by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -301,13 +302,14 @@ internal fun MainView(
                     handleChord(event.key, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
 
     fun hasOverlay() =
-            composingNew || confirmClear || safetyNumber != null || shareOpen ||
+            composingNew || confirmClear || safetyNumber != null || shareOpen || helpOpen ||
                     editing != null || noting != null || transforming != null || inspecting != null
 
     fun closeOverlay() {
         when {
             safetyNumber != null -> safetyNumber = null
             shareOpen -> shareOpen = false
+            helpOpen -> helpOpen = false
             confirmClear -> confirmClear = false
             editing != null -> editing = null
             noting != null -> noting = null
@@ -423,6 +425,7 @@ internal fun MainView(
                             onShare = { shareOpen = true },
                             onSettings = onOpenSettings,
                             onSafety = { safetyNumber = it },
+                            onHelp = { helpOpen = true },
                     )
                     Toolbar(
                             model = model,
@@ -539,6 +542,9 @@ internal fun MainView(
     if (shareOpen) {
         ShareDialog(model, onDismiss = { shareOpen = false })
     }
+    if (helpOpen) {
+        HelpDialog(onDismiss = { helpOpen = false })
+    }
     safetyNumber?.let { number ->
         SafetyDialog(
                 safety = number,
@@ -639,6 +645,7 @@ private fun Header(
         onShare: () -> Unit,
         onSettings: () -> Unit,
         onSafety: (String) -> Unit,
+        onHelp: () -> Unit,
 ) {
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
@@ -731,6 +738,7 @@ private fun Header(
         if (roomCode == null) {
             RowAction(AppIcons.Key, stringResource(Res.string.cd_share), onClick = onShare)
         }
+        RowAction(AppIcons.Help, stringResource(Res.string.cd_help), onClick = onHelp)
         RowAction(AppIcons.Settings, stringResource(Res.string.cd_settings), onClick = onSettings)
         if (roomCode != null) {
             RowAction(AppIcons.Logout, stringResource(Res.string.cd_leave), onClick = onLeave)

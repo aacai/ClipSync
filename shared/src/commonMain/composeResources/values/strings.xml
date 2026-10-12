@@ -10,6 +10,15 @@
     <string name="share_action">共享</string>
     <string name="cd_random_room">换一个随机房间码</string>
 
+    <string name="help_title">怎么用</string>
+    <string name="cd_help">使用说明</string>
+    <string name="help_step1">打开「房间共享」：顶栏的钥匙图标，或未共享时列表里的「共享」。填一个房间码（可随机换一个），房间密码可选，设了就必须两端一致。</string>
+    <string name="help_step2">另一台设备装同一个 App，或直接开网页，填完全一样的房间码和密码，点「进入房间」。</string>
+    <string name="help_step3">核对两端顶栏的安全码：逐位相同才说明用的是同一把钥匙。不同就是房间码或密码打错了，这种连得上却永远收不到对方的内容。</string>
+    <string name="help_step4">进房后任意一端复制文本，另一端立刻收到；点条目就写回本机剪贴板，文件走工具栏的发送文件。</string>
+    <string name="help_step5">网页端例外：浏览器不允许后台读剪贴板，网页上复制完要手动点「发送剪贴板」。</string>
+    <string name="help_step6">掉线期间的复制不会补发，两台都显示「已连接」时再传。</string>
+
     <string name="status_connected">已连接</string>
     <string name="status_disconnected">未连接</string>
     <string name="status_idle">未共享</string>

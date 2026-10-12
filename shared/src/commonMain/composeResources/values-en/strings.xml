@@ -10,6 +10,15 @@
     <string name="share_action">Share</string>
     <string name="cd_random_room">Generate another room code</string>
 
+    <string name="help_title">How to use</string>
+    <string name="cd_help">How to use</string>
+    <string name="help_step1">Open "Share a room" from the key icon in the header, or the Share button in the empty list. Enter a room code (or generate one); the room password is optional but must match on every device.</string>
+    <string name="help_step2">On the other device install the same app, or just open the web page, enter the identical room code and password, then tap "Enter room".</string>
+    <string name="help_step3">Check the safety code in both headers: it must match digit for digit, which is what proves both sides derived the same key. If it differs, the room code or password was mistyped — you will look connected but never receive anything.</string>
+    <string name="help_step4">Once inside, copy text on either device and it arrives on the other right away; tap an entry to put it back into the local clipboard. Files go through the send-file action in the toolbar.</string>
+    <string name="help_step5">The web page is the exception: browsers never allow reading the clipboard in the background, so after copying there tap "Send clipboard" by hand.</string>
+    <string name="help_step6">Nothing is replayed while you are offline, so share only while both devices say "Connected".</string>
+
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Offline</string>
     <string name="status_idle">Not sharing</string>
