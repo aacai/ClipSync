@@ -39,7 +39,7 @@ class FileSupportTest {
     fun sanitize_scrubs_reserved_and_control_chars() {
         assertEquals("_con.txt", sanitizeFileName("con.txt"))
         assertEquals("_LPT1.dat", sanitizeFileName("LPT1.dat"))
-        assertEquals("b_c.txt", sanitizeFileName("a/b:c.txt")) // 只取 basename，再净化
+        assertEquals("b_c.txt", sanitizeFileName("a/b:c.txt"))
         assertEquals("we_ird_name", sanitizeFileName("we:ird*name"))
         assertEquals("tab_name", sanitizeFileName("tab\tname"))
         assertEquals("", sanitizeFileName("   "))

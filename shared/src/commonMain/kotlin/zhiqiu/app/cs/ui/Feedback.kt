@@ -2,10 +2,8 @@ package zhiqiu.app.cs.ui
 
 import zhiqiu.app.cs.core.FileIssue
 
-/** 提示级别：决定条目的配色与图标。 */
 enum class Level { Info, Warn, Error }
 
-/** 一次性操作结果：只带类型与参数，文案由 UI 层按语言从资源取。 */
 sealed class Feedback {
     abstract val level: Level
 
@@ -13,7 +11,6 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
-    /** [code] 是平台侧错误码（如浏览器的 denied / insecure），null 表示只有原始异常信息。 */
     data class ClipboardReadBlocked(val code: String?, val detail: String?) : Feedback() {
         override val level get() = Level.Error
     }
@@ -26,7 +23,6 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
-    /** 收到文本；[code] 非空表示没能写进系统剪贴板。 */
     data class Received(val sender: String, val code: String? = null, val detail: String? = null) : Feedback() {
         override val level get() = if (code == null && detail == null) Level.Info else Level.Warn
     }
@@ -67,7 +63,6 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
-    /** 移动到指定位置后的落点（第 [position] 位）。 */
     data class Moved(val position: Int) : Feedback() {
         override val level get() = Level.Info
     }

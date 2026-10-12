@@ -60,14 +60,13 @@ class ClipRepositoryTest {
         repo.add(text("c", ts = 3))
         assertEquals(listOf("c", "b", "a"), repo.items.value.map { it.id })
 
-        // 同 id 再次出现 → 更新而不是重复
         val added = repo.add(text("a", ts = 9, body = "updated"))
         assertFalse(added)
         assertEquals(3, repo.items.value.size)
         val updated = repo.items.value.first { it.id == "a" }
         assertEquals("updated", updated.text)
         assertEquals(9, updated.ts)
-        assertEquals(4, store.writes) // 3 次新增 + 1 次去重更新，每次都落盘
+        assertEquals(4, store.writes)
     }
 
     @Test
@@ -137,7 +136,7 @@ class ClipRepositoryTest {
 
         repo.remove("f1")
         assertEquals(listOf("/cache/f1"), store.deleted)
-        assertEquals(listOf("t1", "f2"), repo.items.value.map { it.id }) // ts 3 > 2，新在前
+        assertEquals(listOf("t1", "f2"), repo.items.value.map { it.id })
 
         repo.clear()
         assertEquals(listOf("/cache/f1", "/cache/f2"), store.deleted)
@@ -171,7 +170,6 @@ class ClipRepositoryTest {
         assertTrue(decoded[1].file!!.cached)
         assertTrue(decoded[2].pinned)
         assertEquals("照片.png", decoded[1].text)
-        // 空白/非法 JSON 不炸
         assertTrue(ClipRepository.decode("").isEmpty())
     }
 
@@ -265,7 +263,7 @@ class ClipRepositoryTest {
 
         assertEquals(4, repo.moveTo("a", 4))
         assertEquals(listOf("b", "c", "d", "a", "e"), repo.sorted().map { it.id })
-        assertEquals(0L, repo.items.value.first { it.id == "e" }.order) // 没跨过的条目不动位次
+        assertEquals(0L, repo.items.value.first { it.id == "e" }.order)
 
         assertEquals(1, repo.moveTo("e", 1))
         assertEquals(listOf("e", "b", "c", "d", "a"), repo.sorted().map { it.id })

@@ -3,7 +3,6 @@ package zhiqiu.app.cs.ui
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 
-/** Material 3 motion token（md.sys.motion.duration.* / md.sys.motion.easing.*）。 */
 internal object M3 {
     const val SHORT_3 = 150
     const val SHORT_4 = 200

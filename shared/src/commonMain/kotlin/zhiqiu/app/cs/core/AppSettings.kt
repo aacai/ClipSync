@@ -12,7 +12,6 @@ enum class ThemeMode {
     Dark,
 }
 
-/** [tag]：交给平台的 BCP47 标签，System 为 null 表示跟随系统。 */
 enum class AppLanguage(val tag: String?) {
     System(null),
     Chinese("zh"),
@@ -66,7 +65,6 @@ class AppSettings {
         store.putBoolean(KEY_WATCH_CLIPBOARD, enabled)
     }
 
-    /** 后台常驻：默认关，进房后由用户手动打开。 */
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
 

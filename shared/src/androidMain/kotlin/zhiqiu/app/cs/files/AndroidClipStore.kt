@@ -5,7 +5,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Android 端历史与文件缓存：应用私有目录，卸载即清理。 */
 class AndroidClipStore(context: Context) : ClipStore {
 
     private val historyFile = File(context.filesDir, "clipsync-history.json")

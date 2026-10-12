@@ -22,7 +22,6 @@ class WasmClipStore(private val storage: WebStorage) : ClipStore {
     }
 }
 
-/** 薄封装，便于测试替换。 */
 interface WebStorage {
     fun getItem(key: String): String?
     fun setItem(key: String, value: String)

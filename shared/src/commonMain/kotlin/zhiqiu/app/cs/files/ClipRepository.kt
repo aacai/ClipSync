@@ -10,7 +10,6 @@ import kotlinx.serialization.json.Json
 @Serializable
 data class ClipItem(
     val id: String,
-    /** text | file */
     val kind: String,
     val ts: Long,
     val senderId: String,
@@ -18,7 +17,6 @@ data class ClipItem(
     val text: String,
     val file: FileClip? = null,
     val pinned: Boolean = false,
-    /** 手动排序用的位次；0 = 跟随时间戳。 */
     val order: Long = 0L,
     val note: String = "",
 ) {
@@ -46,7 +44,6 @@ class ClipRepository(
         _items.value = store.read()
     }
 
-    /** 追加一条；同 id 已存在则更新。返回是否新增。 */
     suspend fun add(item: ClipItem): Boolean {
         val existing = _items.value.firstOrNull { it.id == item.id }
         if (existing != null) {
@@ -81,7 +78,6 @@ class ClipRepository(
         persist()
     }
 
-    /** 与可视顺序里的邻居交换位次。返回是否移动成功。 */
     suspend fun move(id: String, delta: Int): Boolean {
         val view = sorted()
         val from = view.indexOfFirst { it.id == id }
@@ -120,7 +116,6 @@ class ClipRepository(
         return to + 1
     }
 
-    /** 排序视图里每条条目当前位置与可落点区间。 */
     fun moveInfos(): Map<String, MoveInfo> {
         val view = sorted()
         val out = LinkedHashMap<String, MoveInfo>(view.size)
@@ -166,7 +161,6 @@ class ClipRepository(
 
     suspend fun clear(): Int = removeMany(_items.value.map { it.id })
 
-    /** 弹出最近一批被删的条目放回列表；没有可撤销的批次时返回 null。 */
     suspend fun undo(): List<ClipItem>? {
         if (trash.isEmpty()) return null
         val batch = trash.removeAt(trash.lastIndex)
@@ -250,6 +244,5 @@ interface ClipStore {
     suspend fun read(): List<ClipItem>
     suspend fun write(items: List<ClipItem>)
     suspend fun deleteCache(localPath: String?)
-    /** 把解密后的文件字节落到本机缓存，返回路径（可再次复制/保存）。 */
     suspend fun writeCache(id: String, name: String, bytes: ByteArray): String?
 }

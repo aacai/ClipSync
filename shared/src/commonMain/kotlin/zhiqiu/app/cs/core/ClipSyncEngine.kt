@@ -28,11 +28,6 @@ import zhiqiu.app.cs.files.createSharedHttpClient
 import zhiqiu.app.cs.files.sanitizeFileName
 import zhiqiu.app.cs.files.validateOutgoingFile
 
-/**
- * Clipboard room: connects to the broker, keeps the room namespace subscribed, decrypts incoming
- * clips and publishes local ones. All clipboard content is end-to-end encrypted with the room
- * key derived from the room code (+ optional password).
- */
 class ClipSyncEngine(private val scope: CoroutineScope) {
 
     data class Config(
@@ -42,14 +37,12 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val roomKey: ByteArray? = null,
         val deviceId: String,
         val deviceName: String,
-        /** 文件/图片剪贴板的历史仓库（注入以便测试与多端复用） */
         val repository: ClipRepository? = null,
     )
 
     data class ClipEvent(
         val text: String,
         val senderName: String,
-        /** 文件条目（kind = file 时非空） */
         val file: FileClip? = null,
     )
 
@@ -76,7 +69,6 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
     val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
 
-    /** 文件收发进度：上传中 / 下载中 / 失败原因 / null = 空闲 */
     data class TransferProgress(
         val direction: Direction,
         val done: Long,
@@ -256,7 +248,6 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         return item
     }
 
-    /** 下载、校验、解密并缓存一个文件条目（自己上传的条目也会走这里以填充 localPath）。 */
     suspend fun fetchFile(file: FileClip): ByteArray? {
         val crypto = fileCrypto ?: return null
         val transfer = transferClient ?: return null
@@ -336,15 +327,13 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         if (_status.value !is Status.Offline) _status.value = Status.Idle
     }
 
-    // --- internals ---
-
     private fun clientId(config: Config, hash: String) = "cs-$hash-${config.deviceId}"
 
     private suspend fun onMessage(topic: String, payload: String) {
         when (ClipProtocol.parseTopic(topic)?.channel) {
             ClipProtocol.CH_CLIP -> onClip(topic, payload)
             ClipProtocol.CH_PRESENCE -> onPresence(topic, payload)
-            ClipProtocol.CH_SYNC -> Unit // history backfill lands in M2
+            ClipProtocol.CH_SYNC -> Unit
             else -> Unit
         }
     }
@@ -423,7 +412,6 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.dev == cfg.deviceId) return
         val existing = _devices.value.associateBy { it.id }.toMutableMap()
-        // 设备列表 = 此刻还在屋里的人；收到离线遗嘱就把它摘掉，别让“3 台设备”里躺着已离开的。
         if (envelope.online) {
             existing[envelope.dev] = DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp)
         } else {

@@ -44,7 +44,6 @@ private object WebClipboard : PlatformClipboard {
         clipboardWriteText(text)
     }
 
-    /** 浏览器没有本地文件概念，位图用 ClipboardItem 直接进剪贴板。 */
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun writeImage(bytes: ByteArray, mime: String) {
         clipboardWriteBlob(Base64.encode(bytes), if (mime == "image/jpg") "image/jpeg" else mime)

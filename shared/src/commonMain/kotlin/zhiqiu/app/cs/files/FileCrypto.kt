@@ -44,7 +44,6 @@ class FileCrypto(private val room: RoomCrypto) {
             .joinToString("") { b -> ((b.toInt() and 0xFF) + 0x100).toString(16).substring(1) }
 
     companion object {
-        /** 上传用的随机文件名：托管方只知道随机 id，看不到原名。 */
         fun uploadFileName(): String {
             val alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
             val id = ByteArray(16).also { CryptographyRandom.Default.nextBytes(it) }

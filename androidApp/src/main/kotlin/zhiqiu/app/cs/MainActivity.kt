@@ -35,7 +35,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 
-    /** 设置页的开关只写状态，起停服务在这里做——只有 Activity 在前台才允许启动前台服务。 */
     private fun followResidentSwitch() {
         val settings = AppSettings.shared
         val service = Intent(this, ClipSyncService::class.java)

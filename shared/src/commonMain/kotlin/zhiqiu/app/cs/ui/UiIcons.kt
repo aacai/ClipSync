@@ -6,12 +6,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
-/**
- * 应用用到的图标。
- *
- * 直接内置 Material 的 24dp 路径而不是引 material-icons 库：那个库在 Compose Multiplatform
- * 1.8 之后不再发布 wasmJs 产物，而这里只需要十几个图标，内置反而少一个（很大的）依赖。
- */
 internal object AppIcons {
     val Clipboard: ImageVector = icon("clipboard", ContentPastePath)
     val Copy: ImageVector = icon("copy", ContentCopyPath)

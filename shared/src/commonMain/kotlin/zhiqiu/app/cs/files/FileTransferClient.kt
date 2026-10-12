@@ -82,11 +82,6 @@ class FileTransferClient(
         return link
     }
 
-    /**
-     * 按 [link] 取回字节（仍是密文，由调用方解密）。
-     *
-     * @param onProgress 已接收字节数 / 总字节数（总大小未知时为 -1）
-     */
     suspend fun download(
         link: String,
         onProgress: (received: Long, total: Long) -> Unit = { _, _ -> },
@@ -105,7 +100,7 @@ class FileTransferClient(
         val chunk = ByteArray(64 * 1024)
         while (true) {
             val read = channel.readAvailable(chunk)
-            if (read <= 0) break // -1 = EOF
+            if (read <= 0) break
             buffer.write(chunk, 0, read)
             received += read
             onProgress(received, total)
@@ -118,7 +113,6 @@ class FileTransferClient(
     }
 }
 
-/** 与 Destiny 一致的共享 Ktor 客户端。 */
 fun createSharedHttpClient(): HttpClient = HttpClient(platformHttpClientEngine()) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true; isLenient = true })

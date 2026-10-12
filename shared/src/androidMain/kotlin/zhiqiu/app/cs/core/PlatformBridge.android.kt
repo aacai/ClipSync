@@ -13,7 +13,6 @@ import org.meshtastic.mqtt.transport.ws.WebSocketTransportFactory
 import java.io.File
 import java.util.UUID
 
-/** Set from the Android Application/Activity so shared code can persist a stable install id. */
 object ClipSyncAppContext {
     @Volatile
     var context: Context? = null

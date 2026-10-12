@@ -16,14 +16,6 @@ import org.meshtastic.mqtt.MqttEndpoint
 import org.meshtastic.mqtt.MqttTransport
 import org.meshtastic.mqtt.MqttTransportFactory
 
-/**
- * 浏览器（wasmJs）专用 MQTT-over-WebSocket 传输。
- *
- * 不直接使用 mqtt-client-transport-ws 的 WebSocketTransport：它在安装 WebSockets 插件时把 maxFrameSize 固定成 16MB，而
- * Ktor 的 Js 引擎不允许运行时切换帧大小 （JsWebSocketSession.maxFrameSize 的 setter 无条件抛 "Max frame size switch is
- * not supported in Js engine."）。 只有保持插件默认值（Int.MAX_VALUE）时插件才不回写，连接才能建立。 浏览器原生 WebSocket
- * 自行管理缓冲，客户端侧无需该上限。
- */
 private fun wssLog(msg: String): Unit =
         js("console.log('[WssTransport] ' + new Date().toISOString().slice(11, 23) + ' ' + msg)")
 

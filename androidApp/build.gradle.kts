@@ -12,7 +12,6 @@ kotlin {
     }
 }
 
-// 签名来源优先级：环境变量（CI Secrets）> androidApp/signing.properties（本地，gitignore）
 val signingPropsFile = rootProject.file("androidApp/signing.properties")
 val signingProps = Properties()
 if (signingPropsFile.exists()) {

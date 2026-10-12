@@ -36,7 +36,6 @@ internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings
     return remember(platform, settings) { AppModel(scope, platform, settings) }
 }
 
-/** AWT 系统剪贴板；macOS 上他应用占用剪贴板时读取可能抛异常 → 统一按空处理。 */
 private object AwtClipboard : PlatformClipboard {
     override val canWriteFiles: Boolean = true
     override val canWriteImage: Boolean = true
@@ -76,7 +75,6 @@ private object AwtClipboard : PlatformClipboard {
     }
 }
 
-/** 一次写入多种形态：文件（Finder/资源管理器可粘成文件）+ file:// 文本 + 位图。 */
 private class MultiTransferable(
     private val text: String?,
     private val files: List<File> = emptyList(),
@@ -102,7 +100,6 @@ private class MultiTransferable(
         }
 }
 
-/** 原生文件对话框（支持多选）；在后台线程弹出，选完回调。 */
 private object AwtFilePicker : PlatformFilePicker {
     override fun pick(onDone: (List<PickedSource>) -> Unit) {
         Thread(

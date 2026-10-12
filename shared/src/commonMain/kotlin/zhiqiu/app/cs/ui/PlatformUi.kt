@@ -28,7 +28,6 @@ interface PlatformClipboard {
     suspend fun read(): String?
     suspend fun write(text: String)
 
-    /** 文件进剪贴板，同时附带 file:// 文本，方便只认文本的目标粘贴出路径。 */
     suspend fun writeFiles(paths: List<String>): Unit = throw UnsupportedOperationException()
 
     suspend fun writeImage(bytes: ByteArray, mime: String): Unit = throw UnsupportedOperationException()
@@ -41,7 +40,6 @@ fun interface PlatformFileOpener {
     val isAvailable: Boolean get() = true
 }
 
-/** 待发布文件：字节懒读取，读之前先做大小预检。 */
 class PickedSource(
     val name: String,
     val mime: String,
@@ -50,10 +48,8 @@ class PickedSource(
 )
 
 fun interface PlatformFilePicker {
-    /** 弹出系统选择器；用户取消时回调空列表。可能在后台线程回调。 */
     fun pick(onDone: (List<PickedSource>) -> Unit)
 
-    /** 平台是否真的能挑文件；false 时 UI 会禁用入口并说明原因。 */
     val isAvailable: Boolean get() = true
 }
 
@@ -66,7 +62,6 @@ class PlatformUi(
     val installId: String,
 )
 
-/** 平台剪贴板拒绝读/写时抛出。[code] 交给 UI 本地化，[detail] 是平台原始信息。 */
 class ClipboardUnavailable(val code: String? = null, detail: String? = null) : Exception(detail ?: code)
 
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */
@@ -109,6 +104,5 @@ internal fun rememberPlatformUi(
  */
 internal expect fun installKeyChords(onChord: (key: String, mod: Boolean, shift: Boolean) -> Boolean): () -> Unit
 
-/** 运行时的生命周期：桌面/网页跟着组合走，Android 跟着进程走。 */
 @Composable
 internal expect fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel

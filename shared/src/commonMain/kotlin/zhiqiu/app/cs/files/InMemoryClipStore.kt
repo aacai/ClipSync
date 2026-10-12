@@ -1,6 +1,5 @@
 package zhiqiu.app.cs.files
 
-/** 纯内存实现：iOS/Web 端或测试用（文件不落盘）。 */
 class InMemoryClipStore : ClipStore {
     private var data: List<ClipItem> = emptyList()
     private val caches = LinkedHashMap<String, ByteArray>()

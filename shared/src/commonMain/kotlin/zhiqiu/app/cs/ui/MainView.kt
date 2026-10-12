@@ -828,7 +828,6 @@ private fun hintFor(model: AppModel, online: Boolean): String =
             else -> stringResource(Res.string.shortcuts_hint)
         }
 
-/** 浏览器 keydown 的 key 字段 → Compose 的 Key；Mac 的 delete 键在网页里是 Backspace。 */
 private fun chordKey(name: String): Key? =
         when (name.lowercase()) {
             "a" -> Key.A

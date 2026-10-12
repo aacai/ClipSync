@@ -2,7 +2,6 @@ package zhiqiu.app.cs.files
 
 import java.io.File
 
-/** 桌面端（macOS/Windows/Linux）的历史与文件缓存：JSON + 应用数据目录。 */
 class JvmClipStore(
     private val historyFile: File,
     private val cacheDir: File,
@@ -37,9 +36,8 @@ class JvmClipStore(
         return file.absolutePath
     }
 
-    /** 超出缓存上限时按修改时间淘汰最旧的文件。 */
     private fun evictIfNeeded(incoming: Long) {
-        if (incoming > maxCacheBytes / 2) return // 单个文件接近上限就不缓存
+        if (incoming > maxCacheBytes / 2) return
         val files = cacheDir.listFiles()?.sortedBy { it.lastModified() } ?: return
         var total = files.sumOf { it.length() } + incoming
         for (f in files) {

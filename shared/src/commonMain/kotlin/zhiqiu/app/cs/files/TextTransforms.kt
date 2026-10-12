@@ -3,7 +3,6 @@ package zhiqiu.app.cs.files
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-/** CopyQ 的 Commands 里对纯文本最有用的那一批，就地作用在条目内容上。 */
 enum class TextOp {
     Trim,
     StripBlankLines,

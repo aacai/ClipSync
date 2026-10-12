@@ -31,10 +31,6 @@ import zhiqiu.app.cs.files.AndroidClipStore
 import zhiqiu.app.cs.files.mimeForName
 import java.io.File
 
-/**
- * 进程级运行时：Activity 销毁重建、退到后台都不会重连，前台服务和界面共用同一个引擎。
- * 组合里只负责把文件选择器接上，其余都在服务侧可用。
- */
 object ClipSyncRuntime {
     private val lock = Any()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -69,7 +65,6 @@ object ClipSyncRuntime {
         }
     }
 
-    /** 服务冷启动（没有 Activity）用这条路径。 */
     fun model(settings: AppSettings): AppModel =
         model(
             platform(
@@ -81,7 +76,6 @@ object ClipSyncRuntime {
         )
 }
 
-/** 实现由组合里的 Activity 结果启动器提供；没有可用组合时入口自动禁用。 */
 class RuntimeFilePicker : PlatformFilePicker {
     var delegate: PlatformFilePicker? by mutableStateOf(null)
 
@@ -179,7 +173,6 @@ internal class AndroidClipboard(private val context: Context) : PlatformClipboar
         manager.setPrimaryClip(ClipData.newPlainText("ClipSync", text))
     }
 
-    /** 图片/文件都走 content:// URI：接收方应用按图片或其他文件类型处理。 */
     override suspend fun writeFiles(paths: List<String>) {
         val file = paths.map { File(it) }.firstOrNull { it.isFile } ?: error("file is not cached locally")
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

@@ -40,7 +40,6 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.resources.*
 
-/** 一次性提示胶囊：自动消失、点击即走。 */
 @Composable
 internal fun ToastHost(model: AppModel, bottom: Dp, modifier: Modifier = Modifier) {
     val failure by model.failure.collectAsState()

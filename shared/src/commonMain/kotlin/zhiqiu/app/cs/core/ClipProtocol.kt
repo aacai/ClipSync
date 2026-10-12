@@ -5,7 +5,6 @@ import dev.whyoleg.cryptography.algorithms.SHA256
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** One clipboard item as it travels over the wire (the whole envelope is encrypted before send). */
 @Serializable
 data class ClipEnvelope(
     val v: Int = ClipProtocol.PROTOCOL_VERSION,
@@ -14,7 +13,6 @@ data class ClipEnvelope(
     val dev: String,
     val name: String,
     val kind: String,
-    /** base64(iv || ciphertext || tag) over the JSON-encoded [ClipPayload] */
     val ct: String,
 )
 
@@ -41,7 +39,6 @@ data class DevicePresence(
     val safety: String = "",
 )
 
-/** Parsed room topic: cs/v1/<roomHash>/<channel>[/<deviceId>]. */
 data class RoomTopic(
     val roomHash: String,
     val channel: String,
@@ -52,7 +49,6 @@ object ClipProtocol {
     const val PROTOCOL_VERSION = 1
     const val ROOT = "cs/v1"
 
-    /** Channels inside a room. Presence is per device: presence/<deviceId>. */
     const val CH_CLIP = "clip"
     const val CH_PRESENCE = "presence"
     const val CH_SYNC = "sync"
@@ -66,9 +62,6 @@ object ClipProtocol {
 
     inline fun <reified T> decode(raw: String): T = json.decodeFromString(raw)
 
-    // --- topics ---
-
-    /** 8 hex chars of SHA-256(roomId): the (public) namespace a room lives in. */
     suspend fun roomHash(roomId: String): String = sha256Hex(roomId.encodeToByteArray()).take(8)
 
     fun clipTopic(roomHash: String): String = "$ROOT/$roomHash/$CH_CLIP"
@@ -79,10 +72,8 @@ object ClipProtocol {
 
     fun roomFilter(roomHash: String): String = "$ROOT/$roomHash/#"
 
-    /** 安全码的第一组数字：够用来判断“同屋但钥匙不同”，不多泄露。 */
     fun safetyPrefix(safetyNumber: String): String = safetyNumber.takeWhile { it != ' ' }
 
-    /** Parses cs/v1/<roomHash>/<channel>[/<deviceId>]; null when the shape does not match. */
     fun parseTopic(topic: String): RoomTopic? {
         val prefix = ROOT.split('/')
         val parts = topic.split('/')
@@ -107,7 +98,6 @@ internal suspend fun sha256(bytes: ByteArray): ByteArray =
 internal suspend fun sha256Hex(bytes: ByteArray): String =
     sha256(bytes).joinToString("") { b -> ((b.toInt() and 0xFF) + 0x100).toString(16).substring(1) }
 
-/** Short human-verifiable fingerprint of the shared room key. */
 suspend fun safetyNumber(roomKey: ByteArray): String =
     sha256(roomKey).take(6).joinToString(" ") { byte ->
         ((byte.toInt() and 0xFF) % 1000).toString().padStart(3, '0')

@@ -31,10 +31,6 @@ import zhiqiu.app.cs.files.applyTextOp
 import zhiqiu.app.cs.files.isImage
 import kotlin.time.Clock
 
-/**
- * 共享 UI 的编排层：连接、剪贴板收发、历史搜索与文件操作。
- * 只产出 [Feedback]（类型 + 参数），不产出文案，文案在 UI 层按语言渲染。
- */
 class AppModel(
     private val scope: CoroutineScope,
     private val platform: PlatformUi,
@@ -70,7 +66,6 @@ class AppModel(
     private val _connecting = MutableStateFlow(false)
     val connecting: StateFlow<Boolean> = _connecting.asStateFlow()
 
-    /** null = 未进房间。掉线后保留，界面留在历史页并提供重连。 */
     private val _joinedRoom = MutableStateFlow<String?>(null)
     val joinedRoom: StateFlow<String?> = _joinedRoom.asStateFlow()
 
@@ -225,7 +220,6 @@ class AppModel(
                             return@launch
                         }
                         lastError = failure
-                        // 房间码被改过或用户关了开关：别再拿旧房间去试
                         if (left == 0 || _roomCode.value != room || !settings.rememberRoom.value) break
                         left--
                         delay(backoff)
@@ -236,7 +230,6 @@ class AppModel(
                 }
     }
 
-    /** 成功返回 null，失败返回平台原始原因交给界面本地化。 */
     private suspend fun tryConnect(room: String, savedKey: ByteArray?): String? =
             runCatching {
                             engine.start(
@@ -268,7 +261,6 @@ class AppModel(
         scope.launch { engine.stop() }
     }
 
-    /** 常驻开关只写设置，起停服务由平台侧观察这个 StateFlow 完成。 */
     fun setResidentSync(enabled: Boolean) {
         if (!supportsResidentSync) return
         if (enabled && _joinedRoom.value == null) return
@@ -330,7 +322,6 @@ class AppModel(
         }
     }
 
-    /** 行的主动作：文本=复制，已缓存文件=打开，图片=复制成位图。 */
     fun activate(item: ClipItem) {
         val file = item.file
         when {
@@ -427,7 +418,6 @@ class AppModel(
         }
     }
 
-    /** 多选“复制”：把所选条目的文本按顺序拼成一整块进剪贴板。 */
     fun copySelection(items: List<ClipItem>) {
         if (items.isEmpty()) return
         val payload =
@@ -490,7 +480,6 @@ class AppModel(
         scope.launch {
             val batch = repository.undo() ?: return@launch
             _info.value = Feedback.Undeleted(batch.size)
-            // 单条删除的撤销顺手把文件重新拉回来；批量撤销不替用户决定下载多少东西。
             if (batch.size == 1) batch.first().let { if (it.file != null) download(it) }
         }
     }
@@ -529,7 +518,6 @@ class AppModel(
         _info.value = null
     }
 
-    /** 只清掉这一条，避免迟到的定时器把刚弹出的下一条一起关掉。 */
     fun clearFeedback(feedback: Feedback) {
         if (_failure.value == feedback) _failure.value = null
         if (_info.value == feedback) _info.value = null
@@ -574,7 +562,6 @@ class AppModel(
         private const val RESTORE_BASE_MS = 2_000L
         private const val RESTORE_MAX_MS = 15_000L
         private const val HEX_DIGITS = "0123456789abcdef"
-        /** Crockford base32：去掉易混淆的 I/L/O/U。 */
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 
         fun randomRoomCode(): String {
@@ -584,5 +571,4 @@ class AppModel(
     }
 }
 
-/** 浏览器给错误码（denied / insecure），其他平台只有原始信息。 */
 private fun Throwable.clipboardCode(): String? = (this as? ClipboardUnavailable)?.code

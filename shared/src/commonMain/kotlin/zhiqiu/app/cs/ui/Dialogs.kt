@@ -584,4 +584,3 @@ internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
             shape = MaterialTheme.shapes.large,
     )
 }
-

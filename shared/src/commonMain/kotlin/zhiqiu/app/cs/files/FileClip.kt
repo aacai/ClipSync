@@ -2,26 +2,20 @@ package zhiqiu.app.cs.files
 
 import kotlinx.serialization.Serializable
 
-/** 用户可见的文件/图片剪贴板条目。 */
 @Serializable
 data class FileClip(
-    /** 与 ClipEnvelope.mid 一致，用于去重 */
     val id: String,
     val name: String,
     val mime: String,
     val size: Long,
     /** 明文内容的 SHA-256，用于下载后校验 */
     val sha256: String,
-    /** 托管链接（指向密文） */
     val link: String,
-    /** 链接过期时间（epoch ms），来自 1h/12h/24h/72h */
     val expiresAt: Long,
     val ts: Long,
     val senderId: String,
     val senderName: String,
-    /** 本地是否已下载并解密缓存 */
     val cached: Boolean = false,
-    /** 缓存文件的本地路径（仅本机可见，不同步） */
     val localPath: String? = null,
 )
 
@@ -48,7 +42,6 @@ sealed interface FileRejectReason {
     data object InvalidName : FileRejectReason
 }
 
-/** 上传前的本地校验：空文件与超限文件直接拒绝。 */
 fun validateOutgoingFile(name: String, size: Long, bytes: Int): FileRejectReason? = when {
     size <= 0 || bytes <= 0 -> FileRejectReason.Empty
     size > FileLimits.MAX_FILE_BYTES -> FileRejectReason.TooLarge
@@ -115,7 +108,6 @@ internal fun mimeForName(name: String): String {
 
 internal fun isImage(mime: String): Boolean = mime.startsWith("image/")
 
-/** 文件条目在列表中的显示标题；归类交给 UI 用图标表达。 */
 internal fun displayTitle(file: FileClip): String = file.name
 
 internal fun humanSize(size: Long): String = when {
@@ -125,7 +117,6 @@ internal fun humanSize(size: Long): String = when {
     else -> "${dec(size * 10 / (1024 * 1024 * 1024))} GB"
 }
 
-/** 保留 1~2 位小数的十进制格式化（common，避免依赖 JVM String.format）。 */
 private fun dec(tenths: Long): String = (tenths / 10).toString() + "." + (tenths % 10)
 
 private const val MAX_NAME_LENGTH = 120

@@ -7,7 +7,6 @@ import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.InMemoryClipStore
 import platform.UIKit.UIPasteboard
 
-/** iOS MVP：剪贴板走 NSPasteboard，文件选择/打开后续接 UIDocumentPicker。 */
 @Composable
 internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     clipboard = IosClipboard,
