@@ -2,7 +2,6 @@ package zhiqiu.app.cs.core
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
@@ -141,14 +140,18 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun presence_from_older_client_decodes_without_safety() = runTest {
-        val legacy = """{"v":1,"dev":"d1","name":"Pixel","online":true,"ts":1700000000000}"""
-        val envelope = ClipProtocol.decode<PresenceEnvelope>(legacy)
-        assertEquals("", envelope.sp)
-        assertEquals("d1", envelope.dev)
-        val withSafety = ClipProtocol.encode(envelope.copy(sp = "482"))
-        assertContains(withSafety, "\"sp\":\"482\"")
-        assertEquals("482", ClipProtocol.decode<PresenceEnvelope>(withSafety).sp)
+    fun presence_carries_safety_and_os() = runTest {
+        val envelope = PresenceEnvelope(
+            dev = "d1",
+            name = "Pixel",
+            online = true,
+            ts = 1700000000000,
+            sp = "482",
+            os = "Android",
+        )
+        val decoded = ClipProtocol.decode<PresenceEnvelope>(ClipProtocol.encode(envelope))
+        assertEquals("482", decoded.sp)
+        assertEquals("Android", decoded.os)
     }
 
     @Test

@@ -136,6 +136,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                         os = config.deviceOs,
                         online = false,
                         ts = now(),
+                        sp = safetyPrefix,
                     )))
                     qos = QoS.AT_LEAST_ONCE
                 }
