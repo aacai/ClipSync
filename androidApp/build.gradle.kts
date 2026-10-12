@@ -52,7 +52,6 @@ android {
         }
     }
     signingConfigs {
-        // CI 注入 KEYSTORE_* 环境变量时使用正式签名；缺失时降级 debug 签名，保证构建不中断
         create("release") {
             if (hasSigningConfig) {
                 storeFile = file(signingProp("storeFile", "KEYSTORE_FILE")!!)
@@ -66,7 +65,8 @@ android {
     }
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

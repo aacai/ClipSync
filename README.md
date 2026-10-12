@@ -91,6 +91,8 @@ git tag -a v<版本> -m "ClipSync v<版本>" && git push origin v<版本>
 
 版本号只有一个信源：根 `build.gradle.kts` 里的 `extra["appVersion"]`。`androidApp` 的 versionName 直接取它、versionCode 由它算出（每段占两位，逐段 `acc * 100 + 段值`），`desktopApp` 的 `packageVersion` 也取它，CI 的 sed 同样只读这一处。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS` / `windows` 用派生的 `1.<去掉前导 "0.">`，deb 和 APK 用真实版本；发布产物一律按真实版本重命名，本地直接跑 `packageDmg` 看到的文件名主版本会是 1。
 
+Android release 开 R8（`isMinifyEnabled` + `isShrinkResources`）：APK 从 11.2MB 裁到 2.05MB，三个 dex 合成一个——原包里 dex 占 94%，全是 Compose / ktor / mqtt 的无用类。混淆禁忌只有一个：`@Serializable` 协议类。kotlinx-serialization 的 consumer 规则（`META-INF/proguard/`）AGP 会自动合并，`Companion` / `INSTANCE` / `serializer()` 都不用我们操心，`androidApp/proguard-rules.pro` 里只留一条把 `zhiqiu.app.cs.**$$serializer` 整类成员锁住的规则——删掉它只让 APK 更小，但 R8 会连带裁掉 envelope/payload 序列器的 `Object` 桥接方法，线上解到即崩（对比 `mapping.txt` 的 seeds 少 88 项）。ServiceLoader 描述符（coroutines Main dispatcher、crypto provider、ktor 引擎）R8 会跟着类改名一起重写，不需要 keep。桌面端不做混淆：dmg 的体量在 skiko 的双架构 native dylib（单个 jar 里 43MB）和 jpackage 的 JRE 运行时镜像里，ProGuard 动不了 native，而 Compose Desktop 与 AWT 之间靠 JNI 按类名方法名绑定，改名即崩。
+
 在线版：<https://aacai.github.io/ClipSync/>（推 `master` 时只构建 Web 并部署 Pages）。
 
 **macOS 首次打开被拦**：没有 Apple 开发者签名与公证，Gatekeeper 会报「无法验证开发者 / 已损坏」。把 app 拖进「应用程序」后，用一条命令去掉隔离属性：
