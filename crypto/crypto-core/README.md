@@ -179,6 +179,8 @@ randomBytes(16)                // 生成随机字节（见下方安全提示）
 
 算法实现均通过权威测试向量（见模块测试 `CryptoTest`）：SHA-256/512（FIPS 180）、HMAC（RFC 4231）、PBKDF2（RFC 6070）、AES-256（FIPS 197）、AES-GCM（Project Wycheproof）、BLAKE2b（RFC 7693）、Argon2id（RFC 9106 §5.3）。
 
+Argon2id 另有一组外部对照向量（`Argon2idExternalVectors`，全部由 OpenSSL 3.5.0 命令行算出）：RFC §5.3 只给 p=4 且每 slice 一个块，p≠4 的 slice 边界写成 `p-1` 也能过那条官方向量，所以阶梯里必须留 p=1 / p=2 的档位。
+
 ## 许可证
 
 MIT

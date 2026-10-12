@@ -12,7 +12,7 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.test.runTest
 
 /**
- * 房间密钥是 Argon2id 派生的，WebCrypto 算不出这一把，所以密钥用钉死的向量守；
+ * 房间密钥是 Argon2id 派生的，WebCrypto 算不出这一把，所以密钥用 OpenSSL 命令行算出的向量钉住；
  * 密文向量仍旧由 WebCrypto（Node）生成，用来证明我们的 AES-GCM 和浏览器加解密互通。
  */
 class RoomCryptoTest {
@@ -21,7 +21,7 @@ class RoomCryptoTest {
     private val aad = "cs/v1/prefixclip".encodeToByteArray()
     private val expectedRoomHash = "61232506"
     private val expectedWire =
-        "AQIDBAUGBwgJCgsMRun4RRMP1HAdGxU8rTS3AW6Lu1BbCHZmcWwF8QXwbuLlaQmfsvfBSPJsNzECFsKzJxg="
+        "AAECAwQFBgcICQoL+gx2TX+MMFr0F0nlliSlOqTsWYyEZTm3yisCAhw8KjnBqt5N2xJ/xzCxxu9VZLqQH7g="
     private val expectedPlaintext = "{\"text\":\"hello clipsync\",\"len\":15}"
 
     private fun ByteArray.toHex(): String =
@@ -30,10 +30,10 @@ class RoomCryptoTest {
     @Test
     fun roomKey_matches_pinned_vectors() = runTest {
         val empty = RoomCrypto.open(roomId, password = "")
-        assertEquals("93d4209e0e24234aa41373925656009956cf70665afd2d9ce4fd2e2316e52a4c", empty.keyMaterial().toHex())
+        assertEquals("b1b738d23632bb6c4dc8bf9e235d20261e504d80030fc6f998a616ea8c790ee9", empty.keyMaterial().toHex())
         empty.wipe()
         val withPassword = RoomCrypto.open(roomId, password = "hunter2")
-        assertEquals("4e2a5f0a88f27bacbe50791075e10d6779878281f5b3066cbe62aec8eff52af1", withPassword.keyMaterial().toHex())
+        assertEquals("0c507ff2ecd664e9c25d92bc01ab781e257e2a85c7f72b9b911ccdbd1513e16e", withPassword.keyMaterial().toHex())
         withPassword.wipe()
     }
 

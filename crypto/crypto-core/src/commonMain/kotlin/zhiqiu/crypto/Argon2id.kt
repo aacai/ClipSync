@@ -5,6 +5,9 @@ import kotlin.math.max
 // Argon2id (RFC 9106, v0x13) — 纯 Kotlin 实现，依赖本包的 BLAKE2b 作为内部哈希 H。
 // 内存硬密钥派生函数，抗 GPU/ASIC 暴力破解，优于 PBKDF2。
 
+// 每条 lane 固定切成 4 个 slice，同步点由它决定，与并行度无关。
+private const val SYNC_POINTS = 4
+
 private fun putLE32(buf: ByteArray, off: Int, value: Int): Int {
     buf[off] = (value and 0xFF).toByte()
     buf[off + 1] = (value ushr 8 and 0xFF).toByte()
@@ -221,7 +224,7 @@ fun argon2id(
         val yRel = (refArea.toULong() * x) shr 32
         var zz = (refArea - 1) - yRel.toInt()
         if (zz < 0) zz = 0
-        val startPos = if (s != 0 && slice != p - 1) (slice + 1) * segmentLength else 0
+        val startPos = if (s != 0 && slice != SYNC_POINTS - 1) (slice + 1) * segmentLength else 0
         val absPos = (startPos + zz) % q
         return refLane to absPos
     }

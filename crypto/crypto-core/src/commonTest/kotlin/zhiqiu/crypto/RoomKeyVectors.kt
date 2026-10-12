@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
  * ClipSync 房间密钥的跨端一致性向量。
  * Argon2id 不在 WebCrypto 里，网页端和桌面端是否算出同一把只能靠这个钉住：
  * salt = SHA-256(房间码) 的前 16 字节，口令 = 房间码 + 0x00 + 密码，档位 t=2 / m=19456KiB / p=1。
+ * 下面的 hex 由 OpenSSL 3.5.0 命令行算出，所以这一份同时证明本实现不是「只我们自己认得」。
  */
 class RoomKeyVectors {
 
@@ -23,7 +24,7 @@ class RoomKeyVectors {
         // 无密码时 ClipSync 直接用房间码当口令
         val salt = sha256("TESTROOM01".encodeToByteArray()).copyOfRange(0, 16)
         assertEquals(
-                "93d4209e0e24234aa41373925656009956cf70665afd2d9ce4fd2e2316e52a4c",
+                "b1b738d23632bb6c4dc8bf9e235d20261e504d80030fc6f998a616ea8c790ee9",
                 argon2id("TESTROOM01".encodeToByteArray(), salt, t = 2, m = 19_456, p = 1, tagLen = 32).hex(),
         )
     }
@@ -31,7 +32,7 @@ class RoomKeyVectors {
     @Test
     fun withPassword() {
         assertEquals(
-                "4e2a5f0a88f27bacbe50791075e10d6779878281f5b3066cbe62aec8eff52af1",
+                "0c507ff2ecd664e9c25d92bc01ab781e257e2a85c7f72b9b911ccdbd1513e16e",
                 roomKey("TESTROOM01", "hunter2").hex(),
         )
     }
