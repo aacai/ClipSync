@@ -1,7 +1,6 @@
 package zhiqiu.app.cs.core
 
 import com.russhwolf.settings.MapSettings
-import kotlin.io.encoding.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -11,7 +10,7 @@ class AppSettingsRoomSessionTest {
 
     private val key = ByteArray(RoomCrypto.KEY_SIZE) { (it + 1).toByte() }
 
-    private fun newSettings(vararg entries: Pair<String, Any>) = AppSettings(MapSettings(mutableMapOf(*entries)))
+    private fun newSettings() = AppSettings(MapSettings(mutableMapOf()))
 
     @Test
     fun saves_and_reads_back() {
@@ -40,16 +39,8 @@ class AppSettingsRoomSessionTest {
         assertEquals(false, settings.hasRoomSession())
     }
 
-    /** KDF 换版本前落盘的样子：有房间码和密钥，但没有 KDF 标记。 */
     @Test
-    fun drops_a_session_from_an_older_kdf() {
-        val store = mutableMapOf<String, Any>(KEY_ROOM_CODE to "ROOM-A", KEY_ROOM_KEY to Base64.encode(key))
-        assertNull(AppSettings(MapSettings(store)).roomSession())
-        assertEquals(0, store.size)
-    }
-
-    @Test
-    fun clearing_drops_the_marker_too() {
+    fun clearing_drops_the_session() {
         val settings = newSettings()
         settings.saveRoomSession("ROOM-A", key)
         settings.clearRoomSession()

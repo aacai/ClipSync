@@ -55,9 +55,6 @@ class RoomCrypto private constructor(private val key: ByteArray) {
     companion object {
         const val KEY_SIZE = 32
 
-        /** 存下来的派生密钥属于哪一版 KDF；换版本后旧密钥必须作废，否则两端算不出同一个安全码。 */
-        const val KDF_ID = "argon2id-v2"
-
         // OWASP 给 Argon2id 的下限档位：纯 Kotlin 在网页端约 1 秒，桌面端约 70 毫秒。
         private const val ARGON2_T = 2
         private const val ARGON2_M_KIB = 19_456

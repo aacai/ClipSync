@@ -20,11 +20,6 @@ enum class AppLanguage(val tag: String?) {
 
 internal expect fun platformSettings(): Settings
 
-// 上次房间的落盘键；测试要照着「升级前」的样子伪造，所以不能只藏在类里。
-internal const val KEY_ROOM_CODE = "room.code"
-internal const val KEY_ROOM_KEY = "room.key"
-internal const val KEY_ROOM_KDF = "room.kdf"
-
 class AppSettings(private val store: Settings = platformSettings()) {
 
     private val _themeMode = MutableStateFlow(themeOf(store.getStringOrNull(KEY_THEME)))
@@ -93,17 +88,11 @@ class AppSettings(private val store: Settings = platformSettings()) {
         if (!_rememberRoom.value || roomKey.size != RoomCrypto.KEY_SIZE) return
         store.putString(KEY_ROOM_CODE, roomCode)
         store.putString(KEY_ROOM_KEY, Base64.encode(roomKey))
-        store.putString(KEY_ROOM_KDF, RoomCrypto.KDF_ID)
     }
 
     fun hasRoomSession(): Boolean = _rememberRoom.value && roomSession() != null
 
     fun roomSession(): Pair<String, ByteArray>? {
-        // KDF 换过版本，旧密钥算不出同一个安全码，留着只会让人以为还连在同一间房。
-        if (store.getString(KEY_ROOM_KDF, "") != RoomCrypto.KDF_ID) {
-            clearRoomSession()
-            return null
-        }
         val code = store.getStringOrNull(KEY_ROOM_CODE) ?: return null
         val key = store.getStringOrNull(KEY_ROOM_KEY)
             ?.let { runCatching { Base64.decode(it) }.getOrNull() }
@@ -115,7 +104,6 @@ class AppSettings(private val store: Settings = platformSettings()) {
     fun clearRoomSession() {
         store.remove(KEY_ROOM_CODE)
         store.remove(KEY_ROOM_KEY)
-        store.remove(KEY_ROOM_KDF)
     }
 
     companion object {
@@ -128,6 +116,8 @@ class AppSettings(private val store: Settings = platformSettings()) {
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_RESIDENT_SYNC = "sync.resident"
         private const val KEY_NICKNAME = "device.nickname"
+        private const val KEY_ROOM_CODE = "room.code"
+        private const val KEY_ROOM_KEY = "room.key"
 
         private const val MAX_NICKNAME = 24
 
