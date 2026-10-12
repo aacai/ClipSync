@@ -1,6 +1,8 @@
 package zhiqiu.app.cs.ui
 
 import zhiqiu.app.cs.core.FileIssue
+import zhiqiu.app.cs.translate.TranslateFailure
+import zhiqiu.app.cs.translate.TranslateTarget
 
 enum class Level { Info, Warn, Error }
 
@@ -69,6 +71,18 @@ sealed class Feedback {
 
     data class Exported(val count: Int) : Feedback() {
         override val level get() = Level.Info
+    }
+
+    data class Translated(val target: TranslateTarget, val chars: Int) : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data class TranslateFailed(val failure: TranslateFailure, val detail: String? = null) : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data class TranslateTooLong(val chars: Int, val limit: Int) : Feedback() {
+        override val level get() = Level.Error
     }
 
     data class SendFailed(val reason: String) : Feedback() {

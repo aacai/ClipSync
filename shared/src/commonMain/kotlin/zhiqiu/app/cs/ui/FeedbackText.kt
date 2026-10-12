@@ -8,6 +8,8 @@ import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FileRejectReason
+import zhiqiu.app.cs.translate.TranslateFailure
+import zhiqiu.app.cs.translate.TranslateTarget
 import zhiqiu.app.cs.resources.*
 
 @Composable
@@ -45,6 +47,26 @@ internal fun feedbackText(feedback: Feedback): String =
                 pluralStringResource(Res.plurals.fb_duplicated, feedback.count, feedback.count)
             is Feedback.Moved -> stringResource(Res.string.fb_moved, feedback.position)
             is Feedback.Exported -> pluralStringResource(Res.plurals.fb_exported, feedback.count, feedback.count)
+            is Feedback.Translated ->
+                stringResource(
+                        if (feedback.target == TranslateTarget.English) Res.string.fb_translated_en
+                        else Res.string.fb_translated_zh,
+                        feedback.chars,
+                )
+            is Feedback.TranslateFailed -> {
+                val detail = feedback.detail?.takeIf { it.isNotBlank() }
+                when (feedback.failure) {
+                    TranslateFailure.Malformed -> stringResource(Res.string.fb_translate_failed_malformed)
+                    TranslateFailure.Empty -> stringResource(Res.string.fb_translate_failed_empty)
+                    TranslateFailure.Rejected ->
+                        stringResource(Res.string.fb_translate_failed_rejected, detail.orEmpty())
+                    TranslateFailure.Request ->
+                        if (detail == null) stringResource(Res.string.fb_translate_failed)
+                        else stringResource(Res.string.fb_translate_failed_request, detail)
+                }
+            }
+            is Feedback.TranslateTooLong ->
+                stringResource(Res.string.fb_translate_too_long, feedback.chars, feedback.limit)
             is Feedback.PinChanged ->
                 stringResource(
                         if (feedback.pinned) Res.string.fb_pinned else Res.string.fb_unpinned,

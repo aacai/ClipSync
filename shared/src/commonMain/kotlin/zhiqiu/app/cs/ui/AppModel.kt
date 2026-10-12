@@ -29,6 +29,12 @@ import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.TextOp
 import zhiqiu.app.cs.files.applyTextOp
 import zhiqiu.app.cs.files.isImage
+import zhiqiu.app.cs.translate.MAX_TRANSLATE_CHARS
+import zhiqiu.app.cs.translate.TranslateClient
+import zhiqiu.app.cs.translate.TranslateFailure
+import zhiqiu.app.cs.translate.TranslationException
+import zhiqiu.app.cs.translate.createTranslateClient
+import zhiqiu.app.cs.translate.detectTarget
 import kotlin.time.Clock
 
 class AppModel(
@@ -108,6 +114,8 @@ class AppModel(
         repository.items.map { repository.moveInfos() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
     private var monitorJob: Job? = null
+    private var translateJob: Job? = null
+    private val translator: TranslateClient by lazy { createTranslateClient() }
     private var connectJob: Job? = null
     private var receiveJob: Job? = null
     private var lastPublished: String? = null
@@ -420,6 +428,42 @@ class AppModel(
             val now = Clock.System.now().toEpochMilliseconds()
             if (repository.duplicate(item.id, newId(), now)) _info.value = Feedback.Duplicated(1)
         }
+    }
+
+    /** 中英互译：结果作为新条目进历史，原文保留，也不广播给同屋。 */
+    fun translate(item: ClipItem) {
+        val source = item.text
+        if (source.isBlank() || translateJob?.isActive == true) return
+        if (source.length > MAX_TRANSLATE_CHARS) {
+            _failure.value = Feedback.TranslateTooLong(source.length, MAX_TRANSLATE_CHARS)
+            return
+        }
+        val target = detectTarget(source)
+        translateJob =
+                scope.launch {
+                    runCatching { translator.translate(source, target) }
+                        .onSuccess { text ->
+                            repository.add(
+                                    ClipItem(
+                                            id = newId(),
+                                            kind = ClipRepository.KIND_TEXT,
+                                            ts = Clock.System.now().toEpochMilliseconds(),
+                                            senderId = platform.installId,
+                                            senderName = senderName(),
+                                            text = text,
+                                    ),
+                            )
+                            _info.value = Feedback.Translated(target, text.length)
+                        }
+                        .onFailure {
+                            _failure.value =
+                                    if (it is TranslationException) {
+                                        Feedback.TranslateFailed(it.failure, it.detail)
+                                    } else {
+                                        Feedback.TranslateFailed(TranslateFailure.Request, it.message)
+                                    }
+                        }
+                }
     }
 
     fun remove(items: List<ClipItem>) {

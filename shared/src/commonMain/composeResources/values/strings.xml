@@ -101,6 +101,7 @@
     <string name="cd_undo">撤销删除</string>
     <string name="act_note">写备注</string>
     <string name="act_transform">文本处理</string>
+    <string name="act_translate">中英互译</string>
     <string name="act_detail">查看详情</string>
     <string name="act_duplicate">生成副本</string>
     <string name="act_move_up">向上移</string>
@@ -169,6 +170,14 @@
     <plurals name="fb_duplicated">
         <item quantity="other">已生成 %1$d 个副本</item>
     </plurals>
+    <string name="fb_translated_en">已翻译成英文 · %1$d 字</string>
+    <string name="fb_translated_zh">已翻译成中文 · %1$d 字</string>
+    <string name="fb_translate_failed">翻译失败</string>
+    <string name="fb_translate_failed_request">翻译请求没发出去：%1$s</string>
+    <string name="fb_translate_failed_malformed">翻译服务的回复看不懂</string>
+    <string name="fb_translate_failed_empty">翻译服务没给出内容</string>
+    <string name="fb_translate_failed_rejected">翻译服务拒绝了这个请求：%1$s</string>
+    <string name="fb_translate_too_long">一次最多翻 %2$d 字，这条 %1$d 字</string>
     <plurals name="fb_exported">
         <item quantity="other">已把 %1$d 条导出到剪贴板</item>
     </plurals>

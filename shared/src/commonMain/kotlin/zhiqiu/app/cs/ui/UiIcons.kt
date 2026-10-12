@@ -41,6 +41,7 @@ internal object AppIcons {
     val SelectAll: ImageVector = icon("selectAll", DoneAllPath)
     val Duplicate: ImageVector = icon("duplicate", FilterNonePath)
     val Transform: ImageVector = icon("transform", TextFormatPath)
+    val Translate: ImageVector = icon("translate", TranslatePath)
     val More: ImageVector = icon("more", MoreVertPath)
     val Export: ImageVector = icon("export", FileUploadPath)
     val Settings: ImageVector = icon("settings", SettingsPath)
@@ -80,6 +81,9 @@ private const val DoneAllPath =
 
 private const val FilterNonePath =
         "M3,5L1,5v16c0,1.1 0.9,2 2,2h16v-2L3,21L3,5zM21,1L7,1c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2L23,3c0,-1.1 -0.9,-2 -2,-2zM21,17L7,17L7,3h14v14z"
+
+private const val TranslatePath =
+        "M12.87,15.07l-2.54,-2.51 0.03,-0.03c1.74,-1.94 2.98,-4.17 3.71,-6.53L17,6L17,4h-7L10,2L8,2v2L1,4v1.99h11.17C11.5,7.92 10.44,9.75 9,11.35 8.07,10.32 7.3,9.19 6.69,8h-2c0.73,1.63 1.73,3.17 2.98,4.56l-5.09,5.02L4,19l5,-5 3.11,3.11 0.76,-2.04zM18.5,10h-2L12,22h2l1.12,-3h4.75L21,22h2l-4.5,-12zM15.64,17l1.62,-4.33L18.87,17h-3.23z"
 
 private const val TextFormatPath =
         "M5,17v2h14v-2L5,17zM9.5,12.8h5l0.9,2.2h2.1L12.7,4h-1.4L6.5,15h2.1l0.9,-2.2zM12,5.98L13.87,11h-3.74L12,5.98z"

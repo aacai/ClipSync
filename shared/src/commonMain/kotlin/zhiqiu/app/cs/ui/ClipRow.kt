@@ -224,6 +224,10 @@ internal fun ClipRow(
                             menu = false
                             onTransform()
                         }
+                        MenuAction(AppIcons.Translate, Res.string.act_translate, enabled = !isFile) {
+                            menu = false
+                            model.translate(item)
+                        }
                         MenuAction(AppIcons.Duplicate, Res.string.act_duplicate) {
                             menu = false
                             model.duplicate(item)

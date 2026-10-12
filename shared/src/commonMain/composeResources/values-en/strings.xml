@@ -101,6 +101,7 @@
     <string name="cd_undo">Undo delete</string>
     <string name="act_note">Add a note</string>
     <string name="act_transform">Text commands</string>
+    <string name="act_translate">Translate</string>
     <string name="act_detail">Show details</string>
     <string name="act_duplicate">Duplicate</string>
     <string name="act_move_up">Move up</string>
@@ -173,6 +174,14 @@
         <item quantity="one">Created %1$d copy</item>
         <item quantity="other">Created %1$d copies</item>
     </plurals>
+    <string name="fb_translated_en">Translated to English · %1$d chars</string>
+    <string name="fb_translated_zh">Translated to Chinese · %1$d chars</string>
+    <string name="fb_translate_failed">Translation failed</string>
+    <string name="fb_translate_failed_request">Could not reach the translation service: %1$s</string>
+    <string name="fb_translate_failed_malformed">The translation service sent a reply we could not read</string>
+    <string name="fb_translate_failed_empty">The translation service returned nothing</string>
+    <string name="fb_translate_failed_rejected">The translation service refused: %1$s</string>
+    <string name="fb_translate_too_long">At most %2$d characters per request, this one has %1$d</string>
     <plurals name="fb_exported">
         <item quantity="one">Exported %1$d item to the clipboard</item>
         <item quantity="other">Exported %1$d items to the clipboard</item>
