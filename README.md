@@ -78,7 +78,7 @@ mqtt.password=<MQTT 密码>
 推 `v*` tag 触发 `.github/workflows/build.yml` 全量构建，并把所有产物汇总成一个 GitHub Release：
 
 ```bash
-git tag -a v0.0.1 -m "ClipSync v0.0.1" && git push origin v0.0.1
+git tag -a v<版本> -m "ClipSync v<版本>" && git push origin v<版本>
 ```
 
 | 产物 | 说明 |
@@ -89,7 +89,7 @@ git tag -a v0.0.1 -m "ClipSync v0.0.1" && git push origin v0.0.1
 | `ClipSync-<版本>-x64.deb` / `ClipSync-<版本>-arm64.deb` | Linux，`dpkg -i` 安装（deb 内部包名是小写的 `clipsync`，Debian 不允许大写） |
 | `web.zip` | WasmJS 静态站，解压后直接托管 |
 
-文件名里的版本号取自 `desktopApp` 的 `packageVersion` / `androidApp` 的 `versionName`。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS { }` / `windows { }` 里单独写死 `packageVersion = "1.0.0"`（deb 和 APK 仍是 0.0.1）；CI 会把所有下载文件按 0.0.1 重命名，本地直接跑 `packageDmg` 则会看到 `ClipSync-1.0.0.dmg`。
+文件名里的版本号取自 `desktopApp` 的 `packageVersion` / `androidApp` 的 `versionName`（CI 用 sed 从这两个文件读，没有写死）。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS { }` / `windows { }` 里单独写死 `packageVersion = "1.0.0"`，deb 和 APK 用上面的真实版本；发布产物一律按真实版本重命名，本地直接跑 `packageDmg` 则会看到 `ClipSync-1.0.0.dmg`。
 
 在线版：<https://aacai.github.io/ClipSync/>（推 `master` 时只构建 Web 并部署 Pages）。
 
