@@ -52,17 +52,12 @@ internal actual val appLanguageSupport: AppLanguageSupport
         AppLanguageSupport.Unsupported
     }
 
-// android.app.locale.LocaleManager 不在当前 compileSdk 的 android.jar 里，只能运行时反射拿。
 internal actual fun applyAppLanguage(language: AppLanguage) {
     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
     val context = ClipSyncAppContext.context ?: return
-    runCatching {
-        val managerClass = Class.forName("android.app.locale.LocaleManager")
-        val manager = context.getSystemService(managerClass) ?: return
-        val locales = language.tag
-            ?.let { android.os.LocaleList.forLanguageTags(it) }
-            ?: android.os.LocaleList.getEmptyLocaleList()
-        managerClass.getMethod("setApplicationLocales", android.os.LocaleList::class.java)
-            .invoke(manager, locales)
-    }
+    val manager = context.getSystemService(android.app.LocaleManager::class.java) ?: return
+    val locales = language.tag
+        ?.let { android.os.LocaleList.forLanguageTags(it) }
+        ?: android.os.LocaleList.getEmptyLocaleList()
+    manager.setApplicationLocales(locales)
 }
