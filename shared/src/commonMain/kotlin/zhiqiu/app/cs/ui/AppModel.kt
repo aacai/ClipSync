@@ -82,7 +82,16 @@ class AppModel(
     val supportsClipboardFiles: Boolean = platform.clipboard.canWriteFiles
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
     val supportsResidentSync: Boolean = platformSupportsResidentSync
-    val deviceName: String = platform.deviceName
+    val deviceName: StateFlow<String> =
+        settings.nickname.map { it.ifBlank { platform.deviceName } }
+            .stateIn(scope, SharingStarted.Eagerly, platform.deviceName)
+
+    private fun senderName(): String = settings.nickname.value.ifBlank { platform.deviceName }
+
+    fun setNickname(name: String) {
+        settings.setNickname(name)
+        scope.launch { engine.renameDevice(senderName()) }
+    }
 
     val residentSync: StateFlow<Boolean> = settings.residentSync
 
@@ -154,7 +163,7 @@ class AppModel(
                         kind = ClipRepository.KIND_TEXT,
                         ts = Clock.System.now().toEpochMilliseconds(),
                         senderId = platform.installId,
-                        senderName = platform.deviceName,
+                        senderName = senderName(),
                         text = text,
                 ),
         )
@@ -238,7 +247,7 @@ class AppModel(
                                             password = _password.value,
                                             roomKey = savedKey,
                                             deviceId = platform.installId,
-                                            deviceName = platform.deviceName,
+                                            deviceName = senderName(),
                                             repository = repository,
                                     ),
                             )

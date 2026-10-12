@@ -57,6 +57,15 @@ class AppSettings {
         }
     }
 
+    private val _nickname = MutableStateFlow(normalizeNickname(store.getString(KEY_NICKNAME, "")))
+    val nickname: StateFlow<String> = _nickname.asStateFlow()
+
+    fun setNickname(name: String) {
+        val value = normalizeNickname(name)
+        _nickname.value = value
+        store.putString(KEY_NICKNAME, value)
+    }
+
     private val _watchClipboard = MutableStateFlow(store.getBoolean(KEY_WATCH_CLIPBOARD, true))
     val watchClipboard: StateFlow<Boolean> = _watchClipboard.asStateFlow()
 
@@ -111,8 +120,15 @@ class AppSettings {
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_RESIDENT_SYNC = "sync.resident"
+        private const val KEY_NICKNAME = "device.nickname"
         private const val KEY_ROOM_CODE = "room.code"
         private const val KEY_ROOM_KEY = "room.key"
+
+        private const val MAX_NICKNAME = 24
+
+        /** 昵称会进 presence 和每条剪贴板的署名，所以压成单行、限长。 */
+        internal fun normalizeNickname(raw: String): String =
+            raw.lineSequence().first().trim().take(MAX_NICKNAME)
 
         private fun themeOf(name: String?): ThemeMode =
             ThemeMode.entries.firstOrNull { it.name == name } ?: ThemeMode.System

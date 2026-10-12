@@ -144,18 +144,26 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             scope.launch {
                 mqtt.messages.collect { message -> onMessage(message.topic, message.payloadAsString()) }
             }
-            watchConnection(mqtt, config, hash)
+            watchConnection(mqtt)
             // noLocal: the broker does not echo our own publishes back to us (MQTT 5 feature).
             mqtt.subscribe(ClipProtocol.roomFilter(hash), QoS.AT_LEAST_ONCE, noLocal = true)
             publishPresence(online = true)
 
             _status.value = Status.Online(safety)
-            startHeartbeat(config, hash)
+            startHeartbeat()
         } catch (e: Exception) {
             _status.value = Status.Offline(e.message ?: e::class.simpleName)
             stop()
             throw e
         }
+    }
+
+    /** 改昵称：只换署名，连接与密钥都不动，立刻重播 presence，同伴不必等下一次心跳。 */
+    suspend fun renameDevice(name: String) {
+        val cfg = config ?: return
+        if (name.isBlank() || name == cfg.deviceName) return
+        config = cfg.copy(deviceName = name)
+        publishPresence(online = true)
     }
 
     suspend fun publishText(text: String): ClipItem {
@@ -450,7 +458,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
      * 底层连接状态才是真相：断线重连期间界面要说“连接中”，别继续挂着“已连接”。
      * 重连成功后补一条 presence，否则同伴要等遗嘱过期才发现我们还在。
      */
-    private fun watchConnection(mqtt: MqttClient, cfg: Config, hash: String) {
+    private fun watchConnection(mqtt: MqttClient) {
         connectionJob?.cancel()
         connectionJob = scope.launch {
             mqtt.connectionState.collect { state ->
@@ -458,7 +466,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                     state is ConnectionState.Connected && _status.value !is Status.Online -> {
                         val safety = crypto?.safetyNumber() ?: return@collect
                         _status.value = Status.Online(safety)
-                        publishPresence(cfg, hash, online = true)
+                        publishPresence(online = true)
                     }
 
                     (state is ConnectionState.Connecting || state is ConnectionState.Reconnecting) &&
@@ -471,14 +479,14 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         }
     }
 
-    private fun startHeartbeat(cfg: Config, hash: String) {
+    private fun startHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
             while (isActive) {
                 delay(PRESENCE_INTERVAL_MS)
                 if (!isActive) break
                 if (client?.connectionState?.value is ConnectionState.Connected) {
-                    publishPresence(cfg, hash, online = true)
+                    publishPresence(online = true)
                 }
             }
         }

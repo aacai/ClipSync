@@ -86,6 +86,8 @@ internal fun SettingsView(
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
     val residentSync by model.residentSync.collectAsState()
+    val deviceName by model.deviceName.collectAsState()
+    val nickname by settings.nickname.collectAsState()
     val canWatch = model.supportsClipboardAutoSync
     val languageSupport = appLanguageSupport
     val showLanguage = languageSupport != AppLanguageSupport.Unsupported
@@ -96,13 +98,14 @@ internal fun SettingsView(
     var barHeight by remember { mutableStateOf(0.dp) }
     var pickingTheme by remember { mutableStateOf(false) }
     var pickingLanguage by remember { mutableStateOf(false) }
+    var editingNickname by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
 
     DisposableEffect(Unit) {
         val removeChords =
                 installKeyChords { name, _, _ ->
-                        if (name == "Escape" && !pickingTheme && !pickingLanguage) {
+                        if (name == "Escape" && !pickingTheme && !pickingLanguage && !editingNickname) {
                                 onBack()
                                 true
                         } else {
@@ -123,6 +126,7 @@ internal fun SettingsView(
                                                 event.key == Key.Escape &&
                                                 !pickingTheme &&
                                                 !pickingLanguage &&
+                                                !editingNickname &&
                                                 run {
                                                         onBack()
                                                         true
@@ -214,7 +218,11 @@ internal fun SettingsView(
                                         value = pluralStringResource(Res.plurals.setting_item_count, localCount, localCount),
                                 )
                                 RowDivider()
-                                ValueRow(title = Res.string.setting_device, value = model.deviceName)
+                                NavRow(
+                                        title = Res.string.setting_nickname,
+                                        value = deviceName,
+                                        onClick = { editingNickname = true },
+                                )
                             }
                         }
                     }
@@ -269,6 +277,22 @@ internal fun SettingsView(
                 onSelect = {
                     settings.setLanguage(it)
                     pickingLanguage = false
+                },
+        )
+    }
+    if (editingNickname) {
+        TextEntryDialog(
+                title = Res.string.setting_nickname,
+                initial = nickname,
+                placeholder = Res.string.nickname_placeholder,
+                confirm = Res.string.save,
+                supporting = Res.string.nickname_hint,
+                allowBlank = true,
+                minLines = 1,
+                onDismiss = { editingNickname = false },
+                onSubmit = {
+                    model.setNickname(it)
+                    editingNickname = false
                 },
         )
     }
