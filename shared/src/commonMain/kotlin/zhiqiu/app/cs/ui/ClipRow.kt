@@ -353,7 +353,7 @@ private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
     val scheme = MaterialTheme.colorScheme
     return when {
         picked -> scheme.primary.copy(alpha = 0.17f)
-        cursor -> scheme.surfaceContainerHigh
+        cursor -> scheme.primary.copy(alpha = 0.07f)
         else -> if (isAppDarkTheme()) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.55f)
     }
 }
@@ -363,7 +363,7 @@ private fun rowBorder(cursor: Boolean, picked: Boolean): Color {
     val scheme = MaterialTheme.colorScheme
     return when {
         picked -> scheme.primary.copy(alpha = 0.55f)
-        cursor -> scheme.outlineVariant
+        cursor -> scheme.primary.copy(alpha = 0.32f)
         else -> scheme.outlineVariant.copy(alpha = 0.45f)
     }
 }
