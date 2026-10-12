@@ -205,6 +205,8 @@
     <string name="setting_resident_sync">后台常驻同步</string>
     <string name="setting_resident_sync_hint">退到后台也保持房间连接不断开，系统会挂一条常驻通知；离开房间或关掉开关即停止</string>
     <string name="setting_device">设备名</string>
+    <string name="tray_show_window">显示主窗口</string>
+    <string name="tray_quit">退出 ClipSync</string>
     <plurals name="setting_item_count">
         <item quantity="other">%1$d 条</item>
     </plurals>

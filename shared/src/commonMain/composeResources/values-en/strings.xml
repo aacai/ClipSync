@@ -210,6 +210,8 @@
     <string name="setting_resident_sync">Sync in background</string>
     <string name="setting_resident_sync_hint">Keeps the room connection alive when the app goes to the background, shown as an ongoing notification. Leaving the room or switching this off stops it</string>
     <string name="setting_device">Device name</string>
+    <string name="tray_show_window">Show main window</string>
+    <string name="tray_quit">Quit ClipSync</string>
     <plurals name="setting_item_count">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
