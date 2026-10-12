@@ -12,6 +12,9 @@ kotlin {
     }
 }
 
+val appVersion: String by rootProject.extra
+val appVersionCode: Int by rootProject.extra
+
 val signingPropsFile = rootProject.file("androidApp/signing.properties")
 val signingProps = Properties()
 if (signingPropsFile.exists()) {
@@ -40,8 +43,8 @@ android {
         applicationId = "zhiqiu.app.cs"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 2
-        versionName = "0.0.2"
+        versionCode = appVersionCode
+        versionName = appVersion
     }
     packaging {
         resources {

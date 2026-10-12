@@ -15,6 +15,10 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
 }
 
+val appVersion: String by rootProject.extra
+// jpackage 不让 dmg/msi 的主版本为 0，内部版本号只能从 1 起；末几位仍跟着 appVersion 走
+val jpackageVersion = "1." + appVersion.substringAfter('.')
+
 compose.desktop {
     application {
         mainClass = "zhiqiu.app.cs.MainKt"
@@ -23,12 +27,11 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             // --name：ClipSync.app / ClipSync-<版本>.dmg / .msi 的文件名都跟着它
             packageName = "ClipSync"
-            packageVersion = "0.0.2"
+            packageVersion = appVersion
             // deb 的 Package: 字段必须全小写，单独给一个合法名
             linux { packageName = "clipsync" }
-            // jpackage 不让 dmg/msi 的主版本为 0，这两个内部版本号只能从 1 起；发布文件名跟着上面的 packageVersion 打
-            macOS { packageVersion = "1.0.0" }
-            windows { packageVersion = "1.0.0" }
+            macOS { packageVersion = jpackageVersion }
+            windows { packageVersion = jpackageVersion }
         }
     }
 }
