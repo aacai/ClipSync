@@ -31,10 +31,17 @@ internal actual fun installId(): String {
     return installIdFile.readText().trim().ifEmpty { UUID.randomUUID().toString() }
 }
 
-internal actual fun deviceName(): String {
-    val user = System.getProperty("user.name")?.takeIf { it.isNotBlank() }
-    val os = System.getProperty("os.name")?.takeIf { it.isNotBlank() } ?: "Desktop"
-    return if (user != null) "$os · $user" else os
+internal actual fun deviceName(): String =
+    System.getProperty("user.name")?.takeIf { it.isNotBlank() } ?: "Desktop"
+
+internal actual fun platformOs(): String {
+    val name = System.getProperty("os.name").orEmpty().lowercase()
+    return when {
+        name.contains("mac") || name.contains("darwin") -> "macOS"
+        name.contains("win") -> "Windows"
+        name.contains("nix") || name.contains("nux") -> "Linux"
+        else -> "Desktop"
+    }
 }
 
 internal actual val platformSupportsResidentSync: Boolean = false

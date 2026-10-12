@@ -88,6 +88,8 @@ class AppModel(
 
     private fun senderName(): String = settings.nickname.value.ifBlank { platform.deviceName }
 
+    val deviceOs: String = platform.deviceOs
+
     fun setNickname(name: String) {
         settings.setNickname(name)
         scope.launch { engine.renameDevice(senderName()) }
@@ -248,6 +250,7 @@ class AppModel(
                                             roomKey = savedKey,
                                             deviceId = platform.installId,
                                             deviceName = senderName(),
+                                            deviceOs = platform.deviceOs,
                                             repository = repository,
                                     ),
                             )
@@ -581,3 +584,7 @@ class AppModel(
 }
 
 private fun Throwable.clipboardCode(): String? = (this as? ClipboardUnavailable)?.code
+
+/** 设备署名 + 系统标签；名字里已经带系统（Web）就不重复。 */
+internal fun deviceLabel(name: String, os: String): String =
+    if (os.isBlank() || name.contains(os, ignoreCase = true)) name else "$name · $os"

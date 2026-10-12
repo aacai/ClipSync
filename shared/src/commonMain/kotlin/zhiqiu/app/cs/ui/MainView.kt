@@ -418,7 +418,7 @@ internal fun MainView(
                     Header(
                             status,
                             roomCode,
-                            devices.map { it.name },
+                            devices.map { deviceLabel(it.name, it.os) },
                             onLeave,
                             onShare = { shareOpen = true },
                             onSettings = onOpenSettings,
@@ -685,7 +685,7 @@ private fun Header(
             val detail = listOfNotNull(
                 safety?.let { stringResource(Res.string.safety_number, it) },
                 deviceNames.takeIf { it.isNotEmpty() }?.let {
-                    stringResource(Res.string.peers_in_room, it.size, it.joinToString(" · ").take(48))
+                    stringResource(Res.string.peers_in_room, it.size, it.joinToString(" · ").take(72))
                 },
             ).joinToString(" · ")
             if (detail.isNotEmpty()) {

@@ -14,4 +14,7 @@ internal expect fun installId(): String
 
 internal expect fun deviceName(): String
 
+/** 给人看的系统标签：macOS / Windows / Linux / Android / iOS / Web。 */
+internal expect fun platformOs(): String
+
 internal expect val platformSupportsResidentSync: Boolean

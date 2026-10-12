@@ -31,12 +31,15 @@ data class PresenceEnvelope(
     val ts: Long,
     /** 安全码前缀（密钥指纹）。旧客户端不发，空串=未知；它只用于发现“同屋但密钥不同”。 */
     val sp: String = "",
+    /** 系统标签（macOS / Android / Web…）。旧客户端不发，空串=未知。 */
+    val os: String = "",
 )
 
 data class DevicePresence(
     val id: String,
     val name: String,
     val safety: String = "",
+    val os: String = "",
 )
 
 data class RoomTopic(

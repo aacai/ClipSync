@@ -37,6 +37,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val roomKey: ByteArray? = null,
         val deviceId: String,
         val deviceName: String,
+        val deviceOs: String,
         val repository: ClipRepository? = null,
     )
 
@@ -132,6 +133,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                     payload(ClipProtocol.encode(PresenceEnvelope(
                         dev = config.deviceId,
                         name = config.deviceName,
+                        os = config.deviceOs,
                         online = false,
                         ts = now(),
                     )))
@@ -421,7 +423,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         if (envelope.dev == cfg.deviceId) return
         val existing = _devices.value.associateBy { it.id }.toMutableMap()
         if (envelope.online) {
-            existing[envelope.dev] = DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp)
+            existing[envelope.dev] =
+                    DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp, os = envelope.os)
         } else {
             existing.remove(envelope.dev)
         }
@@ -441,6 +444,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val envelope = PresenceEnvelope(
             dev = cfg.deviceId,
             name = cfg.deviceName,
+            os = cfg.deviceOs,
             online = online,
             ts = now(),
             sp = safetyPrefix,

@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncAppContext
 import zhiqiu.app.cs.core.deviceName
+import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.AndroidClipStore
 import zhiqiu.app.cs.files.mimeForName
@@ -53,6 +54,7 @@ object ClipSyncRuntime {
                 opener = AndroidFileOpener(app),
                 store = AndroidClipStore(app),
                 deviceName = deviceName(),
+                deviceOs = platformOs(),
                 installId = installId(),
             ).also { platformRef = it }
         }

@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.Flow
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.deviceName
+import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.ClipStore
 
@@ -59,6 +60,7 @@ class PlatformUi(
     val opener: PlatformFileOpener,
     val store: ClipStore,
     val deviceName: String,
+    val deviceOs: String,
     val installId: String,
 )
 
@@ -92,6 +94,7 @@ internal fun rememberPlatformUi(
         opener = opener,
         store = store,
         deviceName = deviceName(),
+        deviceOs = platformOs(),
         installId = installId(),
     )
 }

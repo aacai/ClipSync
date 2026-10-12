@@ -36,6 +36,8 @@ internal actual fun installId(): String {
 internal actual fun deviceName(): String =
     "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim().ifEmpty { "Android" }
 
+internal actual fun platformOs(): String = "Android"
+
 internal actual val platformSupportsResidentSync: Boolean = true
 
 internal actual fun platformSettings(): Settings {

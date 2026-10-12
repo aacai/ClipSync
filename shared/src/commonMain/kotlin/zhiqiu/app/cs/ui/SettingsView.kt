@@ -223,6 +223,8 @@ internal fun SettingsView(
                                         value = deviceName,
                                         onClick = { editingNickname = true },
                                 )
+                                RowDivider()
+                                ValueRow(title = Res.string.setting_os, value = model.deviceOs)
                             }
                         }
                     }
