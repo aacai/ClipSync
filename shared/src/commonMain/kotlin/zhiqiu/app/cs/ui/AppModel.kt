@@ -140,12 +140,13 @@ class AppModel(
         monitorJob = scope.launch {
             lastCaptured = runCatching { platform.clipboard.read() }.getOrNull()
             val events = platform.clipboard.changeEvents
+            // 单次采集抛出来的东西必须吃掉：这里没人会重启监听，逃出去只会顺着 UI 线程变成系统级报错弹窗。
             if (events != null) {
-                events.collect { onClipboardChanged() }
+                events.collect { runCatching { onClipboardChanged() } }
             } else {
                 while (isActive) {
                     delay(CLIPBOARD_POLL_MS)
-                    onClipboardChanged()
+                    runCatching { onClipboardChanged() }
                 }
             }
         }
