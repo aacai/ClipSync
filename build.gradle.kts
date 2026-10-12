@@ -10,6 +10,4 @@ plugins {
     alias(libs.plugins.kotlinSerialization) apply false
 }
 
-// 版本号唯一信源：APK、dmg/msi/deb 以及 CI 产物文件名都从这里取。
 extra["appVersion"] = "0.0.2"
-extra["appVersionCode"] = 2

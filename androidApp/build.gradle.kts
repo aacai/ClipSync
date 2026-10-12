@@ -13,7 +13,7 @@ kotlin {
 }
 
 val appVersion: String by rootProject.extra
-val appVersionCode: Int by rootProject.extra
+val appVersionCode = appVersion.split(".").fold(0) { acc, part -> acc * 100 + part.toInt() }
 
 val signingPropsFile = rootProject.file("androidApp/signing.properties")
 val signingProps = Properties()
