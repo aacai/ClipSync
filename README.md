@@ -89,7 +89,7 @@ git tag -a v<版本> -m "ClipSync v<版本>" && git push origin v<版本>
 | `ClipSync-<版本>-x64.deb` / `ClipSync-<版本>-arm64.deb` | Linux，`dpkg -i` 安装（deb 内部包名是小写的 `clipsync`，Debian 不允许大写） |
 | `web.zip` | WasmJS 静态站，解压后直接托管 |
 
-版本号只有一个信源：根 `build.gradle.kts` 里的 `extra["appVersion"]`。`androidApp` 的 versionName 直接取它、versionCode 由它算出（每段占两位，0.0.2 → 2），`desktopApp` 的 `packageVersion` 也取它，CI 的 sed 同样只读这一处。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS` / `windows` 用派生的 `1.<appVersion 去掉前导 0.>`（0.0.2 → 1.0.2），deb 和 APK 用真实版本；发布产物一律按真实版本重命名，本地直接跑 `packageDmg` 则会看到 `ClipSync-1.0.2.dmg`。
+版本号只有一个信源：根 `build.gradle.kts` 里的 `extra["appVersion"]`。`androidApp` 的 versionName 直接取它、versionCode 由它算出（每段占两位，逐段 `acc * 100 + 段值`），`desktopApp` 的 `packageVersion` 也取它，CI 的 sed 同样只读这一处。jpackage 不允许 dmg、msi 的主版本为 0，所以 `macOS` / `windows` 用派生的 `1.<去掉前导 "0.">`，deb 和 APK 用真实版本；发布产物一律按真实版本重命名，本地直接跑 `packageDmg` 看到的文件名主版本会是 1。
 
 在线版：<https://aacai.github.io/ClipSync/>（推 `master` 时只构建 Web 并部署 Pages）。
 
