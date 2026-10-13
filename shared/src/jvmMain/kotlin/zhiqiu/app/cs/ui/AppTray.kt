@@ -13,7 +13,9 @@ import zhiqiu.app.cs.resources.*
 
 fun showFromTray(state: WindowState, window: AwtWindow?) {
     state.isMinimized = false
+    window?.isVisible = true
     window?.toFront()
+    window?.requestFocus()
 }
 
 @Composable
