@@ -11,9 +11,8 @@
 !src/**/build/
 
 # ---- secrets / local machine config ----
-# MQTT broker credentials & generated secrets (never commit)
+# sdk.dir and other per-machine settings (never commit)
 local.properties
-shared/src/commonMain/kotlin/zhiqiu/app/cs/core/MqttSecrets.kt
 # signing material
 *.jks
 *.keystore

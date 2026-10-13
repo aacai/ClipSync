@@ -1,6 +1,5 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -14,52 +13,6 @@ compose.resources {
     packageOfResClass = "zhiqiu.app.cs.resources"
     publicResClass = false
 }
-
-// Broker credentials live in local.properties (gitignored) and are materialized into a
-// gitignored source file at configuration time, so nothing secret ends up in version control.
-// NOTE: the "App ID / App Secret" on the EMQX overview page are API credentials, NOT MQTT login
-// credentials — create the MQTT user in the console:
-//   部署 -> 访问控制 -> 客户端认证 -> 添加 (username / password)
-val brokerDefaults = mapOf(
-    "mqtt.host" to "b890fa3a.ala.cn-shenzhen.emqxsl.cn",
-    "mqtt.scheme" to "ssl",
-    "mqtt.portTls" to "8883",
-    "mqtt.portWss" to "8084",
-    "mqtt.username" to "CHANGE_ME",
-    "mqtt.password" to "CHANGE_ME",
-)
-val brokerProps = Properties().apply {
-    rootProject.layout.projectDirectory.file("local.properties").asFile
-        .takeIf { it.exists() }
-        ?.inputStream()
-        ?.use { load(it) }
-}
-fun brokerProperty(key: String): String {
-    val envKey = key.replace("mqtt.", "MQTT_").uppercase()
-    val raw = System.getenv(envKey)?.takeIf { it.isNotBlank() }
-        ?: brokerProps.getProperty(key)
-        ?: brokerDefaults.getValue(key)
-    return raw.replace("\\", "\\\\").replace("\"", "\\\"").replace("$", "\\$")
-}
-
-val secretsFile = layout.projectDirectory
-    .file("src/commonMain/kotlin/zhiqiu/app/cs/core/MqttSecrets.kt").asFile
-secretsFile.parentFile.mkdirs()
-secretsFile.writeText(
-    """
-    package zhiqiu.app.cs.core
-
-    // GENERATED from local.properties by shared/build.gradle.kts — do not edit, do not commit.
-    internal object MqttSecrets {
-        const val HOST: String = "${brokerProperty("mqtt.host")}"
-        const val SCHEME: String = "${brokerProperty("mqtt.scheme")}"
-        const val PORT_TLS: Int = ${brokerProperty("mqtt.portTls")}
-        const val PORT_WSS: Int = ${brokerProperty("mqtt.portWss")}
-        const val USERNAME: String = "${brokerProperty("mqtt.username")}"
-        const val PASSWORD: String = "${brokerProperty("mqtt.password")}"
-    }
-    """.trimIndent(),
-)
 
 kotlin {
     listOf(
