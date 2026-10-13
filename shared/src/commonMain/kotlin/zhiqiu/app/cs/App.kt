@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -66,7 +67,8 @@ private fun ClipSyncNavHost(
     NavHost(
             navController = nav,
             startDestination = HistoryRoute,
-            modifier = Modifier.fillMaxSize(),
+            // 移动端开了 edge-to-edge：状态栏、导航条、刘海都得让开，背景留在外层铺满
+            modifier = Modifier.fillMaxSize().safeDrawingPadding(),
             enterTransition = {
                 fadeIn(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)) +
                         slideInHorizontally(tween(M3.MEDIUM_3, easing = M3.EMPHASIZED)) { it / 16 }
