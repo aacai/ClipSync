@@ -14,8 +14,6 @@ import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import org.meshtastic.mqtt.ConnectionState
-import org.meshtastic.mqtt.MqttClient
-import org.meshtastic.mqtt.QoS
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.ClipStore
@@ -28,7 +26,10 @@ import zhiqiu.app.cs.files.createSharedHttpClient
 import zhiqiu.app.cs.files.sanitizeFileName
 import zhiqiu.app.cs.files.validateOutgoingFile
 
-class ClipSyncEngine(private val scope: CoroutineScope) {
+internal class ClipSyncEngine(
+    private val scope: CoroutineScope,
+    private val links: MqttLinkFactory = DefaultMqttLinks,
+) {
 
     data class Config(
         val roomId: String,
@@ -89,20 +90,26 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     private var repository: ClipRepository? = null
     private var transferClient: FileTransferClient? = null
     private var fileCrypto: FileCrypto? = null
-    private var client: MqttClient? = null
+    private var link: MqttLink? = null
     private var crypto: RoomCrypto? = null
-    private var config: Config? = null
+
+    /** 用户想待在的房间：连接断了不改它，重连成功后照原样续上，退出房间才清空。 */
+    private var desired: Config? = null
     private var roomHash: String = ""
     private var safetyPrefix: String = ""
+    private var safety: String = ""
     private var heartbeatJob: Job? = null
     private var connectionJob: Job? = null
+    private var collectorJob: Job? = null
+    private var recoveryJob: Job? = null
+    private var backoffMs = RECOVERY_BASE_MS
 
     /** 已派生密钥的副本，供上层持久化；用完请自行清零。 */
     fun roomKeyMaterial(): ByteArray? = crypto?.keyMaterial()
 
     suspend fun start(config: Config) {
         stop()
-        this.config = config
+        desired = config
         _devices.value = emptyList()
         _status.value = Status.Connecting
         try {
@@ -115,62 +122,53 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             transferClient = FileTransferClient(createSharedHttpClient())
             fileCrypto = FileCrypto(roomCrypto)
             config.repository?.load()
-            val safety = roomCrypto.safetyNumber()
+            safety = roomCrypto.safetyNumber()
             safetyPrefix = ClipProtocol.safetyPrefix(safety)
-
-            val mqtt = MqttClient(clientId(config, hash)) {
-                username = MqttSecrets.USERNAME
-                password(MqttSecrets.PASSWORD)
-                transportFactory = mqttTransportFactory()
-                keepAliveSeconds = 45
-                cleanStart = true
-                autoReconnect = true
-                reconnectBaseDelayMs = RECONNECT_BASE_MS
-                reconnectMaxDelayMs = RECONNECT_MAX_MS
-                maxReconnectAttempts = Int.MAX_VALUE
-                will {
-                    topic = ClipProtocol.presenceTopic(hash, config.deviceId)
-                    payload(ClipProtocol.encode(PresenceEnvelope(
-                        dev = config.deviceId,
-                        name = config.deviceName,
-                        os = config.deviceOs,
-                        online = false,
-                        ts = now(),
-                        sp = safetyPrefix,
-                    )))
-                    qos = QoS.AT_LEAST_ONCE
-                }
-            }
-            client = mqtt
-            mqtt.connect(mqttEndpoint())
-
-            scope.launch {
-                mqtt.messages.collect { message -> onMessage(message.topic, message.payloadAsString()) }
-            }
-            watchConnection(mqtt)
-            // noLocal: the broker does not echo our own publishes back to us (MQTT 5 feature).
-            mqtt.subscribe(ClipProtocol.roomFilter(hash), QoS.AT_LEAST_ONCE, noLocal = true)
-            publishPresence(online = true)
-
-            _status.value = Status.Online(safety)
-            startHeartbeat()
         } catch (e: Exception) {
-            _status.value = Status.Offline(e.message ?: e::class.simpleName)
+            // 房间本身没打开（密钥坏了之类），重连也救不回来，直接报错
             stop()
+            _status.value = Status.Offline(e.message ?: e::class.simpleName)
+            throw e
+        }
+        try {
+            openLink()
+        } catch (e: Exception) {
+            closeLink()
+            _status.value = Status.Offline(e.message ?: e::class.simpleName)
+            armRecovery()
             throw e
         }
     }
 
+    /** 开一条新会话并把它接上：连上、订阅、报 presence，之后由 watchConnection 盯状态。 */
+    private suspend fun openLink() {
+        val cfg = desired ?: return
+        val mqtt = links.create(cfg, roomHash, safetyPrefix)
+        link = mqtt
+        mqtt.connect()
+
+        collectorJob = scope.launch {
+            mqtt.messages.collect { message -> onMessage(message.topic, message.payload) }
+        }
+        watchConnection(mqtt)
+        mqtt.subscribe(ClipProtocol.roomFilter(roomHash))
+        publishPresence(online = true)
+
+        _status.value = Status.Online(safety)
+        backoffMs = RECOVERY_BASE_MS
+        startHeartbeat()
+    }
+
     /** 改昵称：只换署名，连接与密钥都不动，立刻重播 presence，同伴不必等下一次心跳。 */
     suspend fun renameDevice(name: String) {
-        val cfg = config ?: return
+        val cfg = desired ?: return
         if (name.isBlank() || name == cfg.deviceName) return
-        config = cfg.copy(deviceName = name)
+        desired = cfg.copy(deviceName = name)
         publishPresence(online = true)
     }
 
     suspend fun publishText(text: String): ClipItem {
-        val cfg = config ?: error("engine not started")
+        val cfg = desired ?: error("engine not started")
         val roomCrypto = crypto ?: error("engine not started")
         val payload = ClipProtocol.encode(ClipPayload(text = text, len = text.length))
         val envelope = ClipEnvelope(
@@ -181,11 +179,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             kind = ClipRepository.KIND_TEXT,
             ct = roomCrypto.encrypt(payload.encodeToByteArray(), ClipProtocol.clipTopic(roomHash).encodeToByteArray()),
         )
-        client?.publish(
-            topic = ClipProtocol.clipTopic(roomHash),
-            payload = ClipProtocol.encode(envelope),
-            qos = QoS.AT_LEAST_ONCE,
-        )
+        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
         val item = ClipItem(
             id = envelope.mid,
             kind = ClipRepository.KIND_TEXT,
@@ -203,7 +197,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
      * 返回 null 表示被本地规则拒绝（超限/空文件）。
      */
     suspend fun publishFile(name: String, mime: String, bytes: ByteArray): ClipItem? {
-        val cfg = config ?: error("engine not started")
+        val cfg = desired ?: error("engine not started")
         val validator = validateOutgoingFile(name, bytes.size.toLong(), bytes.size)
         if (validator != null) {
             _fileIssues.emit(FileIssue.Rejected(validator, name))
@@ -308,11 +302,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             kind = ClipRepository.KIND_FILE,
             ct = FileCrypto.encodeCipher(wire),
         )
-        client?.publish(
-            topic = ClipProtocol.clipTopic(roomHash),
-            payload = ClipProtocol.encode(envelope),
-            qos = QoS.AT_LEAST_ONCE,
-        )
+        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
     }
 
     private suspend fun addToHistory(item: ClipItem) {
@@ -320,25 +310,53 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     }
 
     suspend fun stop() {
+        desired = null
+        recoveryJob?.cancel()
+        recoveryJob = null
+        backoffMs = RECOVERY_BASE_MS
+        if (_status.value is Status.Online) {
+            runCatching { publishPresence(online = false) }
+        }
+        closeLink()
+        crypto?.wipe()
+        crypto = null
+        safety = ""
+        safetyPrefix = ""
+        _keyMismatch.value = emptyList()
+        _status.value = Status.Idle
+    }
+
+    private suspend fun closeLink() {
         heartbeatJob?.cancel()
         heartbeatJob = null
         connectionJob?.cancel()
         connectionJob = null
-        val current = config
-        if (current != null && _status.value is Status.Online) {
-            runCatching { publishPresence(current, roomHash, online = false) }
-        }
-        runCatching { client?.close() }
-        client = null
-        crypto?.wipe()
-        crypto = null
-        config = null
-        safetyPrefix = ""
-        _keyMismatch.value = emptyList()
-        if (_status.value !is Status.Offline) _status.value = Status.Idle
+        collectorJob?.cancel()
+        collectorJob = null
+        val current = link
+        link = null
+        runCatching { current?.close() }
     }
 
-    private fun clientId(config: Config, hash: String) = "cs-$hash-${config.deviceId}"
+    /**
+     * 库自己的重连只管同一条连接；首次就没连上、或被 broker 明确拒掉时，这里接手按退避再开一条。
+     * 房间密钥还在手上，所以续上的是原来那个房间，不用重新输密码。
+     */
+    private fun armRecovery() {
+        if (recoveryJob?.isActive == true) return
+        recoveryJob = scope.launch {
+            while (isActive && desired != null && _status.value !is Status.Online) {
+                delay(backoffMs)
+                // 等的这段时间里库自己连上了，就别去掐断一条好连接
+                if (desired == null || _status.value is Status.Online) continue
+                backoffMs = (backoffMs * 2).coerceAtMost(RECOVERY_MAX_MS)
+                closeLink()
+                runCatching { openLink() }.onFailure {
+                    _status.value = Status.Offline(it.message ?: it::class.simpleName)
+                }
+            }
+        }
+    }
 
     private suspend fun onMessage(topic: String, payload: String) {
         when (ClipProtocol.parseTopic(topic)?.channel) {
@@ -353,7 +371,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         val roomCrypto = crypto ?: return
         val envelope = runCatching { ClipProtocol.decode<ClipEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.v != ClipProtocol.PROTOCOL_VERSION) return
-        val cfg = config ?: return
+        val cfg = desired ?: return
         if (envelope.dev == cfg.deviceId) return
 
         if (envelope.kind == ClipRepository.KIND_FILE) {
@@ -417,7 +435,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     }
 
     private fun onPresence(topic: String, raw: String) {
-        val cfg = config ?: return
+        val cfg = desired ?: return
         val parsed = ClipProtocol.parseTopic(topic) ?: return
         if (parsed.deviceId == cfg.deviceId) return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
@@ -436,12 +454,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     }
 
     private suspend fun publishPresence(online: Boolean) {
-        val cfg = config ?: return
-        publishPresence(cfg, roomHash, online)
-    }
-
-    private suspend fun publishPresence(cfg: Config, hash: String, online: Boolean) {
-        val mqtt = client ?: return
+        val cfg = desired ?: return
+        val mqtt = link ?: return
         val envelope = PresenceEnvelope(
             dev = cfg.deviceId,
             name = cfg.deviceName,
@@ -452,9 +466,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
         )
         runCatching {
             mqtt.publish(
-                topic = ClipProtocol.presenceTopic(hash, cfg.deviceId),
+                topic = ClipProtocol.presenceTopic(roomHash, cfg.deviceId),
                 payload = ClipProtocol.encode(envelope),
-                qos = QoS.AT_LEAST_ONCE,
             )
         }
     }
@@ -463,14 +476,14 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
      * 底层连接状态才是真相：断线重连期间界面要说“连接中”，别继续挂着“已连接”。
      * 重连成功后补一条 presence，否则同伴要等遗嘱过期才发现我们还在。
      */
-    private fun watchConnection(mqtt: MqttClient) {
+    private fun watchConnection(mqtt: MqttLink) {
         connectionJob?.cancel()
         connectionJob = scope.launch {
             mqtt.connectionState.collect { state ->
                 when {
                     state is ConnectionState.Connected && _status.value !is Status.Online -> {
-                        val safety = crypto?.safetyNumber() ?: return@collect
                         _status.value = Status.Online(safety)
+                        backoffMs = RECOVERY_BASE_MS
                         publishPresence(online = true)
                     }
 
@@ -478,7 +491,11 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
                             _status.value is Status.Online -> _status.value = Status.Connecting
 
                     state is ConnectionState.Disconnected && state.reason != null &&
-                            config != null -> _status.value = Status.Offline(state.reason?.message)
+                            desired != null -> {
+                        _status.value = Status.Offline(state.reason?.message)
+                        // 库到这里已经不试了，接着试归恢复循环管
+                        armRecovery()
+                    }
                 }
             }
         }
@@ -490,7 +507,7 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
             while (isActive) {
                 delay(PRESENCE_INTERVAL_MS)
                 if (!isActive) break
-                if (client?.connectionState?.value is ConnectionState.Connected) {
+                if (link?.connectionState?.value is ConnectionState.Connected) {
                     publishPresence(online = true)
                 }
             }
@@ -501,8 +518,8 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
 
     companion object {
         private const val PRESENCE_INTERVAL_MS = 25_000L
-        private const val RECONNECT_BASE_MS = 1_000L
-        private const val RECONNECT_MAX_MS = 30_000L
+        private const val RECOVERY_BASE_MS = 5_000L
+        private const val RECOVERY_MAX_MS = 60_000L
         private val EXPIRY_HOURS = mapOf(
             "1h" to 1L,
             "12h" to 12L,
@@ -517,4 +534,4 @@ class ClipSyncEngine(private val scope: CoroutineScope) {
     }
 }
 @OptIn(ExperimentalTime::class)
-private fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
+internal fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
