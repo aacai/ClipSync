@@ -11,6 +11,7 @@ import java.awt.FileDialog
 import java.awt.Frame
 import java.awt.Image
 import java.awt.Toolkit
+import java.awt.Window
 import java.awt.datatransfer.Clipboard
 import java.awt.datatransfer.ClipboardOwner
 import java.awt.datatransfer.DataFlavor
@@ -21,6 +22,12 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import javax.imageio.ImageIO
+
+private const val TRAY_POLL_MS = 5_000L
+
+/** AWT 不派发剪贴板变化事件、也没有公开的 changeCount，只能整份读；窗口收进托盘后放慢到 5 秒。 */
+internal fun clipboardPollIntervalMs(): Long =
+    if (Window.getWindows().any { it.isDisplayable && it.isVisible }) CLIPBOARD_POLL_MS else TRAY_POLL_MS
 
 @Composable
 internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
@@ -42,6 +49,8 @@ private object AwtClipboard : PlatformClipboard {
     override val canWriteImage: Boolean = true
 
     private val clipboard get() = Toolkit.getDefaultToolkit().systemClipboard
+
+    override fun pollIntervalMs(): Long = clipboardPollIntervalMs()
 
     override suspend fun read(): String? = runCatching {
         val contents = clipboard.getContents(null)

@@ -200,6 +200,48 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
+    /** 新面孔刚订阅上，错过我们上一次心跳就看不见彼此：见到就回一条。 */
+    @Test
+    fun `a peer we just discovered gets an immediate hello`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config())
+        val link = links.created.single()
+        runCurrent()
+        val presence = ClipProtocol.presenceTopic(hash(), "dev-1")
+        val announced = { link.published.count { it.first == presence } }
+        assertEquals(1, announced())
+
+        link.deliver(presenceMessage("dev-2", "Phone", online = true))
+        runCurrent()
+
+        assertEquals(2, announced())
+        assertEquals(1, engine.devices.value.size)
+
+        link.deliver(presenceMessage("dev-2", "Phone", online = true))
+        runCurrent()
+
+        assertEquals(2, announced())
+        engine.stop()
+    }
+
+    @Test
+    fun `presence heartbeat stays slow now that discovery answers back`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config())
+        val link = links.created.single()
+        val presence = ClipProtocol.presenceTopic(hash(), "dev-1")
+        val announced = { link.published.count { it.first == presence } }
+
+        advanceTimeBy(60_000)
+        assertEquals(1, announced())
+
+        advanceTimeBy(60_001)
+        assertEquals(2, announced())
+        engine.stop()
+    }
+
     @Test
     fun `a room that never opened is not retried`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -234,6 +276,19 @@ class ClipSyncEngineReconnectTest {
             ct = ct,
         )
         return Incoming(topic, ClipProtocol.encode(envelope))
+    }
+
+    private suspend fun presenceMessage(from: String, name: String, online: Boolean): Incoming {
+        val hash = hash()
+        val envelope = PresenceEnvelope(
+            dev = from,
+            name = name,
+            os = "Android",
+            online = online,
+            ts = 1_700_000_000_000,
+            sp = "001",
+        )
+        return Incoming(ClipProtocol.presenceTopic(hash, from), ClipProtocol.encode(envelope))
     }
 
     private fun config() = ClipSyncEngine.Config(

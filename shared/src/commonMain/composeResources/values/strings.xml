@@ -222,6 +222,8 @@
     <string name="setting_watch_clipboard_hint">不进房间也会自动把你复制过的内容留进列表，仅保存在本机；关闭后只记录手动发送的条目</string>
     <string name="setting_room">房间</string>
     <string name="action_leave_room">退出房间</string>
+    <string name="leave_room_title">退出房间？</string>
+    <string name="leave_room_body">退出后会与房间 %1$s 断开，并清掉保存的会话，下次要重新输房间码。本机的历史记录会留下。</string>
     <string name="setting_resident_sync">后台常驻同步</string>
     <string name="setting_resident_sync_hint">退到后台也保持房间连接不断开，系统会挂一条常驻通知；离开房间或关掉开关即停止</string>
     <string name="setting_nickname">昵称</string>

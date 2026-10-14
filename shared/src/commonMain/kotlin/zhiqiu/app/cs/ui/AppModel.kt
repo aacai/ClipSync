@@ -17,8 +17,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
+import zhiqiu.app.cs.core.DefaultMqttLinks
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
+import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.platformSupportsResidentSync
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
@@ -37,12 +39,16 @@ import zhiqiu.app.cs.translate.createTranslateClient
 import zhiqiu.app.cs.translate.detectTarget
 import kotlin.time.Clock
 
-class AppModel(
+class AppModel internal constructor(
     private val scope: CoroutineScope,
     private val platform: PlatformUi,
     private val settings: AppSettings,
+    private val links: MqttLinkFactory,
 ) {
-    private val engine = ClipSyncEngine(scope)
+    constructor(scope: CoroutineScope, platform: PlatformUi, settings: AppSettings) :
+            this(scope, platform, settings, DefaultMqttLinks)
+
+    private val engine = ClipSyncEngine(scope, links)
     private val repository = ClipRepository(platform.store)
 
     internal val status: StateFlow<ClipSyncEngine.Status> = engine.status
@@ -133,14 +139,18 @@ class AppModel(
         }
         scope.launch {
             repository.load()
-            watchClipboard()
             restoreSavedRoom()
+        }
+        scope.launch {
+            settings.watchClipboard.collect { watching ->
+                if (watching) startClipboardWatch() else stopClipboardWatch()
+            }
         }
     }
 
     /** 剪贴板监听跟着 App 走，不跟着房间走：没共享也要留下记录，桌面端打开就是记录器。
      *  启动瞬间的内容只当基线，不记成新条目。有事件源的平台不轮询。 */
-    private fun watchClipboard() {
+    private fun startClipboardWatch() {
         if (!platform.clipboard.supportsAutoSync || monitorJob?.isActive == true) return
         monitorJob = scope.launch {
             lastCaptured = runCatching { platform.clipboard.read() }.getOrNull()
@@ -150,15 +160,20 @@ class AppModel(
                 events.collect { runCatching { onClipboardChanged() } }
             } else {
                 while (isActive) {
-                    delay(CLIPBOARD_POLL_MS)
+                    delay(platform.clipboard.pollIntervalMs())
                     runCatching { onClipboardChanged() }
                 }
             }
         }
     }
 
+    /** 关掉开关就连监听都不留：轮询是常驻进程唯一的定期唤醒，留着它等于没关。 */
+    private fun stopClipboardWatch() {
+        monitorJob?.cancel()
+        monitorJob = null
+    }
+
     private suspend fun onClipboardChanged() {
-        if (!settings.watchClipboard.value) return
         val text = runCatching { platform.clipboard.read() }.getOrNull() ?: return
         if (text.isBlank()) return
         if (text == lastOwnWrite || text == lastPublished || text == lastCaptured) return
@@ -269,7 +284,25 @@ class AppModel(
         key.fill(0)
     }
 
-    fun disconnect() {
+    private val _leavePrompt = MutableStateFlow(false)
+    val leavePrompt: StateFlow<Boolean> = _leavePrompt.asStateFlow()
+
+    /** 退房会清掉保存的会话，一次误点就回不去原来那间房了，所以先问一句。 */
+    fun requestLeaveRoom() {
+        if (_joinedRoom.value == null && status.value !is ClipSyncEngine.Status.Online) return
+        _leavePrompt.value = true
+    }
+
+    fun cancelLeaveRoom() {
+        _leavePrompt.value = false
+    }
+
+    fun confirmLeaveRoom() {
+        _leavePrompt.value = false
+        disconnect()
+    }
+
+    private fun disconnect() {
         connectJob?.cancel()
         _joinedRoom.value = null
         settings.clearRoomSession()
@@ -627,7 +660,6 @@ class AppModel(
 
     companion object {
         const val MAX_ROOM_CODE = 24
-        private const val CLIPBOARD_POLL_MS = 800L
         private const val HEX_DIGITS = "0123456789abcdef"
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 

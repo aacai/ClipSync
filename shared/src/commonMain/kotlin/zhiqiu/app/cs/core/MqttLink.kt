@@ -32,18 +32,21 @@ internal fun interface MqttLinkFactory {
 
 private const val RECONNECT_BASE_MS = 1_000L
 private const val RECONNECT_MAX_MS = 30_000L
+private const val RECONNECT_HANDOFF_ATTEMPTS = 8
 
 internal val DefaultMqttLinks = MqttLinkFactory { config, hash, safetyPrefix ->
     val client = MqttClient("cs-$hash-${config.deviceId}") {
         username = MqttSecrets.USERNAME
         password(MqttSecrets.PASSWORD)
         transportFactory = mqttTransportFactory()
-        keepAliveSeconds = 45
+        keepAliveSeconds = 60
         cleanStart = true
         autoReconnect = true
         reconnectBaseDelayMs = RECONNECT_BASE_MS
         reconnectMaxDelayMs = RECONNECT_MAX_MS
-        maxReconnectAttempts = Int.MAX_VALUE
+        // 库只快试几轮（1→30s），之后把断线交回引擎：那边的退避到 60s 封顶。
+        // 长时间没网时（合盖、进电梯）少一半连接尝试，就少一半无线电唤醒。
+        maxReconnectAttempts = RECONNECT_HANDOFF_ATTEMPTS
         will {
             topic = ClipProtocol.presenceTopic(hash, config.deviceId)
             payload(

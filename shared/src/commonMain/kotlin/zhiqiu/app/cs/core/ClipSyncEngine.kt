@@ -435,13 +435,14 @@ internal class ClipSyncEngine(
         if (!known) fetchFile(file)
     }
 
-    private fun onPresence(topic: String, raw: String) {
+    private suspend fun onPresence(topic: String, raw: String) {
         val cfg = desired ?: return
         val parsed = ClipProtocol.parseTopic(topic) ?: return
         if (parsed.deviceId == cfg.deviceId) return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.dev == cfg.deviceId) return
         val existing = _devices.value.associateBy { it.id }.toMutableMap()
+        val fresh = envelope.dev !in existing
         if (envelope.online) {
             existing[envelope.dev] =
                     DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp, os = envelope.os)
@@ -452,6 +453,9 @@ internal class ClipSyncEngine(
         _keyMismatch.value = _devices.value
             .filter { it.safety.isNotEmpty() && it.safety != safetyPrefix }
             .map { it.name }
+        // 头一回见到就自报一次：新来的这才刚订阅上，错过我们上次的心跳就看不见彼此。
+        // 有了这条，心跳只当兜底，不用刷得很勤。
+        if (fresh && envelope.online) publishPresence(online = true)
     }
 
     private suspend fun publishPresence(online: Boolean) {
@@ -518,7 +522,9 @@ internal class ClipSyncEngine(
     private fun now(): Long = currentTimeMillis()
 
     companion object {
-        private const val PRESENCE_INTERVAL_MS = 25_000L
+        // 心跳只是兜底（丢了一条 presence 时的补救），发现新同伴时会立刻自报一次。
+        // 120s 正好是 keepalive 60s 的整数倍：两次唤醒叠在一起，无线电不用额外醒。
+        private const val PRESENCE_INTERVAL_MS = 120_000L
         private const val RECOVERY_BASE_MS = 5_000L
         private const val RECOVERY_MAX_MS = 60_000L
         private val EXPIRY_HOURS = mapOf(

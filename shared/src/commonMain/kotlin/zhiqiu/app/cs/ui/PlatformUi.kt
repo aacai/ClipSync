@@ -16,6 +16,9 @@ import zhiqiu.app.cs.files.ClipStore
  */
 const val LAUNCH_HIDDEN_ARGUMENT: String = "--hidden"
 
+/** 没有事件源的平台多久读一次剪贴板。 */
+const val CLIPBOARD_POLL_MS = 800L
+
 /**
  * 系统剪贴板。
  *
@@ -32,6 +35,9 @@ interface PlatformClipboard {
 
     /** 剪贴板变化事件；null 表示平台没有事件源，只能轮询。 */
     val changeEvents: Flow<Unit>? get() = null
+
+    /** 只能轮询时多久读一次：界面收进托盘后没必要读得那么勤，那是进程唯一还在醒的源头。 */
+    fun pollIntervalMs(): Long = CLIPBOARD_POLL_MS
 
     suspend fun read(): String?
     suspend fun write(text: String)

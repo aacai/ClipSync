@@ -227,6 +227,8 @@
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
     <string name="setting_room">Room</string>
     <string name="action_leave_room">Leave room</string>
+    <string name="leave_room_title">Leave this room?</string>
+    <string name="leave_room_body">Leaving disconnects you from room %1$s and forgets the saved session, so you\'ll need the room code again. Entries kept on this device stay.</string>
     <string name="setting_resident_sync">Sync in background</string>
     <string name="setting_resident_sync_hint">Keeps the room connection alive when the app goes to the background, shown as an ongoing notification. Leaving the room or switching this off stops it</string>
     <string name="setting_nickname">Nickname</string>

@@ -367,6 +367,31 @@ internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 }
 
 @Composable
+internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.leave_room_title), fontSize = 17.sp) },
+            text = {
+                Text(
+                        stringResource(Res.string.leave_room_body, room),
+                        style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = onConfirm) {
+                    Text(
+                            stringResource(Res.string.action_leave_room),
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
 internal fun SafetyDialog(
         safety: String,
         peers: List<DevicePresence>,
