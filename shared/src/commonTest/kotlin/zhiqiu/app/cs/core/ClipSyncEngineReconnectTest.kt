@@ -9,9 +9,13 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.launch
 import org.meshtastic.mqtt.ConnectionState
 import org.meshtastic.mqtt.MqttException
 import org.meshtastic.mqtt.ReasonCode
+import zhiqiu.app.cs.files.ClipItem
+import zhiqiu.app.cs.files.ClipRepository
+import zhiqiu.app.cs.files.ClipStore
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertEquals
@@ -74,6 +78,79 @@ class ClipSyncEngineReconnectTest {
         val fresh = links.created[1]
         assertEquals(listOf(ClipProtocol.roomFilter(hash())), fresh.subscribed)
         assertTrue(fresh.published.any { it.first == ClipProtocol.presenceTopic(hash(), "dev-1") })
+        engine.stop()
+    }
+
+    @Test
+    fun `a clip from a peer still gets through after recovery`() = runTest {
+        val repository = ClipRepository(InMemoryStore())
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        val received = mutableListOf<ClipSyncEngine.ClipEvent>()
+        val watch = launch { engine.clips.collect { received += it } }
+        engine.start(config().copy(repository = repository))
+
+        links.created.single().drop(MqttException.ConnectionLost(ReasonCode.UNSPECIFIED_ERROR, "wifi off"))
+        advanceTimeBy(5_001)
+        assertIs<ClipSyncEngine.Status.Online>(engine.status.value)
+
+        links.created.last().deliver(clipMessage("from the other side"))
+        runCurrent()
+
+        assertEquals(listOf("from the other side"), repository.items.value.map { it.text })
+        assertEquals(listOf("from the other side"), received.map { it.text })
+        watch.cancel()
+        engine.stop()
+    }
+
+    /** 同 clientId 开两条会话会被 broker 踢掉其中一条，来回踢就永远连不稳。 */
+    @Test
+    fun `never holds two sessions at once`() = runTest {
+        val links = FakeLinks({ currentTime }, failBefore = 20_000)
+        val engine = ClipSyncEngine(this, links)
+
+        runCatching { engine.start(config()) }
+        advanceTimeBy(60_000)
+
+        assertEquals(listOf(0, 0, 0, 0), links.aliveBesideNew)
+        assertIs<ClipSyncEngine.Status.Online>(engine.status.value)
+        engine.stop()
+    }
+
+    /** 库自己续上连接后必须补一条 presence，否则同伴要等遗嘱过期才知道我们回来了。 */
+    @Test
+    fun `a healed connection re-announces the device`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config())
+        val link = links.created.single()
+        val presence = ClipProtocol.presenceTopic(hash(), "dev-1")
+        val announced = { link.published.count { it.first == presence } }
+        assertEquals(1, announced())
+
+        link.drop(MqttException.ConnectionLost(ReasonCode.UNSPECIFIED_ERROR, "wifi off"))
+        runCurrent()
+        link.heal()
+        runCurrent()
+
+        assertEquals(2, announced())
+        assertIs<ClipSyncEngine.Status.Online>(engine.status.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `a send that never reaches the broker still keeps the local copy`() = runTest {
+        val repository = ClipRepository(InMemoryStore())
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config().copy(repository = repository))
+        // 连接正在死：状态还是 Online，但 publish 已经抛了
+        links.created.single().failPublish = true
+
+        val thrown = runCatching { engine.publishText("copied on the way out") }.exceptionOrNull()
+        assertIs<MqttException>(thrown)
+
+        assertEquals(listOf("copied on the way out"), repository.items.value.map { it.text })
         engine.stop()
     }
 
@@ -142,6 +219,23 @@ class ClipSyncEngineReconnectTest {
 
     private suspend fun hash(): String = ClipProtocol.roomHash(room)
 
+    /** 同伴那侧的一条真实密文：同一把房间密钥加密，AAD 是 clip 主题。 */
+    private suspend fun clipMessage(text: String, from: String = "dev-2"): Incoming {
+        val topic = ClipProtocol.clipTopic(hash())
+        val payload = ClipProtocol.encode(ClipPayload(text = text, len = text.length))
+        val ct = RoomCrypto.restore(ByteArray(RoomCrypto.KEY_SIZE) { 7 })
+            .encrypt(payload.encodeToByteArray(), topic.encodeToByteArray())
+        val envelope = ClipEnvelope(
+            mid = sha256Hex(payload.encodeToByteArray() + from.encodeToByteArray()).take(16),
+            ts = 1_700_000_000_000,
+            dev = from,
+            name = "Phone",
+            kind = ClipRepository.KIND_TEXT,
+            ct = ct,
+        )
+        return Incoming(topic, ClipProtocol.encode(envelope))
+    }
+
     private fun config() = ClipSyncEngine.Config(
         roomId = room,
         roomKey = ByteArray(RoomCrypto.KEY_SIZE) { 7 },
@@ -150,20 +244,36 @@ class ClipSyncEngineReconnectTest {
         deviceOs = "macOS",
     )
 
+    private class InMemoryStore(var data: List<ClipItem> = emptyList()) : ClipStore {
+        override suspend fun read(): List<ClipItem> = data
+        override suspend fun write(items: List<ClipItem>) {
+            data = items
+        }
+
+        override suspend fun deleteCache(localPath: String?) = Unit
+        override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String? = null
+    }
+
     private class FakeLinks(
         private val clock: () -> Long,
         private val failBefore: Long = 0L,
     ) : MqttLinkFactory {
         val created = mutableListOf<FakeLink>()
-        val attempts = mutableListOf<Long>()
 
-        override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink =
-            FakeLink {
+        /** 每次新开一条会话时，手上还剩几条没关的。 */
+        val aliveBesideNew = mutableListOf<Int>()
+
+        override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink {
+            aliveBesideNew += created.count { !it.closed }
+            return FakeLink {
                 attempts += clock()
                 if (clock() < failBefore) {
                     throw MqttException.ConnectionFailed(ReasonCode.SERVER_UNAVAILABLE, "broker down")
                 }
             }.also { created += it }
+        }
+
+        val attempts = mutableListOf<Long>()
     }
 
     private class FakeLink(private val onConnect: () -> Unit) : MqttLink {
@@ -174,6 +284,7 @@ class ClipSyncEngineReconnectTest {
         val subscribed = mutableListOf<String>()
         val published = mutableListOf<Pair<String, String>>()
         var closed = false
+        var failPublish = false
 
         override val connectionState: StateFlow<ConnectionState> = state
         override val messages: Flow<Incoming> = received
@@ -188,6 +299,7 @@ class ClipSyncEngineReconnectTest {
         }
 
         override suspend fun publish(topic: String, payload: String) {
+            if (failPublish) throw MqttException.ConnectionLost(ReasonCode.UNSPECIFIED_ERROR, "socket gone")
             published += topic to payload
         }
 
@@ -203,6 +315,11 @@ class ClipSyncEngineReconnectTest {
         /** 模拟库自己把连接续上了。 */
         fun heal() {
             state.value = ConnectionState.Connected
+        }
+
+        /** 模拟 broker 递来一条房间里的消息。 */
+        fun deliver(message: Incoming) {
+            received.tryEmit(message)
         }
     }
 }

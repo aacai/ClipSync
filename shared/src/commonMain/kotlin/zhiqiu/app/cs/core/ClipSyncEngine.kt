@@ -179,7 +179,6 @@ internal class ClipSyncEngine(
             kind = ClipRepository.KIND_TEXT,
             ct = roomCrypto.encrypt(payload.encodeToByteArray(), ClipProtocol.clipTopic(roomHash).encodeToByteArray()),
         )
-        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
         val item = ClipItem(
             id = envelope.mid,
             kind = ClipRepository.KIND_TEXT,
@@ -188,7 +187,9 @@ internal class ClipSyncEngine(
             senderName = envelope.name,
             text = text,
         )
+        // 先进历史再上线：连接正在死时 publish 会抛，那条复制不能因为发不出去就当没发生过。
         addToHistory(item)
+        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
         return item
     }
 
@@ -239,7 +240,6 @@ internal class ClipSyncEngine(
             senderId = cfg.deviceId,
             senderName = cfg.deviceName,
         )
-        publishFileEnvelope(file)
         val item = ClipItem(
             id = mid,
             kind = ClipRepository.KIND_FILE,
@@ -250,6 +250,7 @@ internal class ClipSyncEngine(
             file = file,
         )
         addToHistory(item)
+        publishFileEnvelope(file)
         return item
     }
 
