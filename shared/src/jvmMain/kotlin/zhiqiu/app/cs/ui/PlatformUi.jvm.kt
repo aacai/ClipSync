@@ -28,6 +28,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     picker = AwtFilePicker,
     opener = DesktopFileOpener,
     store = remember { JvmClipStore.default() },
+    autostart = SystemAutostart,
 )
 
 @Composable

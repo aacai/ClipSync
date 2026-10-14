@@ -53,6 +53,7 @@ object ClipSyncRuntime {
                 picker = filePicker,
                 opener = AndroidFileOpener(app),
                 store = AndroidClipStore(app),
+                autostart = UnavailableAutostart,
                 deviceName = deviceName(),
                 deviceOs = platformOs(),
                 installId = installId(),

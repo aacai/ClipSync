@@ -10,6 +10,13 @@ import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.ClipStore
 
 /**
+ * 登录项拉起应用时带的参数：进程照常起来守剪贴板，但主窗口先不出现。
+ *
+ * 登记项（桌面端）和桌面端入口都读它，所以放在两边都够得着的公共 API 里。
+ */
+const val LAUNCH_HIDDEN_ARGUMENT: String = "--hidden"
+
+/**
  * 系统剪贴板。
  *
  * [supportsAutoSync] 为 false 时平台无法在后台读剪贴板（浏览器要求用户手势 + 权限），
@@ -54,17 +61,35 @@ fun interface PlatformFilePicker {
     val isAvailable: Boolean get() = true
 }
 
+/**
+ * 登录时自动启动：把启动器登记进系统认可的登录项。
+ *
+ * [isAvailable] 为 false 的平台（手机、浏览器）没有用户可见的登录项，UI 要直接藏掉这一行。
+ */
+interface PlatformAutostart {
+    val isAvailable: Boolean get() = false
+
+    /** 登记（true）或撤销（false）登录项，写不进去就抛，让界面如实报错。 */
+    fun setEnabled(enabled: Boolean)
+}
+
 class PlatformUi(
     val clipboard: PlatformClipboard,
     val picker: PlatformFilePicker,
     val opener: PlatformFileOpener,
     val store: ClipStore,
+    val autostart: PlatformAutostart,
     val deviceName: String,
     val deviceOs: String,
     val installId: String,
 )
 
 class ClipboardUnavailable(val code: String? = null, detail: String? = null) : Exception(detail ?: code)
+
+/** 没有登录项概念的平台（手机沙箱、浏览器）。 */
+internal object UnavailableAutostart : PlatformAutostart {
+    override fun setEnabled(enabled: Boolean): Unit = throw UnsupportedOperationException("这个平台没有登录项")
+}
 
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */
 internal object UnavailableFilePicker : PlatformFilePicker {
@@ -87,12 +112,14 @@ internal fun rememberPlatformUi(
     picker: PlatformFilePicker,
     opener: PlatformFileOpener,
     store: ClipStore,
-): PlatformUi = remember(clipboard, picker, opener, store) {
+    autostart: PlatformAutostart = UnavailableAutostart,
+): PlatformUi = remember(clipboard, picker, opener, store, autostart) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
         opener = opener,
         store = store,
+        autostart = autostart,
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),

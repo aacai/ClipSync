@@ -13,27 +13,35 @@ import java.awt.SystemTray
 import java.awt.Window as AwtWindow
 import java.util.prefs.Preferences
 import zhiqiu.app.cs.ui.AppTray
+import zhiqiu.app.cs.ui.LAUNCH_HIDDEN_ARGUMENT
 import zhiqiu.app.cs.ui.showFromTray
 
-fun main() {
+fun main(args: Array<String>) {
     applyNativeAppearance()
+    // 登录项拉起进程时带这个参数：进程照常守着剪贴板，但窗口先不出现
+    val startHidden = LAUNCH_HIDDEN_ARGUMENT in args
     application {
         val windowState = rememberWindowState()
+        var windowVisible by remember { mutableStateOf(!startHidden) }
         var hostWindow by remember { mutableStateOf<AwtWindow?>(null) }
         val trayAvailable = remember { SystemTray.isSupported() }
 
         AppTray(
-            onShowWindow = { showFromTray(windowState, hostWindow) },
+            onShowWindow = {
+                windowVisible = true
+                // 显示必须和 toFront 同一条同步路径，等 Compose 的 visible 会晚一个 AWT tick，抬不起窗口
+                showFromTray(windowState, hostWindow)
+            },
             onQuit = ::exitApplication,
         )
 
         Window(
             // 关窗口只是收进托盘，进程要继续守着剪贴板；没有托盘的平台才真的退出。
             onCloseRequest = {
-                val window = hostWindow
-                if (trayAvailable && window != null) window.isVisible = false else exitApplication()
+                if (trayAvailable) windowVisible = false else exitApplication()
             },
             state = windowState,
+            visible = windowVisible,
             title = "ClipSync",
         ) {
             LaunchedEffect(Unit) { hostWindow = window }

@@ -86,6 +86,7 @@ internal fun SettingsView(
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
     val residentSync by model.residentSync.collectAsState()
+    val launchAtLogin by model.launchAtLogin.collectAsState()
     val deviceName by model.deviceName.collectAsState()
     val nickname by settings.nickname.collectAsState()
     val canWatch = model.supportsClipboardAutoSync
@@ -195,6 +196,15 @@ internal fun SettingsView(
                                         rememberRoom,
                                         settings::setRememberRoom,
                                 )
+                                if (model.supportsLaunchAtLogin) {
+                                    RowDivider()
+                                    SwitchRow(
+                                            Res.string.setting_launch_at_login,
+                                            Res.string.setting_launch_at_login_hint,
+                                            launchAtLogin,
+                                            model::setLaunchAtLogin,
+                                    )
+                                }
                             }
                         }
 

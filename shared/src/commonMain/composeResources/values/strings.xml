@@ -167,6 +167,7 @@
     <string name="fb_download_failed">下载失败：%1$s</string>
     <string name="fb_file_sent">已发送 %1$s</string>
     <string name="fb_local_read_failed">读取失败：%1$s（%2$s）</string>
+    <string name="fb_autostart_failed">没能改到系统的登录项里</string>
     <plurals name="fb_deleted">
         <item quantity="other">已删除 %1$d 条</item>
     </plurals>
@@ -215,6 +216,8 @@
     <string name="language_restart_hint">语言改动会在下次启动应用后生效</string>
     <string name="setting_remember_room">记住房间</string>
     <string name="setting_remember_room_hint">重开时自动回到上次的房间。只保存派生出的房间密钥，不保存你输入的密码；离开房间即清除</string>
+    <string name="setting_launch_at_login">开机自动启动</string>
+    <string name="setting_launch_at_login_hint">登录后自动开始守剪贴板，先收进托盘不弹主窗口；要界面就点托盘图标</string>
     <string name="setting_watch_clipboard">记录剪贴板</string>
     <string name="setting_watch_clipboard_hint">不进房间也会自动把你复制过的内容留进列表，仅保存在本机；关闭后只记录手动发送的条目</string>
     <string name="setting_room">房间</string>

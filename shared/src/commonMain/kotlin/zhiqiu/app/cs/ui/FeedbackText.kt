@@ -77,6 +77,7 @@ internal fun feedbackText(feedback: Feedback): String =
             is Feedback.ConnectFailed -> stringResource(Res.string.fb_connect_failed, feedback.reason)
             is Feedback.LocalFileReadFailed ->
                 stringResource(Res.string.fb_local_read_failed, feedback.name, feedback.reason)
+            Feedback.AutostartFailed -> stringResource(Res.string.fb_autostart_failed)
             is Feedback.FileProblem -> fileIssueText(feedback.issue)
         }
 

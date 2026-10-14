@@ -101,6 +101,10 @@ sealed class Feedback {
         override val level get() = Level.Error
     }
 
+    data object AutostartFailed : Feedback() {
+        override val level get() = Level.Error
+    }
+
     data class FileProblem(val issue: FileIssue) : Feedback() {
         override val level get() = Level.Error
     }

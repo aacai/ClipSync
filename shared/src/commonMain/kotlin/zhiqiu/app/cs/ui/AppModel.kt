@@ -45,10 +45,10 @@ class AppModel(
     private val engine = ClipSyncEngine(scope)
     private val repository = ClipRepository(platform.store)
 
-    val status: StateFlow<ClipSyncEngine.Status> = engine.status
+    internal val status: StateFlow<ClipSyncEngine.Status> = engine.status
     val devices: StateFlow<List<DevicePresence>> = engine.devices
     val keyMismatch: StateFlow<List<String>> = engine.keyMismatch
-    val transfer: StateFlow<ClipSyncEngine.TransferProgress?> = engine.transfer
+    internal val transfer: StateFlow<ClipSyncEngine.TransferProgress?> = engine.transfer
     val undoDepth: StateFlow<Int> = repository.undoDepth
 
     private val _query = MutableStateFlow("")
@@ -88,6 +88,7 @@ class AppModel(
     val supportsClipboardFiles: Boolean = platform.clipboard.canWriteFiles
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
     val supportsResidentSync: Boolean = platformSupportsResidentSync
+    val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
     val deviceName: StateFlow<String> =
         settings.nickname.map { it.ifBlank { platform.deviceName } }
             .stateIn(scope, SharingStarted.Eagerly, platform.deviceName)
@@ -123,6 +124,10 @@ class AppModel(
     private var lastCaptured: String? = null
 
     init {
+        // 包被挪了地方、登录项被人手删掉，下一次启动顺手补回来
+        if (supportsLaunchAtLogin && settings.launchAtLogin.value) {
+            scope.launch { applyAutostart(true) }
+        }
         scope.launch {
             engine.fileIssues.collect { _failure.value = Feedback.FileProblem(it) }
         }
@@ -186,7 +191,7 @@ class AppModel(
         if (_joinedRoom.value != null || status.value is ClipSyncEngine.Status.Online) return
         val (code, key) = settings.roomSession() ?: return
         _roomCode.value = code
-        connectWith(code, key, retries = RESTORE_RETRIES)
+        connectWith(code, key)
     }
 
     fun updateQuery(value: String) {
@@ -221,32 +226,22 @@ class AppModel(
         if (_password.value.isNotEmpty()) null
         else settings.roomSession()?.takeIf { it.first == room }?.second
 
-    private fun connectWith(room: String, savedKey: ByteArray?, retries: Int = 0) {
+    private fun connectWith(room: String, savedKey: ByteArray?) {
         connectJob?.cancel()
         connectJob =
                 scope.launch {
                     _connecting.value = true
                     _failure.value = null
-                    var left = retries
-                    var backoff = RESTORE_BASE_MS
-                    var lastError = ""
-                    while (true) {
-                        val failure = tryConnect(room, savedKey)
-                        if (failure == null) {
-                            _connecting.value = false
-                            _joinedRoom.value = room
-                            persistRoomSession()
-                            startSync()
-                            return@launch
-                        }
-                        lastError = failure
-                        if (left == 0 || _roomCode.value != room || !settings.rememberRoom.value) break
-                        left--
-                        delay(backoff)
-                        backoff = (backoff * 2).coerceAtMost(RESTORE_MAX_MS)
-                    }
+                    val error = tryConnect(room, savedKey)
                     _connecting.value = false
-                    _failure.value = Feedback.ConnectFailed(lastError)
+                    if (error == null) {
+                        _joinedRoom.value = room
+                        persistRoomSession()
+                        startSync()
+                    } else {
+                        // 这一次没连上不代表完：引擎在后台按退避继续试，界面只如实报离线
+                        _failure.value = Feedback.ConnectFailed(error)
+                    }
                 }
     }
 
@@ -286,6 +281,24 @@ class AppModel(
         if (!supportsResidentSync) return
         if (enabled && _joinedRoom.value == null) return
         settings.setResidentSync(enabled)
+    }
+
+    val launchAtLogin: StateFlow<Boolean> = settings.launchAtLogin
+
+    /** 登录项归系统管，写失败就把开关退回原位，不让它说假话。 */
+    fun setLaunchAtLogin(enabled: Boolean) {
+        if (!supportsLaunchAtLogin) return
+        settings.setLaunchAtLogin(enabled)
+        scope.launch {
+            applyAutostart(enabled).onFailure {
+                settings.setLaunchAtLogin(!enabled)
+                _failure.value = Feedback.AutostartFailed
+            }
+        }
+    }
+
+    private suspend fun applyAutostart(enabled: Boolean): Result<Unit> = runCatching {
+        withContext(Dispatchers.Default) { platform.autostart.setEnabled(enabled) }
     }
 
     fun sendClipboard() {
@@ -615,9 +628,6 @@ class AppModel(
     companion object {
         const val MAX_ROOM_CODE = 24
         private const val CLIPBOARD_POLL_MS = 800L
-        private const val RESTORE_RETRIES = 3
-        private const val RESTORE_BASE_MS = 2_000L
-        private const val RESTORE_MAX_MS = 15_000L
         private const val HEX_DIGITS = "0123456789abcdef"
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
 

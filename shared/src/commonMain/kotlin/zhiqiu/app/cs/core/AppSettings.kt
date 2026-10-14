@@ -72,6 +72,14 @@ class AppSettings(private val store: Settings = platformSettings()) {
         store.putBoolean(KEY_WATCH_CLIPBOARD, enabled)
     }
 
+    private val _launchAtLogin = MutableStateFlow(store.getBoolean(KEY_LAUNCH_AT_LOGIN, false))
+    val launchAtLogin: StateFlow<Boolean> = _launchAtLogin.asStateFlow()
+
+    fun setLaunchAtLogin(enabled: Boolean) {
+        _launchAtLogin.value = enabled
+        store.putBoolean(KEY_LAUNCH_AT_LOGIN, enabled)
+    }
+
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
 
@@ -115,6 +123,7 @@ class AppSettings(private val store: Settings = platformSettings()) {
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_RESIDENT_SYNC = "sync.resident"
+        private const val KEY_LAUNCH_AT_LOGIN = "sync.launchAtLogin"
         private const val KEY_NICKNAME = "device.nickname"
         private const val KEY_ROOM_CODE = "room.code"
         private const val KEY_ROOM_KEY = "room.key"
