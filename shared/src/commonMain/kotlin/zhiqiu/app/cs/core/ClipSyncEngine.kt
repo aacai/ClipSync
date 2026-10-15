@@ -220,6 +220,56 @@ internal class ClipSyncEngine(
      */
     suspend fun publishFile(name: String, mime: String, bytes: ByteArray): ClipItem? {
         val cfg = desired ?: error("engine not started")
+        val uploaded = upload(name, mime, bytes) ?: return null
+        val mid = sha256Hex(
+            uploaded.name.encodeToByteArray() + bytes.size.toString().encodeToByteArray() + cfg.deviceId.encodeToByteArray()
+        ).take(16)
+        val file = FileClip(
+            id = mid,
+            name = uploaded.name,
+            mime = mime,
+            size = bytes.size.toLong(),
+            sha256 = uploaded.sha256,
+            link = uploaded.link,
+            expiresAt = uploaded.expiresAt,
+            ts = now(),
+            senderId = cfg.deviceId,
+            senderName = cfg.deviceName,
+        )
+        val item = ClipItem(
+            id = mid,
+            kind = ClipRepository.KIND_FILE,
+            ts = file.ts,
+            senderId = file.senderId,
+            senderName = file.senderName,
+            text = file.name,
+            file = file,
+        )
+        addToHistory(item)
+        publishFileEnvelope(file)
+        return item
+    }
+
+    /**
+     * 把离线攒下的那个文件补传进房间：链接填回原条目，不再多出一条。
+     * 返回 false 表示这一步没上传成，原因已经走 [fileIssues] 报出去了。
+     */
+    suspend fun resend(file: FileClip, bytes: ByteArray): Boolean {
+        val uploaded = upload(file.name, file.mime, bytes) ?: return false
+        val filled = file.copy(
+            name = uploaded.name,
+            sha256 = uploaded.sha256,
+            link = uploaded.link,
+            expiresAt = uploaded.expiresAt,
+        )
+        repository?.markUploaded(filled.id, filled.link, filled.sha256, filled.expiresAt)
+        publishFileEnvelope(filled)
+        return true
+    }
+
+    /** 加密并上传，只交回「挂在网上」需要的那几样；条目归谁、叫什么 id 由调用方定。 */
+    private suspend fun upload(name: String, mime: String, bytes: ByteArray): Uploaded? {
+        if (desired == null) error("engine not started")
         val validator = validateOutgoingFile(name, bytes.size.toLong(), bytes.size)
         if (validator != null) {
             _fileIssues.emit(FileIssue.Rejected(validator, name))
@@ -247,33 +297,11 @@ internal class ClipSyncEngine(
             return null
         }
         _transfer.value = null
-
-        val mid = sha256Hex(safeName.encodeToByteArray() + bytes.size.toString().encodeToByteArray() + cfg.deviceId.encodeToByteArray()).take(16)
-        val file = FileClip(
-            id = mid,
-            name = safeName,
-            mime = mime,
-            size = bytes.size.toLong(),
-            sha256 = encrypted.sha256,
-            link = link,
-            expiresAt = expiryFrom(FileLimits.DEFAULT_EXPIRES),
-            ts = now(),
-            senderId = cfg.deviceId,
-            senderName = cfg.deviceName,
-        )
-        val item = ClipItem(
-            id = mid,
-            kind = ClipRepository.KIND_FILE,
-            ts = file.ts,
-            senderId = file.senderId,
-            senderName = file.senderName,
-            text = file.name,
-            file = file,
-        )
-        addToHistory(item)
-        publishFileEnvelope(file)
-        return item
+        return Uploaded(safeName, encrypted.sha256, link, expiryFrom(FileLimits.DEFAULT_EXPIRES))
     }
+
+    /** 上传完成后的元信息：还没决定条目身份。 */
+    private data class Uploaded(val name: String, val sha256: String, val link: String, val expiresAt: Long)
 
     suspend fun fetchFile(file: FileClip): ByteArray? {
         val crypto = fileCrypto ?: return null

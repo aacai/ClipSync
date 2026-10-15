@@ -393,6 +393,7 @@ internal fun MainView(
                                             picked = item.id in picked,
                                             selectionActive = picking,
                                             moveInfo = moveInfos[item.id],
+                                            online = online,
                                             onActivate = {
                                                 selected = index
                                                 if (picking) togglePick(item) else model.activate(item)

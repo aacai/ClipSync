@@ -42,17 +42,45 @@ class ClipRepositoryTest {
         senderId = "dev", senderName = "Pixel", text = body,
     )
 
-    private fun file(id: String, ts: Long, name: String, cached: Boolean = false, localPath: String? = null) =
+    private fun file(
+        id: String,
+        ts: Long,
+        name: String,
+        cached: Boolean = false,
+        localPath: String? = null,
+        link: String = "http://x/$id",
+    ) =
         ClipItem(
             id = id, kind = ClipRepository.KIND_FILE, ts = ts,
             senderId = "dev", senderName = "Pixel", text = name,
             file = FileClip(
                 id = id, name = name, mime = "image/png", size = 5, sha256 = "aa",
-                link = "http://x/$id", expiresAt = 99, ts = ts,
+                link = link, expiresAt = 99, ts = ts,
                 senderId = "dev", senderName = "Pixel",
                 cached = cached, localPath = localPath,
             ),
         )
+
+    @Test
+    fun mark_uploaded_fills_the_link_without_a_second_entry() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(file("p", ts = 1, name = "b.png", cached = true, localPath = "/cache/p/b.png", link = ""))
+        assertEquals(1, repo.items.value.size)
+
+        repo.markUploaded("p", link = "http://new/p", sha256 = "bb", expiresAt = 42)
+
+        val kept = repo.items.value.single().file
+        assertNotNull(kept)
+        assertEquals("http://new/p", kept.link)
+        assertEquals("bb", kept.sha256)
+        assertEquals(42L, kept.expiresAt)
+        assertEquals("/cache/p/b.png", kept.localPath)
+        assertTrue(kept.cached)
+
+        repo.markUploaded("ghost", link = "http://new/g", sha256 = "cc", expiresAt = 1)
+        assertEquals(1, repo.items.value.size)
+    }
 
     @Test
     fun add_keeps_newest_first_and_dedupes() = runTest {

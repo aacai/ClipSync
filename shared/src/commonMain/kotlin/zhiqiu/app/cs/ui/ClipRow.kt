@@ -75,6 +75,7 @@ internal fun ClipRow(
         picked: Boolean,
         selectionActive: Boolean,
         moveInfo: MoveInfo?,
+        online: Boolean,
         onActivate: () -> Unit,
         onTogglePick: () -> Unit,
         onEdit: () -> Unit,
@@ -258,6 +259,12 @@ internal fun ClipRow(
                             MenuAction(AppIcons.Download, Res.string.act_save_to_downloads) {
                                 menu = false
                                 model.saveToDownloads(item)
+                            }
+                        }
+                        if (model.canResend(item)) {
+                            MenuAction(AppIcons.Send, Res.string.act_resend, enabled = online) {
+                                menu = false
+                                model.resend(item)
                             }
                         }
                         MenuAction(AppIcons.Info, Res.string.act_detail) {

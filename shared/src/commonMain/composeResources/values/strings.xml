@@ -116,6 +116,7 @@
     <string name="act_detail">查看详情</string>
     <string name="act_duplicate">生成副本</string>
     <string name="act_save_to_downloads">存到下载目录</string>
+    <string name="act_resend">补传到房间</string>
     <string name="act_move_up">向上移</string>
     <string name="act_move_down">向下移</string>
     <string name="act_move_top">移到最顶部</string>

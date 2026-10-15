@@ -743,6 +743,24 @@ class AppModel internal constructor(
         }
     }
 
+    /** 只有离线攒下来、还没上过天的文件才值得补传；同伴那条本来就人人都有。 */
+    fun canResend(item: ClipItem): Boolean = item.file?.link?.isBlank() == true
+
+    /** 进房后把本机缓存里的那一份传出去：还是原来那条条目，只是终于有了链接。 */
+    fun resend(item: ClipItem) {
+        val file = item.file?.takeIf { it.link.isBlank() } ?: return
+        scope.launch {
+            val bytes = file.localPath?.let { runCatching { repository.readCache(it) }.getOrNull() }
+            if (bytes == null || bytes.isEmpty()) {
+                _failure.value = Feedback.SendFailed(file.name)
+                return@launch
+            }
+            runCatching { engine.resend(file, bytes) }
+                    .onSuccess { if (it) _info.value = Feedback.FileSent(file.name) }
+                    .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
+        }
+    }
+
     fun open(item: ClipItem) {
         val file = item.file ?: return
         if (file.localPath != null) {

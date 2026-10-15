@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -287,6 +288,46 @@ class AppModelClipboardCaptureTest {
         runCurrent()
 
         assertIs<Feedback.DownloadFailed>(harness.model.failure.value)
+    }
+
+    @Test
+    fun `only a file that never went up is worth resending`() = runTest {
+        val clipboard = FakeClipboard()
+        val harness = Harness(clipboard, backgroundScope)
+        runCurrent()
+
+        clipboard.files = listOf(clipboard.source("report.pdf", "application/pdf", byteArrayOf(1, 2)))
+        advanceTimeBy(1_000)
+        runCurrent()
+        val captured = harness.model.items.value.single()
+        assertTrue(harness.model.canResend(captured))
+
+        val uploaded =
+                captured.copy(
+                        file = captured.file?.copy(link = "https://litterbox/x"),
+                )
+        assertTrue(!harness.model.canResend(uploaded))
+        assertTrue(!harness.model.canResend(textItem("note", ts = 1)))
+    }
+
+    @Test
+    fun `resending without the cached bytes reports it instead of uploading nothing`() = runTest {
+        val clipboard = FakeClipboard()
+        val store = RecordingStore()
+        val harness = Harness(clipboard, backgroundScope, store)
+        runCurrent()
+
+        clipboard.files = listOf(clipboard.source("report.pdf", "application/pdf", byteArrayOf(1, 2)))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        val captured = harness.model.items.value.single()
+        val path = assertNotNull(captured.file?.localPath)
+        store.caches.remove(path)
+        harness.model.resend(captured)
+        runCurrent()
+
+        assertIs<Feedback.SendFailed>(harness.model.failure.value)
     }
 
     private inner class Harness(

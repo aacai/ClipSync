@@ -116,6 +116,7 @@
     <string name="act_detail">Show details</string>
     <string name="act_duplicate">Duplicate</string>
     <string name="act_save_to_downloads">Save to Downloads</string>
+    <string name="act_resend">Upload to the room</string>
     <string name="act_move_up">Move up</string>
     <string name="act_move_down">Move down</string>
     <string name="act_move_top">Move to the very top</string>

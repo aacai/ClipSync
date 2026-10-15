@@ -226,6 +226,12 @@ class ClipRepository(
         replace(item.copy(file = item.file?.copy(cached = true, localPath = localPath)))
     }
 
+    /** 离线攒下的文件补传成功后把链接填回原条目：条目还是那一条，只是终于能下载了。 */
+    suspend fun markUploaded(id: String, link: String, sha256: String, expiresAt: Long) {
+        val item = _items.value.firstOrNull { it.id == id } ?: return
+        replace(item.copy(file = item.file?.copy(link = link, sha256 = sha256, expiresAt = expiresAt)))
+    }
+
     private suspend fun replace(item: ClipItem) {
         _items.value = _items.value.map { if (it.id == item.id) item else it }.sortedWith(ordering)
         persist()
