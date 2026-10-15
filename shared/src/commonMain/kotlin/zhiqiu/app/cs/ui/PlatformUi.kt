@@ -41,8 +41,14 @@ interface PlatformClipboard {
 
     val canReadImages: Boolean get() = false
 
+    /** 能否读出剪贴板里的文件（CF_HDROP / file URL / content URI）。 */
+    val canReadFiles: Boolean get() = false
+
     /** 剪贴板里是图片而不是文本时取这张图；没有就返回 null。 */
     suspend fun readImage(): ClipboardImage? = null
+
+    /** 剪贴板里是文件而不是文本时取这批文件；只读元信息，字节留给调用方按需取。 */
+    suspend fun readFiles(): List<PickedSource> = emptyList()
 
     /** 剪贴板变化事件；null 表示平台没有事件源，只能轮询。 */
     val changeEvents: Flow<Unit>? get() = null

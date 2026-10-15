@@ -86,6 +86,7 @@ internal fun SettingsView(
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
     val watchImages by settings.watchImages.collectAsState()
+    val watchFiles by settings.watchFiles.collectAsState()
     val deleteExpired by settings.deleteExpired.collectAsState()
     val retentionDays by settings.retentionDays.collectAsState()
     val residentSync by model.residentSync.collectAsState()
@@ -222,13 +223,24 @@ internal fun SettingsView(
                                             watchClipboard,
                                             settings::setWatchClipboard,
                                     )
-                                    if (watchClipboard && model.supportsClipboardImageRead) {
-                                        RowDivider()
+                                    val canReadImages = watchClipboard && model.supportsClipboardImageRead
+                                    val canReadFiles = watchClipboard && model.supportsClipboardFilesRead
+                                    if (canReadImages || canReadFiles) RowDivider()
+                                    if (canReadImages) {
                                         SwitchRow(
                                                 Res.string.setting_watch_images,
                                                 Res.string.setting_watch_images_hint,
                                                 watchImages,
                                                 settings::setWatchImages,
+                                        )
+                                    }
+                                    if (canReadFiles) {
+                                        if (canReadImages) RowDivider()
+                                        SwitchRow(
+                                                Res.string.setting_watch_files,
+                                                Res.string.setting_watch_files_hint,
+                                                watchFiles,
+                                                settings::setWatchFiles,
                                         )
                                     }
                                 }

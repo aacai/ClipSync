@@ -100,6 +100,7 @@ class AppModel internal constructor(
     val supportsClipboardFiles: Boolean = platform.clipboard.canWriteFiles
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
     val supportsClipboardImageRead: Boolean = platform.clipboard.canReadImages
+    val supportsClipboardFilesRead: Boolean = platform.clipboard.canReadFiles
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
     val deviceName: StateFlow<String> =
@@ -136,6 +137,7 @@ class AppModel internal constructor(
     private var lastOwnWrite: String? = null
     private var lastCaptured: String? = null
     private var lastImageHash: String? = null
+    private var lastFilesSignature: String? = null
     private var lastOwnImageWrite: String? = null
 
     init {
@@ -170,6 +172,10 @@ class AppModel internal constructor(
         monitorJob = scope.launch {
             lastCaptured = runCatching { platform.clipboard.read() }.getOrNull()
             lastImageHash = runCatching { platform.clipboard.readImage()?.bytes?.let { sha256Hex(it) } }.getOrNull()
+            if (platform.clipboard.canReadFiles) {
+                lastFilesSignature =
+                        runCatching { fileSignature(platform.clipboard.readFiles()) }.getOrNull()
+            }
             val events = platform.clipboard.changeEvents
             // 单次采集抛出来的东西必须吃掉：这里没人会重启监听，逃出去只会顺着 UI 线程变成系统级报错弹窗。
             if (events != null) {
@@ -192,7 +198,7 @@ class AppModel internal constructor(
     private suspend fun onClipboardChanged() {
         val text = runCatching { platform.clipboard.read() }.getOrNull()
         if (text == null) {
-            captureImage()
+            if (!captureFiles()) captureImage()
             return
         }
         if (text.isBlank()) return
@@ -207,6 +213,33 @@ class AppModel internal constructor(
         }
     }
 
+    /** 复制的文件：一份内容算一批，每个文件留一条。返回 true 表示这批剪贴板归文件管，别再当图片抓。 */
+    private suspend fun captureFiles(): Boolean {
+        if (!platform.clipboard.canReadFiles || !settings.watchFiles.value) return false
+        val sources = runCatching { platform.clipboard.readFiles() }.getOrDefault(emptyList())
+        if (sources.isEmpty()) return false
+        val signature = fileSignature(sources)
+        if (signature == lastFilesSignature) return true
+        lastFilesSignature = signature
+        val online = status.value is ClipSyncEngine.Status.Online
+        sources.forEach { source ->
+            if (source.sizeHint <= 0L || source.sizeHint > FileLimits.MAX_FILE_BYTES) return@forEach
+            val bytes = runCatching { source.open() }.getOrNull() ?: return@forEach
+            if (bytes.isEmpty() || bytes.size.toLong() > FileLimits.MAX_FILE_BYTES) return@forEach
+            val name = sanitizeFileName(source.name)
+            if (online) {
+                val item = runCatching { engine.publishFile(name, source.mime, bytes) }.getOrNull()
+                if (item != null) cacheLocally(item.id, name, bytes)
+            } else {
+                recordLocalFile(name, source.mime, bytes, runCatching { sha256Hex(bytes) }.getOrDefault(""))
+            }
+        }
+        return true
+    }
+
+    private fun fileSignature(sources: List<PickedSource>): String =
+            sources.joinToString("|") { "${it.name}:${it.sizeHint}" }
+
     /** 截图、复制的图片：内容换了才算新条目，同一张图被轮询读多少次都只记一条。 */
     private suspend fun captureImage() {
         if (!platform.clipboard.canReadImages || !settings.watchImages.value) return
@@ -220,11 +253,11 @@ class AppModel internal constructor(
             val item = runCatching { engine.publishFile(name, image.mime, image.bytes) }.getOrNull()
             if (item != null) cacheLocally(item.id, name, image.bytes)
         } else {
-            recordLocalImage(name, image.mime, image.bytes, hash)
+            recordLocalFile(name, image.mime, image.bytes, hash)
         }
     }
 
-    private suspend fun recordLocalImage(name: String, mime: String, bytes: ByteArray, hash: String) {
+    private suspend fun recordLocalFile(name: String, mime: String, bytes: ByteArray, hash: String) {
         val now = Clock.System.now().toEpochMilliseconds()
         val id = newId()
         val path = platform.store.writeCache(id, name, bytes)

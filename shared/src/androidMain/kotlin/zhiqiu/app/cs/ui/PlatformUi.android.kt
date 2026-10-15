@@ -163,6 +163,7 @@ private fun Uri.toPickedSource(context: Context): PickedSource {
 internal class AndroidClipboard(private val context: Context) : PlatformClipboard {
     override val canWriteFiles: Boolean = true
     override val canReadImages: Boolean = true
+    override val canReadFiles: Boolean = true
 
     private val manager: ClipboardManager
         get() = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -176,13 +177,29 @@ internal class AndroidClipboard(private val context: Context) : PlatformClipboar
         }
 
     override suspend fun read(): String? = runCatching {
-        if (!manager.hasPrimaryClip()) return null
-        val clip = manager.primaryClip
-        if (clip == null || clip.itemCount == 0) return null
-        // 图片剪贴板 coerceToText 会退化成一条 content:// 地址，那种内容交给 readImage
-        if (clip.description.hasMimeType("image/*")) return null
+        val clip = clipOrNull() ?: return null
+        // 带 content URI 的剪贴板 coerceToText 只会退化成一条地址，那种内容交给 readFiles / readImage
+        if (clip.hasContentUri()) return null
         clip.getItemAt(0).coerceToText(context)?.toString()
     }.getOrNull()
+
+    override suspend fun readFiles(): List<PickedSource> = runCatching {
+        val clip = clipOrNull() ?: return emptyList()
+        if (!clip.hasContentUri()) return emptyList()
+        (0 until clip.itemCount)
+            .mapNotNull { clip.getItemAt(it).uri }
+            .map { it.toPickedSource(context) }
+            .filterNot { it.mime.startsWith("image/") }
+    }.getOrDefault(emptyList())
+
+    private fun clipOrNull(): ClipData? =
+            if (!manager.hasPrimaryClip()) null else manager.primaryClip?.takeIf { it.itemCount > 0 }
+
+    private fun ClipData.hasContentUri(): Boolean {
+        if (getItemAt(0).uri == null) return false
+        val mimes = (0 until description.mimeTypeCount).map { description.getMimeType(it).orEmpty() }
+        return mimes.none { it.startsWith("text/") }
+    }
 
     override suspend fun readImage(): ClipboardImage? = runCatching {
         val clip = manager.primaryClip ?: return null

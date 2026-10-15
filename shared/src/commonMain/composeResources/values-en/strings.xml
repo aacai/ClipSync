@@ -233,6 +233,8 @@
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
     <string name="setting_watch_images">Keep screenshots</string>
     <string name="setting_watch_images_hint">Images you copy are saved to the list, and shared with the room when you are in one. Oversized images are skipped</string>
+    <string name="setting_watch_files">Keep files</string>
+    <string name="setting_watch_files_hint">Files you copy are saved to the list, and shared with the room when you are in one. Oversized files are skipped</string>
     <string name="setting_delete_expired">Delete expired entries</string>
     <string name="setting_delete_expired_hint">Entries older than the retention window are dropped together with their local cache. Pinned entries are kept</string>
     <string name="setting_retention">Keep for</string>

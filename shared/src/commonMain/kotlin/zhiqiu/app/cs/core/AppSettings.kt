@@ -88,6 +88,14 @@ class AppSettings(private val store: Settings = platformSettings()) {
         store.putBoolean(KEY_WATCH_IMAGES, enabled)
     }
 
+    private val _watchFiles = MutableStateFlow(store.getBoolean(KEY_WATCH_FILES, true))
+    val watchFiles: StateFlow<Boolean> = _watchFiles.asStateFlow()
+
+    fun setWatchFiles(enabled: Boolean) {
+        _watchFiles.value = enabled
+        store.putBoolean(KEY_WATCH_FILES, enabled)
+    }
+
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
 
@@ -148,6 +156,7 @@ class AppSettings(private val store: Settings = platformSettings()) {
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
+        private const val KEY_WATCH_FILES = "clipboard.watchFiles"
         private const val KEY_DELETE_EXPIRED = "history.deleteExpired"
         private const val KEY_RETENTION_DAYS = "history.retentionDays"
         val RETENTION_CHOICES = listOf(7, 30, 90, 365)

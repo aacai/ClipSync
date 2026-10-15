@@ -53,11 +53,13 @@ private object AwtClipboard : PlatformClipboard {
     override val canWriteFiles: Boolean = true
     override val canWriteImage: Boolean = true
     override val canReadImages: Boolean = true
+    override val canReadFiles: Boolean = true
 
     private val clipboard get() = Toolkit.getDefaultToolkit().systemClipboard
 
     /** 同一份内容每次轮询都返回同一个 Transferable：认得出来就别再把整张位图取一遍编一次。 */
     private var lastImageContents: Transferable? = null
+    private var lastFilesContents: Transferable? = null
 
     override fun pollIntervalMs(): Long = clipboardPollIntervalMs()
 
@@ -69,6 +71,22 @@ private object AwtClipboard : PlatformClipboard {
             null
         }
     }.getOrNull()
+
+    override suspend fun readFiles(): List<PickedSource> = runCatching {
+        val contents = clipboard.getContents(null) ?: return emptyList()
+        if (contents === lastFilesContents) return emptyList()
+        lastFilesContents = contents
+        if (!contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) return emptyList()
+        val files = contents.getTransferData(DataFlavor.javaFileListFlavor) as? List<*> ?: return emptyList()
+        files.filterIsInstance<File>().filter { it.isFile }.map { file ->
+            PickedSource(
+                    name = file.name,
+                    mime = mimeForName(file.name),
+                    sizeHint = file.length(),
+                    open = { withContext(Dispatchers.IO) { file.readBytes() } },
+            )
+        }
+    }.getOrDefault(emptyList())
 
     override suspend fun readImage(): ClipboardImage? = runCatching {
         val contents = clipboard.getContents(null) ?: return null
