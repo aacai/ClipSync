@@ -103,7 +103,6 @@ internal fun MainView(
     val undoDepth by model.undoDepth.collectAsState()
     val moveInfos by model.moveInfos.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
-    // 人数含本机：engine 那边已经把密钥不同的挡掉了。没连上时不把自己算成「一人在房间」
     val inRoom = devices.map { deviceLabel(it.name, it.os) }
             .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
 

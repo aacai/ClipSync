@@ -301,7 +301,6 @@ class ClipSyncEngineReconnectTest {
         assertEquals(emptyList(), links.attempts)
     }
 
-    /** 告别（含遗嘱）在我们断线期间会整个丢，名单只能靠时间自己收：停跳心跳的同伴要自己掉出去。 */
     @Test
     fun `a peer who stops beating drops out on his own`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -314,19 +313,16 @@ class ClipSyncEngineReconnectTest {
         runCurrent()
         assertEquals(1, engine.devices.value.size)
 
-        // 三条心跳还没到，不该动他
         advanceTimeBy(240_000)
         runCurrent()
         assertEquals(1, engine.devices.value.size)
 
-        // 过期要等下一次心跳来清：清理挂在本来就有的唤醒上，不多要一次无线电
         advanceTimeBy(240_000)
         runCurrent()
         assertEquals(emptyList(), engine.devices.value)
         engine.stop()
     }
 
-    /** 迟到的那条不作数：晚到的 goodbye 不该把一个在场的同伴抹掉。 */
     @Test
     fun `a late goodbye cannot erase a peer who is here`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -347,7 +343,6 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
-    /** 密码打错的设备互相看得见 presence，却一条剪贴板都收不到：不能算进人数。 */
     @Test
     fun `a peer on a different key is not counted in the room`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -364,7 +359,6 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
-    /** 解得开他的密文就是活证据：有动静的同伴不该被 TTL 误伤。 */
     @Test
     fun `a peer with recent activity survives the heartbeat gap`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -379,7 +373,6 @@ class ClipSyncEngineReconnectTest {
         link.deliver(clipMessage("copied just now"))
         runCurrent()
 
-        // 再往后 240s：光看那条 presence 早就过期了
         advanceTimeBy(240_000)
         runCurrent()
         assertEquals(1, engine.devices.value.size)
@@ -390,7 +383,6 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
-    /** 掉线期间没人可证：留着的名单是一个没人认的数，清了重连后再点名重建。 */
     @Test
     fun `a lost link leaves no roster behind`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -409,7 +401,6 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
-    /** 进房和重连各点一次名；同伴回一条 presence，名单一轮就重建起来，不用等下一次心跳。 */
     @Test
     fun `a roll-call rebuilds the roster after the link heals`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -433,14 +424,12 @@ class ClipSyncEngineReconnectTest {
         assertEquals(2, called())
         assertEquals(emptyList(), engine.devices.value)
 
-        // 同伴听到点名就回话：不用等心跳，名单立刻回来
         link.deliver(presenceMessage("dev-2", "Phone", online = true, ts = 1_700_000_000_500))
         runCurrent()
         assertEquals(1, engine.devices.value.size)
         engine.stop()
     }
 
-    /** 点名不该把两个人算成两个：他自己那条 presence 会正常把名单填回来。 */
     @Test
     fun `a roll-call is answered but never counted as a peer`() = runTest {
         val links = FakeLinks(clock = { currentTime })
@@ -496,7 +485,7 @@ class ClipSyncEngineReconnectTest {
         return Incoming(topic, ClipProtocol.encode(envelope))
     }
 
-    /** sp 留空 = 和我们同一把钥匙；填别的等于「同屋但密码打错」。 */
+    /** sp 留空 = 同一把钥匙 */
     private suspend fun presenceMessage(
         from: String,
         name: String,
@@ -516,7 +505,6 @@ class ClipSyncEngineReconnectTest {
         return Incoming(ClipProtocol.presenceTopic(hash, from), ClipProtocol.encode(envelope))
     }
 
-    /** broker 递来的一条点名：收到的人该回一条 presence。 */
     private suspend fun rollCall(from: String): Incoming {
         val envelope = PresenceEnvelope(
             dev = from,

@@ -31,7 +31,6 @@ import zhiqiu.app.cs.files.validateOutgoingFile
 internal class ClipSyncEngine(
     private val scope: CoroutineScope,
     private val links: MqttLinkFactory = DefaultMqttLinks,
-    /** 收消息这一侧的钟：在场过期用它算，测试里换成虚拟时间。 */
     private val clock: () -> Long = { currentTimeMillis() },
 ) {
 
@@ -75,10 +74,8 @@ internal class ClipSyncEngine(
     private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
     val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
 
-    /** 名单的真值：每人一条「最近一次听到动静」。只靠 online=false 收敛不了——我们断线期间 broker 投来的告别会整个丢掉。 */
     private val roster = mutableMapOf<String, DevicePresence>()
 
-    /** 每台设备最后被接受的那条 presence 的时间戳（他自己的钟，只用来排先后，不用来算过期）。 */
     private val presenceTs = mutableMapOf<String, Long>()
 
     data class TransferProgress(
@@ -469,7 +466,7 @@ internal class ClipSyncEngine(
         if (parsed.deviceId == cfg.deviceId) return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.dev == cfg.deviceId) return
-        // 同一台设备的 ts 是它自己的钟，拿来排先后够用；跨设备比时间是错的，过期只看本机收到那一刻
+        // ts 只排先后：跨设备比时间是错的，过期只看本机收到那一刻
         val last = presenceTs[envelope.dev]
         if (last != null && envelope.ts < last) return
         presenceTs[envelope.dev] = envelope.ts
@@ -493,14 +490,12 @@ internal class ClipSyncEngine(
         if (fresh && envelope.online) publishPresence(online = true)
     }
 
-    /** 看不见就是不知道：掉线之后留着旧名单只会报一个没人认的数，重连再靠点名重建。 */
     private fun clearRoster() {
         roster.clear()
         presenceTs.clear()
         publishRoster()
     }
 
-    /** 过了 TTL 就当他不在了。清完把名单重发一次，界面不会自己猜。 */
     private fun pruneRoster() {
         if (roster.isEmpty()) return
         val cutoff = now() - PRESENCE_TTL_MS
@@ -511,13 +506,11 @@ internal class ClipSyncEngine(
         publishRoster()
     }
 
-    /** 解得开他的密文就是活证据：不用多等一条心跳，也不该把他当过期。 */
     private fun markActive(deviceId: String) {
         val seen = roster[deviceId] ?: return
         roster[deviceId] = seen.copy(seenAt = now())
     }
 
-    /** 同钥匙的算同伴，钥匙不同的只报「密码可能打错了」，不进人数。 */
     private fun publishRoster() {
         val here = roster.values.sortedBy { it.name }
         _devices.value = here.filter { it.safety == safetyPrefix }
@@ -544,7 +537,6 @@ internal class ClipSyncEngine(
         }
     }
 
-    /** 进房、重连都点一次名：同伴各回一条 presence，名单一轮就重建起来，不用等下一次心跳。 */
     private suspend fun rollCall() {
         val cfg = desired ?: return
         val mqtt = link ?: return
@@ -556,7 +548,6 @@ internal class ClipSyncEngine(
         }
     }
 
-    /** 别人在点名：回一条自己的 presence。自己那一条不用回（noLocal 已经挡了，这里再判一次）。 */
     private suspend fun onRollCall(raw: String) {
         val cfg = desired ?: return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
@@ -604,7 +595,6 @@ internal class ClipSyncEngine(
             while (isActive) {
                 delay(PRESENCE_INTERVAL_MS)
                 if (!isActive) break
-                // 清理挂在本来就有的这次唤醒上：过期判定不该多要一次无线电唤醒
                 pruneRoster()
                 if (link?.connectionState?.value is ConnectionState.Connected) {
                     publishPresence(online = true)
@@ -620,7 +610,7 @@ internal class ClipSyncEngine(
         // 120s 正好是 keepalive 60s 的整数倍：两次唤醒叠在一起，无线电不用额外醒。
         private const val PRESENCE_INTERVAL_MS = 120_000L
 
-        // 三条心跳都没听到就当他不在了：告别（含遗嘱）在我们断线期间会整个丢，名单只能靠时间收敛。
+        // 三条心跳没听到就当他不在了：断线期间的告别和遗嘱会整个丢，只能靠时间收敛
         private const val PRESENCE_TTL_MS = PRESENCE_INTERVAL_MS * 3
         private const val RECOVERY_BASE_MS = 5_000L
         private const val RECOVERY_MAX_MS = 60_000L

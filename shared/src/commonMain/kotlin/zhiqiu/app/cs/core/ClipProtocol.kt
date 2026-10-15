@@ -33,7 +33,7 @@ data class PresenceEnvelope(
     val sp: String,
     /** 系统标签（macOS / Android / Web…）。 */
     val os: String,
-    /** true = 点名：收到的人回一条 presence，让刚进房/刚重连的那位一次把名单重建起来。 */
+    /** true = 点名，收到的人回一条 presence */
     val answer: Boolean = false,
 )
 
@@ -42,7 +42,6 @@ data class DevicePresence(
     val name: String,
     val safety: String,
     val os: String,
-    /** 最后一次听到他动静的那一刻（本机时钟）：心跳、点名、甚至一条剪贴板都算。 */
     val seenAt: Long,
 )
 
