@@ -209,13 +209,15 @@ private object DesktopFileOpener : PlatformFileOpener {
 private object DesktopDownloads : PlatformDownloads {
     override val isAvailable: Boolean = true
 
-    override suspend fun save(name: String, bytes: ByteArray) =
+    override suspend fun save(name: String, bytes: ByteArray): String =
             withContext(Dispatchers.IO) {
                 val safe = sanitizeFileName(name)
                 if (safe.isBlank()) throw IOException("没有可用的文件名")
                 val dir = directory()
                 if (!dir.isDirectory && !dir.mkdirs()) throw IOException("建不出下载目录：$dir")
-                File(dir, numberedName(safe) { File(dir, it).exists() }).writeBytes(bytes)
+                val written = numberedName(safe) { File(dir, it).exists() }
+                File(dir, written).writeBytes(bytes)
+                written
             }
 
     private fun directory(): File {

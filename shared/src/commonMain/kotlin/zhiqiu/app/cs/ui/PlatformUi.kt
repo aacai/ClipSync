@@ -112,8 +112,8 @@ class PlatformUi(
 interface PlatformDownloads {
     val isAvailable: Boolean get() = false
 
-    /** 写进下载目录，重名自己让路；写不进去就抛，让界面如实报错。 */
-    suspend fun save(name: String, bytes: ByteArray)
+    /** 写进下载目录，返回真正落盘的名字（重名会让路）；写不进去就抛，让界面如实报错。 */
+    suspend fun save(name: String, bytes: ByteArray): String
 }
 
 class ClipboardUnavailable(val code: String? = null, detail: String? = null) : Exception(detail ?: code)
@@ -125,8 +125,8 @@ internal object UnavailableAutostart : PlatformAutostart {
 
 /** 没有「下载目录」概念的平台（浏览器沙箱）。 */
 internal object UnavailableDownloads : PlatformDownloads {
-    override suspend fun save(name: String, bytes: ByteArray): Unit =
-        throw UnsupportedOperationException("这个平台没有下载目录")
+    override suspend fun save(name: String, bytes: ByteArray): String =
+            throw UnsupportedOperationException("这个平台没有下载目录")
 }
 
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */

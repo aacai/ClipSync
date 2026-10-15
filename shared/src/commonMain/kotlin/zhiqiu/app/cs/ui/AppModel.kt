@@ -738,7 +738,7 @@ class AppModel internal constructor(
             }
             val name = file?.name?.takeIf { it.isNotBlank() } ?: "text-${newId().take(8)}.txt"
             runCatching { platform.downloads.save(name, bytes) }
-                    .onSuccess { _info.value = Feedback.SavedTo(name) }
+                    .onSuccess { _info.value = Feedback.SavedTo(it) }
                     .onFailure { _failure.value = Feedback.DownloadFailed(it.message.orEmpty()) }
         }
     }

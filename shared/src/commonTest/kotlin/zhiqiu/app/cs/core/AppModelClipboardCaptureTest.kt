@@ -261,6 +261,22 @@ class AppModelClipboardCaptureTest {
     }
 
     @Test
+    fun `the toast names the file that actually landed`() = runTest {
+        val downloads = FakeDownloads()
+        val store = RecordingStore(mutableListOf(textItem("note", ts = 1)))
+        val harness = Harness(FakeClipboard(), backgroundScope, store, downloads)
+        runCurrent()
+        downloads.taken = { "$it (1)" }
+
+        harness.model.saveToDownloads(harness.model.items.value.single())
+        runCurrent()
+
+        val feedback = harness.model.info.value
+        assertIs<Feedback.SavedTo>(feedback)
+        assertTrue(feedback.name.endsWith(".txt (1)"))
+    }
+
+    @Test
     fun `a platform without a download folder says so`() = runTest {
         val store = RecordingStore(mutableListOf(textItem("note", ts = 1)))
         val harness = Harness(FakeClipboard(), backgroundScope, store)
@@ -323,9 +339,14 @@ class AppModelClipboardCaptureTest {
 
     private class FakeDownloads : PlatformDownloads {
         val saves = mutableListOf<Pair<String, ByteArray>>()
+
+        /** 名字被占用时目录里真正会落成的样子。 */
+        var taken: (String) -> String = { it }
         override val isAvailable: Boolean get() = true
-        override suspend fun save(name: String, bytes: ByteArray) {
-            saves += name to bytes
+        override suspend fun save(name: String, bytes: ByteArray): String {
+            val written = taken(name)
+            saves += written to bytes
+            return written
         }
     }
 

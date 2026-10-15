@@ -260,45 +260,51 @@ private val MAX_IMAGE_BYTES = FileLimits.MAX_FILE_BYTES.toInt()
 private class AndroidDownloads(private val context: Context) : PlatformDownloads {
     override val isAvailable: Boolean = true
 
-    override suspend fun save(name: String, bytes: ByteArray) =
+    override suspend fun save(name: String, bytes: ByteArray): String =
             withContext(Dispatchers.IO) {
                 val safe = sanitizeFileName(name)
                 if (safe.isBlank()) throw IOException("没有可用的文件名")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val resolver = context.contentResolver
-                    val taken = { candidate: String ->
-                        runCatching {
-                            resolver.query(
-                                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                                    arrayOf(MediaStore.MediaColumns._ID),
-                                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-                                    arrayOf(candidate),
-                                    null,
-                            )?.use { it.count > 0 } ?: false
-                        }.getOrDefault(false)
-                    }
-                    val values =
-                            ContentValues().apply {
-                                put(MediaStore.MediaColumns.DISPLAY_NAME, numberedName(safe, taken))
-                                put(MediaStore.MediaColumns.MIME_TYPE, mimeForName(safe))
-                                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                            }
-                    val uri =
-                            context.contentResolver.insert(
-                                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                                            values,
-                                    )
-                                    ?: throw IOException("MediaStore 没收这个文件")
-                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                            ?: throw IOException("写不进下载目录")
+                    saveViaMediaStore(safe, bytes)
                 } else {
-                    @Suppress("DEPRECATION")
-                    val dir =
-                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                    if (!dir.isDirectory && !dir.mkdirs()) throw IOException("建不出下载目录：$dir")
-                    File(dir, numberedName(safe) { File(dir, it).exists() }).writeBytes(bytes)
+                    saveIntoPublicDir(safe, bytes)
                 }
             }
+
+    private fun saveViaMediaStore(safe: String, bytes: ByteArray): String {
+        val resolver = context.contentResolver
+        val taken = { candidate: String ->
+            runCatching {
+                resolver.query(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                        arrayOf(MediaStore.MediaColumns._ID),
+                        "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+                        arrayOf(candidate),
+                        null,
+                )?.use { it.count > 0 } ?: false
+            }.getOrDefault(false)
+        }
+        val display = numberedName(safe, taken)
+        val values =
+                ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, display)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeForName(safe))
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw IOException("MediaStore 没收这个文件")
+        resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: throw IOException("写不进下载目录")
+        return display
+    }
+
+    private fun saveIntoPublicDir(safe: String, bytes: ByteArray): String {
+        @Suppress("DEPRECATION")
+        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (!dir.isDirectory && !dir.mkdirs()) throw IOException("建不出下载目录：$dir")
+        val written = numberedName(safe) { File(dir, it).exists() }
+        File(dir, written).writeBytes(bytes)
+        return written
+    }
 }
 
 /** 通过 FileProvider 拿 content:// URI 打开缓存文件（Android 7+ 禁止 file:// 直接分享）。 */
