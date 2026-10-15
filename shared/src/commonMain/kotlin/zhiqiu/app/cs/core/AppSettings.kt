@@ -80,8 +80,33 @@ class AppSettings(private val store: Settings = platformSettings()) {
         store.putBoolean(KEY_LAUNCH_AT_LOGIN, enabled)
     }
 
+    private val _watchImages = MutableStateFlow(store.getBoolean(KEY_WATCH_IMAGES, true))
+    val watchImages: StateFlow<Boolean> = _watchImages.asStateFlow()
+
+    fun setWatchImages(enabled: Boolean) {
+        _watchImages.value = enabled
+        store.putBoolean(KEY_WATCH_IMAGES, enabled)
+    }
+
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
+
+    /** 过期自动删除默认关：开了就是每 30 天丢一次历史，得用户自己点头。 */
+    private val _deleteExpired = MutableStateFlow(store.getBoolean(KEY_DELETE_EXPIRED, false))
+    val deleteExpired: StateFlow<Boolean> = _deleteExpired.asStateFlow()
+
+    fun setDeleteExpired(enabled: Boolean) {
+        _deleteExpired.value = enabled
+        store.putBoolean(KEY_DELETE_EXPIRED, enabled)
+    }
+
+    private val _retentionDays = MutableStateFlow(store.getInt(KEY_RETENTION_DAYS, DEFAULT_RETENTION_DAYS))
+    val retentionDays: StateFlow<Int> = _retentionDays.asStateFlow()
+
+    fun setRetentionDays(days: Int) {
+        _retentionDays.value = days
+        store.putInt(KEY_RETENTION_DAYS, days)
+    }
 
     fun setResidentSync(enabled: Boolean) {
         _residentSync.value = enabled
@@ -122,6 +147,11 @@ class AppSettings(private val store: Settings = platformSettings()) {
         private const val KEY_LANGUAGE = "ui.language"
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
+        private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
+        private const val KEY_DELETE_EXPIRED = "history.deleteExpired"
+        private const val KEY_RETENTION_DAYS = "history.retentionDays"
+        val RETENTION_CHOICES = listOf(7, 30, 90, 365)
+        private const val DEFAULT_RETENTION_DAYS = 30
         private const val KEY_RESIDENT_SYNC = "sync.resident"
         private const val KEY_LAUNCH_AT_LOGIN = "sync.launchAtLogin"
         private const val KEY_NICKNAME = "device.nickname"

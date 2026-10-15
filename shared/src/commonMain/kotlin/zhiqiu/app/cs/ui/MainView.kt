@@ -124,6 +124,7 @@ internal fun MainView(
     var noting by remember { mutableStateOf<ClipItem?>(null) }
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
+    var zooming by remember { mutableStateOf<ClipItem?>(null) }
     var moving by remember { mutableStateOf<ClipItem?>(null) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
     var shareOpen by remember { mutableStateOf(false) }
@@ -195,6 +196,13 @@ internal fun MainView(
         return true
     }
 
+    fun deleteTargets(): Boolean {
+        if (searchFocused || targets.isEmpty()) return false
+        model.remove(targets)
+        endPicking()
+        return true
+    }
+
     fun handleChord(key: Key, modifier: Boolean, shifting: Boolean): Boolean {
         return when (key) {
             Key.F -> modifier && !searchFocused && run {
@@ -236,14 +244,9 @@ internal fun MainView(
                         } else {
                             false
                         }
-            Key.Delete ->
-                    if (!searchFocused && targets.isNotEmpty()) {
-                        model.remove(targets)
-                        endPicking()
-                        true
-                    } else {
-                        false
-                    }
+            Key.Delete -> deleteTargets()
+            // macOS 上 Cmd+Backspace 才是「往前删」，单独按 Backspace 不接管，免得打字时误删。
+            Key.Backspace -> modifier && deleteTargets()
             Key.F2 -> {
                 val item = cursorItem
                 if (!searchFocused && item != null && item.kind != ClipRepository.KIND_FILE) {
@@ -306,7 +309,8 @@ internal fun MainView(
 
     fun hasOverlay() =
             composingNew || confirmClear || safetyNumber != null || shareOpen || helpOpen ||
-                    editing != null || noting != null || transforming != null || inspecting != null
+                    editing != null || noting != null || transforming != null || inspecting != null ||
+                    zooming != null
 
     fun closeOverlay() {
         when {
@@ -314,6 +318,7 @@ internal fun MainView(
             shareOpen -> shareOpen = false
             helpOpen -> helpOpen = false
             confirmClear -> confirmClear = false
+            zooming != null -> zooming = null
             editing != null -> editing = null
             noting != null -> noting = null
             transforming != null -> transforming = null
@@ -396,6 +401,7 @@ internal fun MainView(
                                             onEdit = { editing = item },
                                             onNote = { noting = item },
                                             onDetail = { inspecting = item },
+                                            onZoom = { zooming = item },
                                             onTransform = { transforming = item },
                                             onMoveTop = { model.moveToTop(item) },
                                             onMoveBottom = { model.moveToBottom(item) },
@@ -523,10 +529,15 @@ internal fun MainView(
     inspecting?.let { item ->
         DetailDialog(
                 item = item,
+                model = model,
                 now = now,
                 onDismiss = { inspecting = null },
                 onCopy = { model.copy(item) },
+                onZoom = { zooming = item },
         )
+    }
+    zooming?.let { item ->
+        ImageViewDialog(item = item, model = model, onDismiss = { zooming = null })
     }
     moving?.let { item ->
         val info = moveInfos[item.id]

@@ -106,6 +106,18 @@ internal fun mimeForName(name: String): String {
     }
 }
 
+/** mime 反推扩展名，让剪贴板里抓来的图片有个能打开的文件名。 */
+internal fun extForMime(mime: String): String = when (mime.lowercase()) {
+    "image/jpeg" -> "jpg"
+    "image/png" -> "png"
+    "image/gif" -> "gif"
+    "image/webp" -> "webp"
+    "image/bmp" -> "bmp"
+    "image/heic" -> "heic"
+    "image/svg+xml" -> "svg"
+    else -> mime.substringAfterLast('/').substringBefore(';').takeIf { it.length in 2..5 } ?: "bin"
+}
+
 internal fun isImage(mime: String): Boolean = mime.startsWith("image/")
 
 internal fun displayTitle(file: FileClip): String = file.name

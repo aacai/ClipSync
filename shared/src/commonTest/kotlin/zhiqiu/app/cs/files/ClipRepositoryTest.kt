@@ -30,6 +30,9 @@ private class FakeClipStore(
         caches[id] = bytes
         return "/cache/$id/$name"
     }
+
+    override suspend fun readCache(localPath: String): ByteArray? =
+        caches[localPath.removePrefix("/cache/").substringBefore('/')]
 }
 
 class ClipRepositoryTest {
@@ -335,5 +338,29 @@ class ClipRepositoryTest {
         assertEquals(emptyList<String>(), repo.search("alpha", caseSensitive = true).map { it.id })
         assertEquals(listOf("a"), repo.search("ALPHA").map { it.id })
         assertEquals(listOf("b", "a"), repo.search("a").map { it.id })
+    }
+
+    @Test
+    fun remove_expired_drops_old_but_keeps_pinned() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(text("old", ts = 1))
+        repo.add(file("keep", ts = 2, name = "a.png").copy(pinned = true))
+        repo.add(file("gone", ts = 3, name = "b.png", localPath = "/cache/gone/b.png"))
+        repo.add(text("fresh", ts = 100))
+
+        assertEquals(2, repo.removeExpired(before = 50))
+        assertEquals(listOf("keep", "fresh"), repo.sorted().map { it.id })
+        assertEquals(listOf("/cache/gone/b.png"), store.deleted)
+    }
+
+    @Test
+    fun remove_expired_returns_false_alarm_and_skips_undo_stack() = runTest {
+        val repo = ClipRepository(FakeClipStore())
+        assertEquals(0, repo.removeExpired(before = 50))
+
+        repo.add(text("old", ts = 1))
+        assertEquals(1, repo.removeExpired(before = 50))
+        assertNull(repo.undo())
     }
 }

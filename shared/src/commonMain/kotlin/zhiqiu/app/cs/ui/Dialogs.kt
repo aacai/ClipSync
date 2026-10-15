@@ -1,12 +1,15 @@
 package zhiqiu.app.cs.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -34,9 +37,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -45,6 +50,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipProtocol
@@ -56,6 +63,7 @@ import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.TextOp
 import zhiqiu.app.cs.files.displayTitle
 import zhiqiu.app.cs.files.humanSize
+import zhiqiu.app.cs.files.isImage
 import zhiqiu.app.cs.resources.*
 
 @Composable
@@ -271,14 +279,38 @@ internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmi
 }
 
 @Composable
-internal fun DetailDialog(item: ClipItem, now: Long, onDismiss: () -> Unit, onCopy: () -> Unit) {
+internal fun DetailDialog(
+        item: ClipItem,
+        model: AppModel,
+        now: Long,
+        onDismiss: () -> Unit,
+        onCopy: () -> Unit,
+        onZoom: () -> Unit,
+) {
     val isFile = item.kind == ClipRepository.KIND_FILE
     val file = item.file
+    val path = file?.localPath?.takeIf { isImage(file.mime) }
+    val thumb = rememberImageBitmap(path, THUMB_MAX_SIDE) { model.cachedBytes(item) }
     AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.detail_title), fontSize = 17.sp) },
             text = {
                 Column(modifier = Modifier.heightIn(max = 420.dp)) {
+                    if (thumb != null) {
+                        Box(
+                                modifier =
+                                        Modifier.padding(bottom = 10.dp)
+                                                .clip(MaterialTheme.shapes.small)
+                                                .clickable(onClick = onZoom),
+                        ) {
+                            Image(
+                                    bitmap = thumb,
+                                    contentDescription = stringResource(Res.string.cd_zoom_image),
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp),
+                            )
+                        }
+                    }
                     Box(
                             modifier =
                                     Modifier.fillMaxWidth()
@@ -342,8 +374,55 @@ internal fun DetailDialog(item: ClipItem, now: Long, onDismiss: () -> Unit, onCo
 }
 
 @Composable
-internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
+internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> Unit) {
+    val file = item.file
+    val path = file?.localPath?.takeIf { isImage(file.mime) }
+    val bitmap = rememberImageBitmap(path, ZOOM_MAX_SIDE) { model.cachedBytes(item) }
+    Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+                modifier =
+                        Modifier.fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.88f))
+                                .clickable(onClick = onDismiss),
+                contentAlignment = Alignment.Center,
+        ) {
+            when {
+                bitmap != null ->
+                        Image(
+                                bitmap = bitmap,
+                                contentDescription = file?.let { displayTitle(it) },
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize().padding(28.dp),
+                        )
+                path == null ->
+                        Text(
+                                stringResource(Res.string.not_downloaded),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                        )
+                else ->
+                        CircularProgressIndicator(
+                                Modifier.size(28.dp),
+                                color = Color.White,
+                                strokeWidth = 2.5.dp,
+                        )
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)) {
+                Icon(
+                        AppIcons.Close,
+                        contentDescription = stringResource(Res.string.cd_close_image),
+                        tint = Color.White,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {    AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.clear_all_title), fontSize = 17.sp) },
             text = { Text(stringResource(Res.string.clear_all_body), style = MaterialTheme.typography.bodySmall) },

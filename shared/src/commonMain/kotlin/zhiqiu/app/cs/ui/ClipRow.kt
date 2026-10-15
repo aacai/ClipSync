@@ -7,6 +7,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -44,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +80,7 @@ internal fun ClipRow(
         onEdit: () -> Unit,
         onNote: () -> Unit,
         onDetail: () -> Unit,
+        onZoom: () -> Unit,
         onTransform: () -> Unit,
         onMoveTop: () -> Unit,
         onMoveBottom: () -> Unit,
@@ -138,15 +142,33 @@ internal fun ClipRow(
                 }
             }
 
-            IconBadge(
-                    icon =
-                            when {
-                                !isFile -> AppIcons.Clipboard
-                                file != null && isImage(file.mime) -> AppIcons.Image
-                                else -> AppIcons.Description
-                            },
-                    tint = badge,
-            )
+            val thumbPath = file?.localPath?.takeIf { isImage(file.mime) }
+            val thumb = rememberImageBitmap(thumbPath, THUMB_MAX_SIDE) { model.cachedBytes(item) }
+            if (thumb != null) {
+                Box(
+                        modifier =
+                                Modifier.size(32.dp)
+                                        .clip(MaterialTheme.shapes.extraSmall)
+                                        .clickable(onClick = onZoom),
+                ) {
+                    Image(
+                            bitmap = thumb,
+                            contentDescription = stringResource(Res.string.cd_zoom_image),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            } else {
+                IconBadge(
+                        icon =
+                                when {
+                                    !isFile -> AppIcons.Clipboard
+                                    file != null && isImage(file.mime) -> AppIcons.Image
+                                    else -> AppIcons.Description
+                                },
+                        tint = badge,
+                )
+            }
 
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp, top = 5.dp)) {
                 Text(

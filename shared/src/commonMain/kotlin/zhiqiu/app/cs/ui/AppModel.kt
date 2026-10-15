@@ -22,6 +22,7 @@ import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.platformSupportsResidentSync
+import zhiqiu.app.cs.core.sha256Hex
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.FileClip
@@ -30,7 +31,9 @@ import zhiqiu.app.cs.files.FileRejectReason
 import zhiqiu.app.cs.files.MoveInfo
 import zhiqiu.app.cs.files.TextOp
 import zhiqiu.app.cs.files.applyTextOp
+import zhiqiu.app.cs.files.extForMime
 import zhiqiu.app.cs.files.isImage
+import zhiqiu.app.cs.files.sanitizeFileName
 import zhiqiu.app.cs.translate.MAX_TRANSLATE_CHARS
 import zhiqiu.app.cs.translate.TranslateClient
 import zhiqiu.app.cs.translate.TranslateFailure
@@ -96,6 +99,7 @@ class AppModel internal constructor(
     val supportsLocalFiles: Boolean = platform.opener.isAvailable
     val supportsClipboardFiles: Boolean = platform.clipboard.canWriteFiles
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
+    val supportsClipboardImageRead: Boolean = platform.clipboard.canReadImages
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
     val deviceName: StateFlow<String> =
@@ -131,6 +135,8 @@ class AppModel internal constructor(
     private var lastPublished: String? = null
     private var lastOwnWrite: String? = null
     private var lastCaptured: String? = null
+    private var lastImageHash: String? = null
+    private var lastOwnImageWrite: String? = null
 
     init {
         // 包被挪了地方、登录项被人手删掉，下一次启动顺手补回来
@@ -146,6 +152,9 @@ class AppModel internal constructor(
         scope.launch {
             repository.load()
             restoreSavedRoom()
+            settings.deleteExpired
+                    .combine(settings.retentionDays) { enabled, days -> enabled to days }
+                    .collect { (enabled, days) -> if (enabled) pruneExpired(days) }
         }
         scope.launch {
             settings.watchClipboard.collect { watching ->
@@ -160,6 +169,7 @@ class AppModel internal constructor(
         if (!platform.clipboard.supportsAutoSync || monitorJob?.isActive == true) return
         monitorJob = scope.launch {
             lastCaptured = runCatching { platform.clipboard.read() }.getOrNull()
+            lastImageHash = runCatching { platform.clipboard.readImage()?.bytes?.let { sha256Hex(it) } }.getOrNull()
             val events = platform.clipboard.changeEvents
             // 单次采集抛出来的东西必须吃掉：这里没人会重启监听，逃出去只会顺着 UI 线程变成系统级报错弹窗。
             if (events != null) {
@@ -180,7 +190,11 @@ class AppModel internal constructor(
     }
 
     private suspend fun onClipboardChanged() {
-        val text = runCatching { platform.clipboard.read() }.getOrNull() ?: return
+        val text = runCatching { platform.clipboard.read() }.getOrNull()
+        if (text == null) {
+            captureImage()
+            return
+        }
         if (text.isBlank()) return
         if (text == lastOwnWrite || text == lastPublished || text == lastCaptured) return
         lastCaptured = text
@@ -191,6 +205,67 @@ class AppModel internal constructor(
         } else {
             recordLocal(text)
         }
+    }
+
+    /** 截图、复制的图片：内容换了才算新条目，同一张图被轮询读多少次都只记一条。 */
+    private suspend fun captureImage() {
+        if (!platform.clipboard.canReadImages || !settings.watchImages.value) return
+        val image = runCatching { platform.clipboard.readImage() }.getOrNull() ?: return
+        if (image.bytes.isEmpty() || image.bytes.size.toLong() > FileLimits.MAX_FILE_BYTES) return
+        val hash = sha256Hex(image.bytes)
+        if (hash == lastImageHash || hash == lastOwnImageWrite) return
+        lastImageHash = hash
+        val name = sanitizeFileName(image.name.ifBlank { "image-${hash.take(8)}.${extForMime(image.mime)}" })
+        if (status.value is ClipSyncEngine.Status.Online) {
+            val item = runCatching { engine.publishFile(name, image.mime, image.bytes) }.getOrNull()
+            if (item != null) cacheLocally(item.id, name, image.bytes)
+        } else {
+            recordLocalImage(name, image.mime, image.bytes, hash)
+        }
+    }
+
+    private suspend fun recordLocalImage(name: String, mime: String, bytes: ByteArray, hash: String) {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val id = newId()
+        val path = platform.store.writeCache(id, name, bytes)
+        repository.add(
+                ClipItem(
+                        id = id,
+                        kind = ClipRepository.KIND_FILE,
+                        ts = now,
+                        senderId = platform.installId,
+                        senderName = senderName(),
+                        text = name,
+                        file =
+                                FileClip(
+                                        id = id,
+                                        name = name,
+                                        mime = mime,
+                                        size = bytes.size.toLong(),
+                                        sha256 = hash,
+                                        link = "",
+                                        expiresAt = 0L,
+                                        ts = now,
+                                        senderId = platform.installId,
+                                        senderName = senderName(),
+                                        cached = path != null,
+                                        localPath = path,
+                                ),
+                ),
+        )
+    }
+
+    /** 发出去的那张图本机也留一份字节，回头点「作为图片复制」不用再从链接下载。 */
+    private suspend fun cacheLocally(id: String, name: String, bytes: ByteArray) {
+        val path = platform.store.writeCache(id, name, bytes) ?: return
+        repository.markCached(id, path)
+    }
+
+    /** 过期清理：置顶的条目是用户点名要留的，天数到了也不动。 */
+    private suspend fun pruneExpired(days: Int) {
+        val cutoff = Clock.System.now().toEpochMilliseconds() - days * MILLIS_PER_DAY
+        val count = repository.removeExpired(cutoff)
+        if (count > 0) _info.value = Feedback.Pruned(count)
     }
 
     private suspend fun recordLocal(text: String) {
@@ -438,7 +513,10 @@ class AppModel internal constructor(
                 return@launch
             }
             runCatching { platform.clipboard.writeImage(bytes, file.mime) }
-                .onSuccess { _info.value = Feedback.Copied(CopyTarget.Image) }
+                .onSuccess {
+                    lastOwnImageWrite = runCatching { sha256Hex(bytes) }.getOrNull()
+                    _info.value = Feedback.Copied(CopyTarget.Image)
+                }
                 .onFailure { _failure.value = writeBlocked(it) }
         }
     }
@@ -607,6 +685,10 @@ class AppModel internal constructor(
         }
     }
 
+    /** 缩略图取的字节：只有本机留了缓存的图片才有，其余交给界面退回图标。 */
+    suspend fun cachedBytes(item: ClipItem): ByteArray? =
+            item.file?.localPath?.let { path -> runCatching { repository.readCache(path) }.getOrNull() }
+
     fun open(item: ClipItem) {
         val file = item.file ?: return
         if (file.localPath != null) {
@@ -679,6 +761,7 @@ class AppModel internal constructor(
     }
 
     companion object {
+        private const val MILLIS_PER_DAY = 24 * 60 * 60 * 1000L
         const val MAX_ROOM_CODE = 24
         private const val HEX_DIGITS = "0123456789abcdef"
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"

@@ -218,5 +218,6 @@ class AppModelLeaveRoomTest {
 
         override suspend fun deleteCache(localPath: String?) = Unit
         override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String? = null
+        override suspend fun readCache(localPath: String): ByteArray? = null
     }
 }

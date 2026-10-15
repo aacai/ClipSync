@@ -17,6 +17,8 @@ class WasmClipStore(private val storage: WebStorage) : ClipStore {
     /** 浏览器沙箱里没有可复用的本地文件，缓存直接放弃，界面也不会谎称“已缓存”。 */
     override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String? = null
 
+    override suspend fun readCache(localPath: String): ByteArray? = null
+
     private companion object {
         const val KEY = "clipsync.history.v1"
     }

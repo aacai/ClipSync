@@ -23,14 +23,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.withContext
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncAppContext
 import zhiqiu.app.cs.core.deviceName
 import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.AndroidClipStore
+import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.mimeForName
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 
 object ClipSyncRuntime {
     private val lock = Any()
@@ -158,6 +162,7 @@ private fun Uri.toPickedSource(context: Context): PickedSource {
 
 internal class AndroidClipboard(private val context: Context) : PlatformClipboard {
     override val canWriteFiles: Boolean = true
+    override val canReadImages: Boolean = true
 
     private val manager: ClipboardManager
         get() = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -174,8 +179,31 @@ internal class AndroidClipboard(private val context: Context) : PlatformClipboar
         if (!manager.hasPrimaryClip()) return null
         val clip = manager.primaryClip
         if (clip == null || clip.itemCount == 0) return null
+        // 图片剪贴板 coerceToText 会退化成一条 content:// 地址，那种内容交给 readImage
+        if (clip.description.hasMimeType("image/*")) return null
         clip.getItemAt(0).coerceToText(context)?.toString()
     }.getOrNull()
+
+    override suspend fun readImage(): ClipboardImage? = runCatching {
+        val clip = manager.primaryClip ?: return null
+        if (clip.itemCount == 0) return null
+        val description = clip.description
+        val mime = (0 until description.mimeTypeCount)
+            .map { description.getMimeType(it) }
+            .firstOrNull { it.startsWith("image/") } ?: return null
+        val uri = clip.getItemAt(0).uri ?: return null
+        val bytes = withContext(Dispatchers.IO) {
+            context.contentResolver.openInputStream(uri)?.use { readCapped(it, MAX_IMAGE_BYTES) }
+        } ?: return null
+        if (bytes.size > MAX_IMAGE_BYTES) return null
+        ClipboardImage(mime = mime, bytes = bytes, name = displayName(uri))
+    }.getOrNull()
+
+    private fun displayName(uri: Uri): String = runCatching {
+        context.contentResolver
+            .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+    }.getOrNull().orEmpty()
 
     override suspend fun write(text: String) {
         manager.setPrimaryClip(ClipData.newPlainText("ClipSync", text))
@@ -188,6 +216,20 @@ internal class AndroidClipboard(private val context: Context) : PlatformClipboar
         manager.setPrimaryClip(ClipData.newUri(context.contentResolver, file.name, uri))
     }
 }
+
+/** 读满上限就立刻收手：超上限的图不该整份进内存，调用方看返回长度超限即可拒绝。 */
+private fun readCapped(stream: InputStream, cap: Int): ByteArray {
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    while (out.size() <= cap) {
+        val read = stream.read(buffer)
+        if (read < 0) break
+        out.write(buffer, 0, read)
+    }
+    return out.toByteArray()
+}
+
+private val MAX_IMAGE_BYTES = FileLimits.MAX_FILE_BYTES.toInt()
 
 /** 通过 FileProvider 拿 content:// URI 打开缓存文件（Android 7+ 禁止 file:// 直接分享）。 */
 internal class AndroidFileOpener(private val context: Context) : PlatformFileOpener {

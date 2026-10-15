@@ -99,6 +99,8 @@
     <string name="cd_copy_text">Copy to clipboard</string>
     <string name="cd_copy_file">Copy file to clipboard</string>
     <string name="cd_copy_image">Copy image to clipboard</string>
+    <string name="cd_zoom_image">Zoom image</string>
+    <string name="cd_close_image">Close image</string>
     <string name="cd_open">Open</string>
     <string name="cd_download">Download</string>
     <string name="cd_edit">Edit this entry</string>
@@ -176,6 +178,10 @@
         <item quantity="one">Restored %1$d item</item>
         <item quantity="other">Restored %1$d items</item>
     </plurals>
+    <plurals name="fb_pruned">
+        <item quantity="one">Cleared %1$d expired item</item>
+        <item quantity="other">Cleared %1$d expired items</item>
+    </plurals>
     <plurals name="fb_edit">
         <item quantity="one">Edited %1$d item</item>
         <item quantity="other">Edited %1$d items</item>
@@ -225,6 +231,11 @@
     <string name="setting_launch_at_login_hint">Start watching the clipboard as soon as you sign in, kept in the tray with no window. Click the tray icon when you want the window</string>
     <string name="setting_watch_clipboard">Watch clipboard</string>
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
+    <string name="setting_watch_images">Keep screenshots</string>
+    <string name="setting_watch_images_hint">Images you copy are saved to the list, and shared with the room when you are in one. Oversized images are skipped</string>
+    <string name="setting_delete_expired">Delete expired entries</string>
+    <string name="setting_delete_expired_hint">Entries older than the retention window are dropped together with their local cache. Pinned entries are kept</string>
+    <string name="setting_retention">Keep for</string>
     <string name="setting_room">Room</string>
     <string name="action_leave_room">Leave room</string>
     <string name="leave_room_title">Leave this room?</string>
@@ -240,5 +251,9 @@
     <plurals name="setting_item_count">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="setting_retention_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
     </plurals>
 </resources>

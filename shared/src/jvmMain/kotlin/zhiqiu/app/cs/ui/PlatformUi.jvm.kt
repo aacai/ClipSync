@@ -3,6 +3,8 @@ package zhiqiu.app.cs.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.JvmClipStore
 import zhiqiu.app.cs.files.mimeForName
@@ -18,7 +20,10 @@ import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
+import java.awt.image.BufferedImage
+import java.awt.image.RenderedImage
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import javax.imageio.ImageIO
@@ -47,8 +52,12 @@ internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings
 private object AwtClipboard : PlatformClipboard {
     override val canWriteFiles: Boolean = true
     override val canWriteImage: Boolean = true
+    override val canReadImages: Boolean = true
 
     private val clipboard get() = Toolkit.getDefaultToolkit().systemClipboard
+
+    /** 同一份内容每次轮询都返回同一个 Transferable：认得出来就别再把整张位图取一遍编一次。 */
+    private var lastImageContents: Transferable? = null
 
     override fun pollIntervalMs(): Long = clipboardPollIntervalMs()
 
@@ -59,6 +68,16 @@ private object AwtClipboard : PlatformClipboard {
         } else {
             null
         }
+    }.getOrNull()
+
+    override suspend fun readImage(): ClipboardImage? = runCatching {
+        val contents = clipboard.getContents(null) ?: return null
+        if (contents === lastImageContents) return null
+        lastImageContents = contents
+        if (!contents.isDataFlavorSupported(DataFlavor.imageFlavor)) return null
+        val image = contents.getTransferData(DataFlavor.imageFlavor) as? Image ?: return null
+        val png = withContext(Dispatchers.Default) { encodePng(image) } ?: return null
+        ClipboardImage(mime = "image/png", bytes = png)
     }.getOrNull()
 
     override suspend fun write(text: String) {
@@ -82,6 +101,23 @@ private object AwtClipboard : PlatformClipboard {
     private fun setContentsSafely(transferable: MultiTransferable) {
         runCatching { clipboard.setContents(transferable, transferable) }
             .onFailure { throw ClipboardUnavailable(detail = it.message ?: it::class.simpleName) }
+    }
+
+    private fun encodePng(image: Image): ByteArray? {
+        val buffered =
+                if (image is RenderedImage) {
+                    image
+                } else {
+                    val width = image.getWidth(null).coerceAtLeast(1)
+                    val height = image.getHeight(null).coerceAtLeast(1)
+                    BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB).apply {
+                        val g = createGraphics()
+                        g.drawImage(image, 0, 0, null)
+                        g.dispose()
+                    }
+                }
+        val out = ByteArrayOutputStream()
+        return if (ImageIO.write(buffered, "png", out)) out.toByteArray() else null
     }
 }
 

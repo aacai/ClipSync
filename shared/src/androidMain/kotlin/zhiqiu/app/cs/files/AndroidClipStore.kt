@@ -35,6 +35,10 @@ class AndroidClipStore(context: Context) : ClipStore {
         Unit
     }
 
+    override suspend fun readCache(localPath: String): ByteArray? = withContext(Dispatchers.IO) {
+        runCatching { File(localPath).takeIf { it.isFile }?.readBytes() }.getOrNull()
+    }
+
     override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String =
         withContext(Dispatchers.IO) {
             cacheDir.mkdirs()

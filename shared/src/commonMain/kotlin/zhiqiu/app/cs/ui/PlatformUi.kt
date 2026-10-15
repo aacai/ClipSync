@@ -19,6 +19,12 @@ const val LAUNCH_HIDDEN_ARGUMENT: String = "--hidden"
 /** 没有事件源的平台多久读一次剪贴板。 */
 const val CLIPBOARD_POLL_MS = 800L
 
+class ClipboardImage(
+    val mime: String,
+    val bytes: ByteArray,
+    val name: String = "",
+)
+
 /**
  * 系统剪贴板。
  *
@@ -32,6 +38,11 @@ interface PlatformClipboard {
     val canWriteFiles: Boolean get() = false
 
     val canWriteImage: Boolean get() = false
+
+    val canReadImages: Boolean get() = false
+
+    /** 剪贴板里是图片而不是文本时取这张图；没有就返回 null。 */
+    suspend fun readImage(): ClipboardImage? = null
 
     /** 剪贴板变化事件；null 表示平台没有事件源，只能轮询。 */
     val changeEvents: Flow<Unit>? get() = null

@@ -28,6 +28,9 @@ class JvmClipStore(
         runCatching { File(localPath).takeIf { it.exists() }?.delete() }
     }
 
+    override suspend fun readCache(localPath: String): ByteArray? =
+        runCatching { File(localPath).takeIf { it.isFile }?.readBytes() }.getOrNull()
+
     override suspend fun writeCache(id: String, name: String, bytes: ByteArray): String {
         cacheDir.mkdirs()
         evictIfNeeded(bytes.size.toLong())

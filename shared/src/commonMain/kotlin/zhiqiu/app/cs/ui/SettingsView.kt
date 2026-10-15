@@ -85,6 +85,9 @@ internal fun SettingsView(
     val language by settings.language.collectAsState()
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
+    val watchImages by settings.watchImages.collectAsState()
+    val deleteExpired by settings.deleteExpired.collectAsState()
+    val retentionDays by settings.retentionDays.collectAsState()
     val residentSync by model.residentSync.collectAsState()
     val launchAtLogin by model.launchAtLogin.collectAsState()
     val deviceName by model.deviceName.collectAsState()
@@ -99,6 +102,7 @@ internal fun SettingsView(
     var barHeight by remember { mutableStateOf(0.dp) }
     var pickingTheme by remember { mutableStateOf(false) }
     var pickingLanguage by remember { mutableStateOf(false) }
+    var pickingRetention by remember { mutableStateOf(false) }
     var editingNickname by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
@@ -106,7 +110,7 @@ internal fun SettingsView(
     DisposableEffect(Unit) {
         val removeChords =
                 installKeyChords { name, _, _ ->
-                        if (name == "Escape" && !pickingTheme && !pickingLanguage && !editingNickname) {
+                        if (name == "Escape" && !pickingTheme && !pickingLanguage && !pickingRetention && !editingNickname) {
                                 onBack()
                                 true
                         } else {
@@ -127,6 +131,7 @@ internal fun SettingsView(
                                                 event.key == Key.Escape &&
                                                 !pickingTheme &&
                                                 !pickingLanguage &&
+                                                !pickingRetention &&
                                                 !editingNickname &&
                                                 run {
                                                         onBack()
@@ -217,6 +222,15 @@ internal fun SettingsView(
                                             watchClipboard,
                                             settings::setWatchClipboard,
                                     )
+                                    if (watchClipboard && model.supportsClipboardImageRead) {
+                                        RowDivider()
+                                        SwitchRow(
+                                                Res.string.setting_watch_images,
+                                                Res.string.setting_watch_images_hint,
+                                                watchImages,
+                                                settings::setWatchImages,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -227,6 +241,26 @@ internal fun SettingsView(
                                         title = Res.string.local_history,
                                         value = pluralStringResource(Res.plurals.setting_item_count, localCount, localCount),
                                 )
+                                RowDivider()
+                                SwitchRow(
+                                        Res.string.setting_delete_expired,
+                                        Res.string.setting_delete_expired_hint,
+                                        deleteExpired,
+                                        settings::setDeleteExpired,
+                                )
+                                if (deleteExpired) {
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_retention,
+                                            value =
+                                                    pluralStringResource(
+                                                            Res.plurals.setting_retention_days,
+                                                            retentionDays,
+                                                            retentionDays,
+                                                    ),
+                                            onClick = { pickingRetention = true },
+                                    )
+                                }
                                 RowDivider()
                                 NavRow(
                                         title = Res.string.setting_nickname,
@@ -289,6 +323,22 @@ internal fun SettingsView(
                 onSelect = {
                     settings.setLanguage(it)
                     pickingLanguage = false
+                },
+        )
+    }
+    if (pickingRetention) {
+        ChoiceDialog(
+                title = Res.string.setting_retention,
+                options = AppSettings.RETENTION_CHOICES,
+                labels =
+                        AppSettings.RETENTION_CHOICES.map {
+                            pluralStringResource(Res.plurals.setting_retention_days, it, it)
+                        },
+                selected = retentionDays,
+                onDismiss = { pickingRetention = false },
+                onSelect = {
+                    settings.setRetentionDays(it)
+                    pickingRetention = false
                 },
         )
     }

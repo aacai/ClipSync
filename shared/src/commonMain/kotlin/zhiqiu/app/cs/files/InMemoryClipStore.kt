@@ -18,4 +18,7 @@ class InMemoryClipStore : ClipStore {
         caches[id] = bytes
         return "$id/${sanitizeFileName(name)}"
     }
+
+    override suspend fun readCache(localPath: String): ByteArray? =
+        caches[localPath.substringBefore('/')]
 }

@@ -161,6 +161,17 @@ class ClipRepository(
 
     suspend fun clear(): Int = removeMany(_items.value.map { it.id })
 
+    /** 自动清理不进撤销栈：它不是用户刚做的一步操作，撤销回来也拿不回缓存字节。 */
+    suspend fun removeExpired(before: Long): Int {
+        val doomed = _items.value.filter { !it.pinned && it.ts < before }
+        if (doomed.isEmpty()) return 0
+        val ids = doomed.map { it.id }.toSet()
+        _items.value = _items.value.filterNot { it.id in ids }
+        doomed.filter { it.kind == KIND_FILE }.forEach { store.deleteCache(it.file?.localPath) }
+        persist()
+        return doomed.size
+    }
+
     suspend fun undo(): List<ClipItem>? {
         if (trash.isEmpty()) return null
         val batch = trash.removeAt(trash.lastIndex)
@@ -185,6 +196,8 @@ class ClipRepository(
 
     suspend fun writeCache(id: String, name: String, bytes: ByteArray): String? =
         store.writeCache(id, name, bytes)
+
+    suspend fun readCache(localPath: String): ByteArray? = store.readCache(localPath)
 
     fun search(
         query: String,
@@ -245,4 +258,5 @@ interface ClipStore {
     suspend fun write(items: List<ClipItem>)
     suspend fun deleteCache(localPath: String?)
     suspend fun writeCache(id: String, name: String, bytes: ByteArray): String?
+    suspend fun readCache(localPath: String): ByteArray?
 }

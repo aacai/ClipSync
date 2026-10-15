@@ -49,6 +49,11 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
+    /** 过期自动清掉的那批不进取消栈，所以也不给撤销按钮。 */
+    data class Pruned(val count: Int) : Feedback() {
+        override val level get() = Level.Info
+    }
+
     data class Undeleted(val count: Int) : Feedback() {
         override val level get() = Level.Info
     }
