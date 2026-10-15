@@ -31,6 +31,8 @@ import zhiqiu.app.cs.files.validateOutgoingFile
 internal class ClipSyncEngine(
     private val scope: CoroutineScope,
     private val links: MqttLinkFactory = DefaultMqttLinks,
+    /** 收消息这一侧的钟：在场过期用它算，测试里换成虚拟时间。 */
+    private val clock: () -> Long = { currentTimeMillis() },
 ) {
 
     data class Config(
@@ -72,6 +74,12 @@ internal class ClipSyncEngine(
     /** 同屋里密钥指纹对不上的设备名：多半是某端房间密码打错，两边解不开彼此的密文。 */
     private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
     val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
+
+    /** 名单的真值：每人一条「最近一次听到动静」。只靠 online=false 收敛不了——我们断线期间 broker 投来的告别会整个丢掉。 */
+    private val roster = mutableMapOf<String, DevicePresence>()
+
+    /** 每台设备最后被接受的那条 presence 的时间戳（他自己的钟，只用来排先后，不用来算过期）。 */
+    private val presenceTs = mutableMapOf<String, Long>()
 
     data class TransferProgress(
         val direction: Direction,
@@ -115,7 +123,7 @@ internal class ClipSyncEngine(
     suspend fun start(config: Config) {
         stop()
         desired = config
-        _devices.value = emptyList()
+        clearRoster()
         _status.value = Status.Connecting
         try {
             val hash = ClipProtocol.roomHash(config.roomId.trim())
@@ -168,6 +176,7 @@ internal class ClipSyncEngine(
         watchConnection(mqtt)
         mqtt.subscribe(ClipProtocol.roomFilter(roomHash))
         publishPresence(online = true)
+        rollCall()
 
         _status.value = Status.Online(safety)
         backoffMs = RECOVERY_BASE_MS
@@ -339,7 +348,6 @@ internal class ClipSyncEngine(
         crypto = null
         safety = ""
         safetyPrefix = ""
-        _keyMismatch.value = emptyList()
         _status.value = Status.Idle
     }
 
@@ -350,6 +358,7 @@ internal class ClipSyncEngine(
         connectionJob = null
         collectorJob?.cancel()
         collectorJob = null
+        clearRoster()
         val current = link
         link = null
         runCatching { current?.close() }
@@ -381,7 +390,7 @@ internal class ClipSyncEngine(
         when (ClipProtocol.parseTopic(topic)?.channel) {
             ClipProtocol.CH_CLIP -> onClip(topic, payload)
             ClipProtocol.CH_PRESENCE -> onPresence(topic, payload)
-            ClipProtocol.CH_SYNC -> Unit
+            ClipProtocol.CH_SYNC -> onRollCall(payload)
             else -> Unit
         }
     }
@@ -392,6 +401,7 @@ internal class ClipSyncEngine(
         if (envelope.v != ClipProtocol.PROTOCOL_VERSION) return
         val cfg = desired ?: return
         if (envelope.dev == cfg.deviceId) return
+        markActive(envelope.dev)
 
         if (envelope.kind == ClipRepository.KIND_FILE) {
             onFileClip(envelope, roomCrypto)
@@ -459,40 +469,99 @@ internal class ClipSyncEngine(
         if (parsed.deviceId == cfg.deviceId) return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
         if (envelope.dev == cfg.deviceId) return
-        val existing = _devices.value.associateBy { it.id }.toMutableMap()
-        val fresh = envelope.dev !in existing
+        // 同一台设备的 ts 是它自己的钟，拿来排先后够用；跨设备比时间是错的，过期只看本机收到那一刻
+        val last = presenceTs[envelope.dev]
+        if (last != null && envelope.ts < last) return
+        presenceTs[envelope.dev] = envelope.ts
+        val fresh = envelope.dev !in roster
         if (envelope.online) {
-            existing[envelope.dev] =
-                    DevicePresence(id = envelope.dev, name = envelope.name, safety = envelope.sp, os = envelope.os)
+            roster[envelope.dev] = DevicePresence(
+                id = envelope.dev,
+                name = envelope.name,
+                safety = envelope.sp,
+                os = envelope.os,
+                seenAt = now(),
+            )
         } else {
-            existing.remove(envelope.dev)
+            roster.remove(envelope.dev)
+            presenceTs.remove(envelope.dev)
         }
-        _devices.value = existing.values.sortedBy { it.name }
-        _keyMismatch.value = _devices.value
-            .filter { it.safety.isNotEmpty() && it.safety != safetyPrefix }
-            .map { it.name }
+        pruneRoster()
+        publishRoster()
         // 头一回见到就自报一次：新来的这才刚订阅上，错过我们上次的心跳就看不见彼此。
         // 有了这条，心跳只当兜底，不用刷得很勤。
         if (fresh && envelope.online) publishPresence(online = true)
     }
 
+    /** 看不见就是不知道：掉线之后留着旧名单只会报一个没人认的数，重连再靠点名重建。 */
+    private fun clearRoster() {
+        roster.clear()
+        presenceTs.clear()
+        publishRoster()
+    }
+
+    /** 过了 TTL 就当他不在了。清完把名单重发一次，界面不会自己猜。 */
+    private fun pruneRoster() {
+        if (roster.isEmpty()) return
+        val cutoff = now() - PRESENCE_TTL_MS
+        val gone = roster.filterValues { it.seenAt < cutoff }.keys.toList()
+        if (gone.isEmpty()) return
+        roster.keys.removeAll(gone.toSet())
+        presenceTs.keys.removeAll(gone.toSet())
+        publishRoster()
+    }
+
+    /** 解得开他的密文就是活证据：不用多等一条心跳，也不该把他当过期。 */
+    private fun markActive(deviceId: String) {
+        val seen = roster[deviceId] ?: return
+        roster[deviceId] = seen.copy(seenAt = now())
+    }
+
+    /** 同钥匙的算同伴，钥匙不同的只报「密码可能打错了」，不进人数。 */
+    private fun publishRoster() {
+        val here = roster.values.sortedBy { it.name }
+        _devices.value = here.filter { it.safety == safetyPrefix }
+        _keyMismatch.value = here.filter { it.safety.isNotEmpty() && it.safety != safetyPrefix }.map { it.name }
+    }
+
+    private fun presenceEnvelope(cfg: Config, online: Boolean): PresenceEnvelope = PresenceEnvelope(
+        dev = cfg.deviceId,
+        name = cfg.deviceName,
+        os = cfg.deviceOs,
+        online = online,
+        ts = now(),
+        sp = safetyPrefix,
+    )
+
     private suspend fun publishPresence(online: Boolean) {
         val cfg = desired ?: return
         val mqtt = link ?: return
-        val envelope = PresenceEnvelope(
-            dev = cfg.deviceId,
-            name = cfg.deviceName,
-            os = cfg.deviceOs,
-            online = online,
-            ts = now(),
-            sp = safetyPrefix,
-        )
         runCatching {
             mqtt.publish(
                 topic = ClipProtocol.presenceTopic(roomHash, cfg.deviceId),
-                payload = ClipProtocol.encode(envelope),
+                payload = ClipProtocol.encode(presenceEnvelope(cfg, online)),
             )
         }
+    }
+
+    /** 进房、重连都点一次名：同伴各回一条 presence，名单一轮就重建起来，不用等下一次心跳。 */
+    private suspend fun rollCall() {
+        val cfg = desired ?: return
+        val mqtt = link ?: return
+        runCatching {
+            mqtt.publish(
+                topic = ClipProtocol.syncTopic(roomHash),
+                payload = ClipProtocol.encode(presenceEnvelope(cfg, online = true).copy(answer = true)),
+            )
+        }
+    }
+
+    /** 别人在点名：回一条自己的 presence。自己那一条不用回（noLocal 已经挡了，这里再判一次）。 */
+    private suspend fun onRollCall(raw: String) {
+        val cfg = desired ?: return
+        val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
+        if (envelope.dev == cfg.deviceId) return
+        publishPresence(online = true)
     }
 
     /**
@@ -508,13 +577,18 @@ internal class ClipSyncEngine(
                         _status.value = Status.Online(safety)
                         backoffMs = RECOVERY_BASE_MS
                         publishPresence(online = true)
+                        rollCall()
                     }
 
                     (state is ConnectionState.Connecting || state is ConnectionState.Reconnecting) &&
-                            _status.value is Status.Online -> _status.value = Status.Connecting
+                            _status.value is Status.Online -> {
+                        clearRoster()
+                        _status.value = Status.Connecting
+                    }
 
                     state is ConnectionState.Disconnected && state.reason != null &&
                             desired != null -> {
+                        clearRoster()
                         _status.value = Status.Offline(state.reason?.message)
                         // 库到这里已经不试了，接着试归恢复循环管
                         armRecovery()
@@ -530,6 +604,8 @@ internal class ClipSyncEngine(
             while (isActive) {
                 delay(PRESENCE_INTERVAL_MS)
                 if (!isActive) break
+                // 清理挂在本来就有的这次唤醒上：过期判定不该多要一次无线电唤醒
+                pruneRoster()
                 if (link?.connectionState?.value is ConnectionState.Connected) {
                     publishPresence(online = true)
                 }
@@ -537,12 +613,15 @@ internal class ClipSyncEngine(
         }
     }
 
-    private fun now(): Long = currentTimeMillis()
+    private fun now(): Long = clock()
 
     companion object {
         // 心跳只是兜底（丢了一条 presence 时的补救），发现新同伴时会立刻自报一次。
         // 120s 正好是 keepalive 60s 的整数倍：两次唤醒叠在一起，无线电不用额外醒。
         private const val PRESENCE_INTERVAL_MS = 120_000L
+
+        // 三条心跳都没听到就当他不在了：告别（含遗嘱）在我们断线期间会整个丢，名单只能靠时间收敛。
+        private const val PRESENCE_TTL_MS = PRESENCE_INTERVAL_MS * 3
         private const val RECOVERY_BASE_MS = 5_000L
         private const val RECOVERY_MAX_MS = 60_000L
         private val EXPIRY_HOURS = mapOf(

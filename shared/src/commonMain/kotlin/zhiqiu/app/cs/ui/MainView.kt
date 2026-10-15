@@ -90,6 +90,7 @@ internal fun MainView(
 ) {
     val status by model.status.collectAsState()
     val devices by model.devices.collectAsState()
+    val nickname by model.deviceName.collectAsState()
     val items by model.items.collectAsState()
     val query by model.query.collectAsState()
     val regex by model.regex.collectAsState()
@@ -102,6 +103,9 @@ internal fun MainView(
     val undoDepth by model.undoDepth.collectAsState()
     val moveInfos by model.moveInfos.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
+    // 人数含本机：engine 那边已经把密钥不同的挡掉了。没连上时不把自己算成「一人在房间」
+    val inRoom = devices.map { deviceLabel(it.name, it.os) }
+            .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
 
     val hazeState = rememberHazeState()
     val listState = rememberLazyListState()
@@ -420,7 +424,7 @@ internal fun MainView(
                     Header(
                             status,
                             roomCode,
-                            devices.map { deviceLabel(it.name, it.os) },
+                            inRoom,
                             onLeave,
                             onShare = { shareOpen = true },
                             onSettings = onOpenSettings,
