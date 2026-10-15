@@ -242,6 +242,65 @@ class ClipSyncEngineReconnectTest {
         engine.stop()
     }
 
+    /** 回到前台踢一脚：不用等退避跑完，房间立刻续上。 */
+    @Test
+    fun `a kick lands the room without waiting out the backoff`() = runTest {
+        val links = FakeLinks({ currentTime }, failBefore = 1_000)
+        val engine = ClipSyncEngine(this, links)
+
+        runCatching { engine.start(config()) }
+        advanceTimeBy(2_000)
+        assertEquals(listOf(0L), links.attempts)
+
+        engine.retryNow()
+        runCurrent()
+
+        assertEquals(listOf(0L, 2_000L), links.attempts)
+        assertIs<ClipSyncEngine.Status.Online>(engine.status.value)
+        engine.stop()
+    }
+
+    /** 连着的三下和一下一样：踢的是「现在就试」这个念头，不是一次尝试。 */
+    @Test
+    fun `kicks collapse into one attempt`() = runTest {
+        val links = FakeLinks({ currentTime }, failBefore = Long.MAX_VALUE)
+        val engine = ClipSyncEngine(this, links)
+
+        runCatching { engine.start(config()) }
+        advanceTimeBy(2_000)
+        engine.retryNow()
+        engine.retryNow()
+        engine.retryNow()
+        runCurrent()
+
+        assertEquals(listOf(0L, 2_000L), links.attempts)
+        engine.stop()
+    }
+
+    @Test
+    fun `a kick changes nothing while online`() = runTest {
+        val links = FakeLinks({ currentTime }, failBefore = 0)
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config())
+
+        engine.retryNow()
+        advanceTimeBy(600_000)
+
+        assertEquals(1, links.created.size)
+        engine.stop()
+    }
+
+    @Test
+    fun `a kick with no room wanted opens nothing`() = runTest {
+        val links = FakeLinks({ currentTime }, failBefore = Long.MAX_VALUE)
+        val engine = ClipSyncEngine(this, links)
+
+        engine.retryNow()
+        advanceTimeBy(600_000)
+
+        assertEquals(emptyList(), links.attempts)
+    }
+
     @Test
     fun `a room that never opened is not retried`() = runTest {
         val links = FakeLinks(clock = { currentTime })

@@ -1,10 +1,13 @@
 package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.InMemoryClipStore
+import platform.Foundation.NSNotificationCenter
+import platform.UIKit.UIApplicationDidBecomeActiveNotification
 import platform.UIKit.UIPasteboard
 
 @Composable
@@ -18,7 +21,16 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
 @Composable
 internal actual fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel {
     val scope = rememberCoroutineScope()
-    return remember(platform, settings) { AppModel(scope, platform, settings) }
+    val model = remember(platform, settings) { AppModel(scope, platform, settings) }
+    // 挂后台那一刻 socket 就被系统掐了：回到前台马上试一次，不用等退避走完
+    DisposableEffect(model) {
+        val center = NSNotificationCenter.defaultCenter
+        val observer = center.addObserverForName(UIApplicationDidBecomeActiveNotification, null, null) {
+            model.retryNow()
+        }
+        onDispose { center.removeObserver(observer) }
+    }
+    return model
 }
 
 private object IosClipboard : PlatformClipboard {

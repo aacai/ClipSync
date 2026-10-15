@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.ui.ClipSyncRuntime
 
 class MainActivity : ComponentActivity() {
     private val residentScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -33,6 +34,11 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         residentScope.cancel()
         super.onDestroy()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        ClipSyncRuntime.retryNow()
     }
 
     private fun followResidentSwitch() {

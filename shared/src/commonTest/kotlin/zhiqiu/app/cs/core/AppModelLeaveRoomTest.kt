@@ -11,6 +11,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.meshtastic.mqtt.ConnectionState
+import org.meshtastic.mqtt.MqttException
+import org.meshtastic.mqtt.ReasonCode
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipStore
 import zhiqiu.app.cs.ui.AppModel
@@ -122,18 +124,37 @@ class AppModelLeaveRoomTest {
         assertEquals(2, harness.clipboard.reads)
     }
 
+    @Test
+    fun `a room that lands late is still treated as joined`() = runTest {
+        val links = RecordingLinks(failFirstConnects = 1)
+        val harness = Harness(backgroundScope, links = links)
+        runCurrent()
+        assertIs<ClipSyncEngine.Status.Offline>(harness.model.status.value)
+        assertEquals(null, harness.model.joinedRoom.value)
+
+        harness.model.retryNow()
+        runCurrent()
+
+        // 头一下没连上不代表完：续上之后界面得知道我们在哪间房，收来的内容也要写回剪贴板
+        assertEquals(room, harness.model.joinedRoom.value)
+        assertIs<ClipSyncEngine.Status.Online>(harness.model.status.value)
+        assertEquals(2, links.connects)
+    }
+
     private inner class Harness(
         private val scope: CoroutineScope,
         clipboard: FakeClipboard = FakeClipboard(),
+        links: RecordingLinks = RecordingLinks(),
         savedRoom: Boolean = true,
     ) {
         val clipboard = clipboard
+        val links = links
         val settings = AppSettings(MapSettings(mutableMapOf()))
         val model: AppModel
 
         init {
             if (savedRoom) settings.saveRoomSession(room, key)
-            model = AppModel(scope, platform(clipboard), settings, RecordingLinks())
+            model = AppModel(scope, platform(clipboard), settings, links)
         }
     }
 
@@ -161,18 +182,26 @@ class AppModelLeaveRoomTest {
         override suspend fun write(text: String) = Unit
     }
 
-    private class RecordingLinks : MqttLinkFactory {
+    private class RecordingLinks(private val failFirstConnects: Int = 0) : MqttLinkFactory {
+        var connects = 0
+
         override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink =
-            FakeLink()
+            FakeLink {
+                connects++
+                if (connects <= failFirstConnects) {
+                    throw MqttException.ConnectionFailed(ReasonCode.SERVER_UNAVAILABLE, "broker down")
+                }
+            }
     }
 
-    private class FakeLink : MqttLink {
+    private class FakeLink(private val onConnect: () -> Unit = {}) : MqttLink {
         private val state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected.Idle)
 
         override val connectionState: StateFlow<ConnectionState> = state
         override val messages: Flow<Incoming> = flowOf()
 
         override suspend fun connect() {
+            onConnect()
             state.value = ConnectionState.Connected
         }
 

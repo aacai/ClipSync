@@ -81,6 +81,9 @@ class AppModel internal constructor(
     private val _joinedRoom = MutableStateFlow<String?>(null)
     val joinedRoom: StateFlow<String?> = _joinedRoom.asStateFlow()
 
+    /** 想待的房间：第一次没连上不等于不想要它，引擎在后台续上后照样算进房。 */
+    private var wantedRoom: String? = null
+
     private val _failure = MutableStateFlow<Feedback?>(null)
     val failure: StateFlow<Feedback?> = _failure.asStateFlow()
 
@@ -133,6 +136,9 @@ class AppModel internal constructor(
         // 包被挪了地方、登录项被人手删掉，下一次启动顺手补回来
         if (supportsLaunchAtLogin && settings.launchAtLogin.value) {
             scope.launch { applyAutostart(true) }
+        }
+        scope.launch {
+            engine.status.collect { if (it is ClipSyncEngine.Status.Online) onRoomLanded() }
         }
         scope.launch {
             engine.fileIssues.collect { _failure.value = Feedback.FileProblem(it) }
@@ -236,6 +242,11 @@ class AppModel internal constructor(
         connectWith(room, savedKeyFor(room))
     }
 
+    /** 各端「刚回到前台」的入口：房间还想待着，就别让退避把这段时间耗完。 */
+    fun retryNow() {
+        engine.retryNow()
+    }
+
     /** 密码留空但存过这间房的密钥就直接用回去：不然会静默换一把钥匙、进错房间还以为连上了。 */
     private fun savedKeyFor(room: String): ByteArray? =
         if (_password.value.isNotEmpty()) null
@@ -243,21 +254,29 @@ class AppModel internal constructor(
 
     private fun connectWith(room: String, savedKey: ByteArray?) {
         connectJob?.cancel()
+        wantedRoom = room
         connectJob =
                 scope.launch {
                     _connecting.value = true
                     _failure.value = null
                     val error = tryConnect(room, savedKey)
                     _connecting.value = false
-                    if (error == null) {
-                        _joinedRoom.value = room
-                        persistRoomSession()
-                        startSync()
-                    } else {
+                    // 连上了由状态收集器记账：引擎后台续上同一条路径，界面不该分两种说法
+                    if (error != null) {
                         // 这一次没连上不代表完：引擎在后台按退避继续试，界面只如实报离线
                         _failure.value = Feedback.ConnectFailed(error)
                     }
                 }
+    }
+
+    /** 人在房间里了——不管是自己连上的还是退避后引擎续上的，都记一次房、把收来的内容接回剪贴板。 */
+    private fun onRoomLanded() {
+        val room = wantedRoom ?: return
+        if (_joinedRoom.value == room) return
+        _joinedRoom.value = room
+        if (_failure.value is Feedback.ConnectFailed) _failure.value = null
+        persistRoomSession()
+        startSync()
     }
 
     private suspend fun tryConnect(room: String, savedKey: ByteArray?): String? =
@@ -304,6 +323,7 @@ class AppModel internal constructor(
 
     private fun disconnect() {
         connectJob?.cancel()
+        wantedRoom = null
         _joinedRoom.value = null
         settings.clearRoomSession()
         if (settings.residentSync.value) settings.setResidentSync(false)

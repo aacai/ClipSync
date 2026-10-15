@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import org.meshtastic.mqtt.ConnectionState
@@ -104,6 +106,9 @@ internal class ClipSyncEngine(
     private var recoveryJob: Job? = null
     private var backoffMs = RECOVERY_BASE_MS
 
+    /** 「情况可能变了」的那一下：回到前台之类，让退避提前结束，多次信号合成一次。 */
+    private val retryRequested = MutableStateFlow(false)
+
     /** 已派生密钥的副本，供上层持久化；用完请自行清零。 */
     fun roomKeyMaterial(): ByteArray? = crypto?.keyMaterial()
 
@@ -138,6 +143,16 @@ internal class ClipSyncEngine(
             armRecovery()
             throw e
         }
+    }
+
+    /**
+     * 回到前台、网络刚通这类「情况可能变了」的信号：把退避剩下的时间跳过去，立刻试一次。
+     * 只在离线且还想待在房间时管用；连接握手进行中不动它，免得同时开出第二条会话。
+     */
+    fun retryNow() {
+        if (desired == null || _status.value !is Status.Offline) return
+        retryRequested.value = true
+        armRecovery()
     }
 
     /** 开一条新会话并把它接上：连上、订阅、报 presence，之后由 watchConnection 盯状态。 */
@@ -312,6 +327,7 @@ internal class ClipSyncEngine(
 
     suspend fun stop() {
         desired = null
+        retryRequested.value = false
         recoveryJob?.cancel()
         recoveryJob = null
         backoffMs = RECOVERY_BASE_MS
@@ -347,7 +363,9 @@ internal class ClipSyncEngine(
         if (recoveryJob?.isActive == true) return
         recoveryJob = scope.launch {
             while (isActive && desired != null && _status.value !is Status.Online) {
-                delay(backoffMs)
+                // 退避等完，或者有人踢一脚，谁先到算谁
+                withTimeoutOrNull(backoffMs) { retryRequested.first { it } }
+                retryRequested.value = false
                 // 等的这段时间里库自己连上了，就别去掐断一条好连接
                 if (desired == null || _status.value is Status.Online) continue
                 backoffMs = (backoffMs * 2).coerceAtMost(RECOVERY_MAX_MS)

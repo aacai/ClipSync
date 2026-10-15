@@ -77,6 +77,11 @@ object ClipSyncRuntime {
             ),
             settings,
         )
+
+    /** 界面还没起来时没什么可踢的，直接当没发生。 */
+    fun retryNow() {
+        modelRef?.retryNow()
+    }
 }
 
 class RuntimeFilePicker : PlatformFilePicker {
