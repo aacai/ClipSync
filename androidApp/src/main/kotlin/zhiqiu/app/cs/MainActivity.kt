@@ -3,6 +3,7 @@ package zhiqiu.app.cs
 import android.Manifest
 import android.app.NotificationManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
             App()
         }
         followResidentSwitch()
+        askStoragePermission()
     }
 
     override fun onDestroy() {
@@ -65,8 +67,16 @@ class MainActivity : ComponentActivity() {
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFY_REQUEST)
     }
 
+    /** Q 起写下载目录交给 MediaStore 免权限，28 及以下只能直接写公共目录，得先要到授权。 */
+    private fun askStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) return
+        requestPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), STORAGE_REQUEST)
+    }
+
     private companion object {
         const val NOTIFY_REQUEST = 1
+        const val STORAGE_REQUEST = 2
     }
 }
 

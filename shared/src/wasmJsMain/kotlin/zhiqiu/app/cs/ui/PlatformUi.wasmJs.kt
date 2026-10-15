@@ -13,6 +13,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.LocalWebStorage
 import zhiqiu.app.cs.files.WasmClipStore
+import zhiqiu.app.cs.files.mimeForName
+import zhiqiu.app.cs.files.sanitizeFileName
 
 /**
  * Web 端：历史写 localStorage，剪贴板走 navigator.clipboard。
@@ -26,6 +28,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     picker = UnavailableFilePicker,
     opener = UnavailableFileOpener,
     store = remember { WasmClipStore(LocalWebStorage()) },
+    downloads = WebDownloads,
 )
 
 @Composable
@@ -47,6 +50,19 @@ private object WebClipboard : PlatformClipboard {
     @OptIn(ExperimentalEncodingApi::class)
     override suspend fun writeImage(bytes: ByteArray, mime: String) {
         clipboardWriteBlob(Base64.encode(bytes), if (mime == "image/jpg") "image/jpeg" else mime)
+    }
+}
+
+/** 浏览器写不了目录，但 `<a download>` 落下的正是用户自己在浏览器里设的下载目录。 */
+private object WebDownloads : PlatformDownloads {
+    override val isAvailable: Boolean = true
+
+    @OptIn(ExperimentalEncodingApi::class)
+    override suspend fun save(name: String, bytes: ByteArray): String {
+        val safe = sanitizeFileName(name)
+        if (safe.isBlank()) throw UnsupportedOperationException("没有可用的文件名")
+        jsDownload(Base64.encode(bytes), safe, mimeForName(safe))
+        return safe
     }
 }
 
@@ -140,3 +156,24 @@ private external fun jsClipboardWrite(text: String, onOk: () -> Unit, onErr: (St
     }"""
 )
 private external fun jsClipboardWriteBlob(base64: String, mime: String, onOk: () -> Unit, onErr: (String) -> Unit)
+
+/**
+ * 下载靠一次合成点击：浏览器不给「写进目录」的 API，只给 blob 链接，
+ * 点完由它自己按用户的默认目录和重名规则落盘，所以这里报不出最终文件名。
+ */
+@JsFun(
+    """(b64, name, mime) => {
+        const bin = atob(b64);
+        const buf = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+        const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }"""
+)
+private external fun jsDownload(base64: String, name: String, mime: String)

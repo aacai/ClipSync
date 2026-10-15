@@ -410,19 +410,31 @@ internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> U
                                 strokeWidth = 2.5.dp,
                         )
             }
-            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)) {
-                Icon(
-                        AppIcons.Close,
-                        contentDescription = stringResource(Res.string.cd_close_image),
-                        tint = Color.White,
-                )
+            Row(modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)) {
+                if (model.supportsSaveToDownloads) {
+                    IconButton(onClick = { model.saveToDownloads(item) }) {
+                        Icon(
+                                AppIcons.Download,
+                                contentDescription = stringResource(Res.string.act_save_to_downloads),
+                                tint = Color.White,
+                        )
+                    }
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                            AppIcons.Close,
+                            contentDescription = stringResource(Res.string.cd_close_image),
+                            tint = Color.White,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {    AlertDialog(
+internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.clear_all_title), fontSize = 17.sp) },
             text = { Text(stringResource(Res.string.clear_all_body), style = MaterialTheme.typography.bodySmall) },

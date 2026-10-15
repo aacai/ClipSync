@@ -108,7 +108,7 @@ class PlatformUi(
     val downloads: PlatformDownloads = UnavailableDownloads,
 )
 
-/** 系统下载目录：桌面和 Android 有「下载到本机的用户目录」这个概念，浏览器沙箱没有。 */
+/** 「存到下载目录」：桌面和 Android 写用户自己的 Downloads，浏览器交给它自己的下载行为。 */
 interface PlatformDownloads {
     val isAvailable: Boolean get() = false
 
@@ -123,7 +123,7 @@ internal object UnavailableAutostart : PlatformAutostart {
     override fun setEnabled(enabled: Boolean): Unit = throw UnsupportedOperationException("这个平台没有登录项")
 }
 
-/** 没有「下载目录」概念的平台（浏览器沙箱）。 */
+/** 没有「下载目录」概念的平台（iOS 沙箱）。 */
 internal object UnavailableDownloads : PlatformDownloads {
     override suspend fun save(name: String, bytes: ByteArray): String =
             throw UnsupportedOperationException("这个平台没有下载目录")
