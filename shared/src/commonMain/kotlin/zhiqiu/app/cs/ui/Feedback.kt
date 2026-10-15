@@ -41,6 +41,10 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
+    data class SavedTo(val name: String) : Feedback() {
+        override val level get() = Level.Info
+    }
+
     data class DownloadFailed(val reason: String) : Feedback() {
         override val level get() = Level.Error
     }

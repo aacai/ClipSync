@@ -254,6 +254,12 @@ internal fun ClipRow(
                             menu = false
                             model.duplicate(item)
                         }
+                        if (model.supportsSaveToDownloads) {
+                            MenuAction(AppIcons.Download, Res.string.act_save_to_downloads) {
+                                menu = false
+                                model.saveToDownloads(item)
+                            }
+                        }
                         MenuAction(AppIcons.Info, Res.string.act_detail) {
                             menu = false
                             onDetail()

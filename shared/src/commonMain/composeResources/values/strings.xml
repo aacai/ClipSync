@@ -115,6 +115,7 @@
     <string name="act_translate">中英互译</string>
     <string name="act_detail">查看详情</string>
     <string name="act_duplicate">生成副本</string>
+    <string name="act_save_to_downloads">存到下载目录</string>
     <string name="act_move_up">向上移</string>
     <string name="act_move_down">向下移</string>
     <string name="act_move_top">移到最顶部</string>
@@ -166,6 +167,7 @@
     <string name="fb_moved">已移动到第 %1$d 位</string>
     <string name="fb_invalid_regex">正则表达式写错了，暂时搜不出结果</string>
     <string name="fb_downloaded">已下载 %1$s</string>
+    <string name="fb_saved">已存到下载目录：%1$s</string>
     <string name="fb_download_failed">下载失败：%1$s</string>
     <string name="fb_file_sent">已发送 %1$s</string>
     <string name="fb_local_read_failed">读取失败：%1$s（%2$s）</string>

@@ -39,6 +39,7 @@ internal fun feedbackText(feedback: Feedback): String =
                 }
             is Feedback.FileSent -> stringResource(Res.string.fb_file_sent, feedback.name)
             is Feedback.Downloaded -> stringResource(Res.string.fb_downloaded, feedback.name)
+            is Feedback.SavedTo -> stringResource(Res.string.fb_saved, feedback.name)
             is Feedback.DownloadFailed -> stringResource(Res.string.fb_download_failed, feedback.reason)
             is Feedback.Deleted -> pluralStringResource(Res.plurals.fb_deleted, feedback.count, feedback.count)
             is Feedback.Pruned -> pluralStringResource(Res.plurals.fb_pruned, feedback.count, feedback.count)

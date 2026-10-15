@@ -2,9 +2,13 @@ package zhiqiu.app.cs.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,8 +36,11 @@ import zhiqiu.app.cs.core.installId
 import zhiqiu.app.cs.files.AndroidClipStore
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.mimeForName
+import zhiqiu.app.cs.files.numberedName
+import zhiqiu.app.cs.files.sanitizeFileName
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 
 object ClipSyncRuntime {
@@ -58,6 +65,7 @@ object ClipSyncRuntime {
                 opener = AndroidFileOpener(app),
                 store = AndroidClipStore(app),
                 autostart = UnavailableAutostart,
+                downloads = AndroidDownloads(app),
                 deviceName = deviceName(),
                 deviceOs = platformOs(),
                 installId = installId(),
@@ -247,6 +255,51 @@ private fun readCapped(stream: InputStream, cap: Int): ByteArray {
 }
 
 private val MAX_IMAGE_BYTES = FileLimits.MAX_FILE_BYTES.toInt()
+
+/** 下载目录：Q 起交给 MediaStore（不用申请存储权限），更早的系统直接写公共目录。 */
+private class AndroidDownloads(private val context: Context) : PlatformDownloads {
+    override val isAvailable: Boolean = true
+
+    override suspend fun save(name: String, bytes: ByteArray) =
+            withContext(Dispatchers.IO) {
+                val safe = sanitizeFileName(name)
+                if (safe.isBlank()) throw IOException("没有可用的文件名")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val resolver = context.contentResolver
+                    val taken = { candidate: String ->
+                        runCatching {
+                            resolver.query(
+                                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                    arrayOf(MediaStore.MediaColumns._ID),
+                                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
+                                    arrayOf(candidate),
+                                    null,
+                            )?.use { it.count > 0 } ?: false
+                        }.getOrDefault(false)
+                    }
+                    val values =
+                            ContentValues().apply {
+                                put(MediaStore.MediaColumns.DISPLAY_NAME, numberedName(safe, taken))
+                                put(MediaStore.MediaColumns.MIME_TYPE, mimeForName(safe))
+                                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                            }
+                    val uri =
+                            context.contentResolver.insert(
+                                            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                                            values,
+                                    )
+                                    ?: throw IOException("MediaStore 没收这个文件")
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                            ?: throw IOException("写不进下载目录")
+                } else {
+                    @Suppress("DEPRECATION")
+                    val dir =
+                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                    if (!dir.isDirectory && !dir.mkdirs()) throw IOException("建不出下载目录：$dir")
+                    File(dir, numberedName(safe) { File(dir, it).exists() }).writeBytes(bytes)
+                }
+            }
+}
 
 /** 通过 FileProvider 拿 content:// URI 打开缓存文件（Android 7+ 禁止 file:// 直接分享）。 */
 internal class AndroidFileOpener(private val context: Context) : PlatformFileOpener {

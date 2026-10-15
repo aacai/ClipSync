@@ -8,6 +8,8 @@ import kotlinx.coroutines.withContext
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.files.JvmClipStore
 import zhiqiu.app.cs.files.mimeForName
+import zhiqiu.app.cs.files.numberedName
+import zhiqiu.app.cs.files.sanitizeFileName
 import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
@@ -41,6 +43,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     opener = DesktopFileOpener,
     store = remember { JvmClipStore.default() },
     autostart = SystemAutostart,
+    downloads = DesktopDownloads,
 )
 
 @Composable
@@ -199,6 +202,26 @@ private object DesktopFileOpener : PlatformFileOpener {
             val file = File(path)
             if (file.isFile) Desktop.getDesktop().open(file)
         }
+    }
+}
+
+/** 三家的默认落点都是 ~/Downloads；Linux 上 XDG 改了名字就跟着改。 */
+private object DesktopDownloads : PlatformDownloads {
+    override val isAvailable: Boolean = true
+
+    override suspend fun save(name: String, bytes: ByteArray) =
+            withContext(Dispatchers.IO) {
+                val safe = sanitizeFileName(name)
+                if (safe.isBlank()) throw IOException("没有可用的文件名")
+                val dir = directory()
+                if (!dir.isDirectory && !dir.mkdirs()) throw IOException("建不出下载目录：$dir")
+                File(dir, numberedName(safe) { File(dir, it).exists() }).writeBytes(bytes)
+            }
+
+    private fun directory(): File {
+        val xdg = System.getenv("XDG_DOWNLOAD_DIR")?.removePrefix("\"")?.removeSuffix("\"")
+        return xdg?.takeIf { it.isNotBlank() }?.let(::File)
+            ?: File(System.getProperty("user.home"), "Downloads")
     }
 }
 

@@ -120,6 +120,20 @@ internal fun extForMime(mime: String): String = when (mime.lowercase()) {
 
 internal fun isImage(mime: String): Boolean = mime.startsWith("image/")
 
+/** 下载目录里重名不自作主张覆盖：在扩展名前插序号。 */
+fun numberedName(name: String, exists: (String) -> Boolean): String {
+    if (!exists(name)) return name
+    val stem = name.substringBeforeLast('.', name)
+    val ext = name.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it != stem }
+    var index = 1
+    while (index < 1000) {
+        val candidate = if (ext == null) "$stem ($index)" else "$stem ($index).$ext"
+        if (!exists(candidate)) return candidate
+        index++
+    }
+    return name
+}
+
 internal fun displayTitle(file: FileClip): String = file.name
 
 internal fun humanSize(size: Long): String = when {

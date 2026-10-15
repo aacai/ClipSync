@@ -101,6 +101,7 @@ class AppModel internal constructor(
     val supportsClipboardImage: Boolean = platform.clipboard.canWriteImage
     val supportsClipboardImageRead: Boolean = platform.clipboard.canReadImages
     val supportsClipboardFilesRead: Boolean = platform.clipboard.canReadFiles
+    val supportsSaveToDownloads: Boolean = platform.downloads.isAvailable
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
     val deviceName: StateFlow<String> =
@@ -721,6 +722,26 @@ class AppModel internal constructor(
     /** 缩略图取的字节：只有本机留了缓存的图片才有，其余交给界面退回图标。 */
     suspend fun cachedBytes(item: ClipItem): ByteArray? =
             item.file?.localPath?.let { path -> runCatching { repository.readCache(path) }.getOrNull() }
+
+    /** 存到系统下载目录：本机有缓存就用缓存，同伴的条目先取回来；文本现写成随机名字的 .txt。 */
+    fun saveToDownloads(item: ClipItem) {
+        val file = item.file
+        scope.launch {
+            val bytes =
+                    if (file == null) item.text.encodeToByteArray()
+                    else
+                            file.localPath?.let { runCatching { repository.readCache(it) }.getOrNull() }
+                                    ?: runCatching { engine.fetchFile(file) }.getOrNull()
+            if (bytes == null || bytes.isEmpty()) {
+                _failure.value = Feedback.DownloadFailed(file?.name.orEmpty())
+                return@launch
+            }
+            val name = file?.name?.takeIf { it.isNotBlank() } ?: "text-${newId().take(8)}.txt"
+            runCatching { platform.downloads.save(name, bytes) }
+                    .onSuccess { _info.value = Feedback.SavedTo(name) }
+                    .onFailure { _failure.value = Feedback.DownloadFailed(it.message.orEmpty()) }
+        }
+    }
 
     fun open(item: ClipItem) {
         val file = item.file ?: return

@@ -48,6 +48,15 @@ class FileSupportTest {
     }
 
     @Test
+    fun numbered_name_inserts_before_the_extension() {
+        assertEquals("a.png", numberedName("a.png") { false })
+        assertEquals("a (1).png", numberedName("a.png") { it == "a.png" })
+        assertEquals("a (2).png", numberedName("a.png") { it == "a.png" || it == "a (1).png" })
+        assertEquals("noext (1)", numberedName("noext") { it == "noext" })
+        assertEquals("a.b.png", numberedName("a.b.png") { it == "a.png" })
+    }
+
+    @Test
     fun mime_detection_covers_images_and_common_types() {
         assertEquals("image/png", mimeForName("a.PNG"))
         assertEquals("image/jpeg", mimeForName("a.jpeg"))

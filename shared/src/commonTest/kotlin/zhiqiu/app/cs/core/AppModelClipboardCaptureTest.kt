@@ -2,6 +2,7 @@ package zhiqiu.app.cs.core
 
 import com.russhwolf.settings.MapSettings
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -20,8 +21,10 @@ import zhiqiu.app.cs.ui.ClipboardImage
 import zhiqiu.app.cs.ui.Feedback
 import zhiqiu.app.cs.ui.PlatformClipboard
 import zhiqiu.app.cs.ui.PickedSource
+import zhiqiu.app.cs.ui.PlatformDownloads
 import zhiqiu.app.cs.ui.PlatformUi
 import zhiqiu.app.cs.ui.UnavailableAutostart
+import zhiqiu.app.cs.ui.UnavailableDownloads
 import zhiqiu.app.cs.ui.UnavailableFileOpener
 import zhiqiu.app.cs.ui.UnavailableFilePicker
 
@@ -220,10 +223,61 @@ class AppModelClipboardCaptureTest {
         assertEquals(1, pruned.count)
     }
 
+    @Test
+    fun `text is saved as a randomly named txt`() = runTest {
+        val store = RecordingStore(mutableListOf(textItem("note", ts = 1)))
+        val downloads = FakeDownloads()
+        val harness = Harness(FakeClipboard(), backgroundScope, store, downloads)
+        runCurrent()
+
+        harness.model.saveToDownloads(harness.model.items.value.single())
+        runCurrent()
+
+        val saved = downloads.saves.single()
+        assertTrue(saved.first.startsWith("text-"))
+        assertTrue(saved.first.endsWith(".txt"))
+        assertEquals("body-note", saved.second.decodeToString())
+        val feedback = harness.model.info.value
+        assertIs<Feedback.SavedTo>(feedback)
+        assertEquals(saved.first, feedback.name)
+    }
+
+    @Test
+    fun `a file saves the bytes kept locally`() = runTest {
+        val clipboard = FakeClipboard()
+        val downloads = FakeDownloads()
+        val harness = Harness(clipboard, backgroundScope, downloads = downloads)
+        runCurrent()
+
+        clipboard.files = listOf(clipboard.source("report.pdf", "application/pdf", byteArrayOf(7, 7, 7)))
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        harness.model.saveToDownloads(harness.model.items.value.single())
+        runCurrent()
+
+        assertEquals("report.pdf", downloads.saves.single().first)
+        assertContentEquals(listOf(7, 7, 7), downloads.saves.single().second.toList())
+    }
+
+    @Test
+    fun `a platform without a download folder says so`() = runTest {
+        val store = RecordingStore(mutableListOf(textItem("note", ts = 1)))
+        val harness = Harness(FakeClipboard(), backgroundScope, store)
+        runCurrent()
+
+        assertTrue(!harness.model.supportsSaveToDownloads)
+        harness.model.saveToDownloads(harness.model.items.value.single())
+        runCurrent()
+
+        assertIs<Feedback.DownloadFailed>(harness.model.failure.value)
+    }
+
     private inner class Harness(
         clipboard: FakeClipboard,
         scope: CoroutineScope,
         store: RecordingStore = RecordingStore(),
+        downloads: PlatformDownloads = UnavailableDownloads,
     ) {
         val settings = AppSettings(MapSettings(mutableMapOf()))
         val model =
@@ -238,6 +292,7 @@ class AppModelClipboardCaptureTest {
                                 deviceName = "Laptop",
                                 deviceOs = "macOS",
                                 installId = "dev-1",
+                                downloads = downloads,
                         ),
                         settings,
                 )
@@ -264,6 +319,14 @@ class AppModelClipboardCaptureTest {
                 opens++
                 bytes
             }
+    }
+
+    private class FakeDownloads : PlatformDownloads {
+        val saves = mutableListOf<Pair<String, ByteArray>>()
+        override val isAvailable: Boolean get() = true
+        override suspend fun save(name: String, bytes: ByteArray) {
+            saves += name to bytes
+        }
     }
 
     private class RecordingStore(private var data: List<ClipItem> = emptyList()) : ClipStore {
