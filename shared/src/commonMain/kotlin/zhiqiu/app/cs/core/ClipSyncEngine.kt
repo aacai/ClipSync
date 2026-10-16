@@ -262,8 +262,8 @@ internal class ClipSyncEngine(
             link = uploaded.link,
             expiresAt = uploaded.expiresAt,
         )
-        repository?.markUploaded(filled.id, filled.link, filled.sha256, filled.expiresAt)
         publishFileEnvelope(filled)
+        repository?.markUploaded(filled.id, filled.link, filled.sha256, filled.expiresAt)
         return true
     }
 
