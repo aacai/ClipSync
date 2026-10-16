@@ -258,7 +258,7 @@
     <string name="nickname_placeholder">给这台设备起个名字</string>
     <string name="nickname_hint">同屋设备看到的就是它；留空则使用系统设备名</string>
     <string name="tray_show_window">显示主窗口</string>
-    <string name="tray_quit">退出 ClipSync</string>
+    <string name="app_quit">退出 ClipSync</string>
     <plurals name="setting_retention_days">
         <item quantity="other">%1$d 天</item>
     </plurals>

@@ -45,7 +45,7 @@ fun main(args: Array<String>) {
             title = "ClipSync",
         ) {
             LaunchedEffect(Unit) { hostWindow = window }
-            App()
+            App(onQuit = ::exitApplication)
         }
     }
 }

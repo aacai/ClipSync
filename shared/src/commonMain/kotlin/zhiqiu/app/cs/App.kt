@@ -37,7 +37,7 @@ internal data object HistoryRoute
 internal data object SettingsRoute
 
 @Composable
-fun App() {
+fun App(onQuit: (() -> Unit)? = null) {
     val platform = rememberPlatformUi()
     val settings = AppSettings.shared
     val model = rememberAppModel(platform, settings)
@@ -53,7 +53,7 @@ fun App() {
             val leavePrompt by model.leavePrompt.collectAsState()
             val nav = rememberNavController()
             key(language) {
-                ClipSyncNavHost(nav, model, settings, joinedRoom)
+                ClipSyncNavHost(nav, model, settings, joinedRoom, onQuit)
             }
             if (leavePrompt) {
                 LeaveRoomDialog(
@@ -72,6 +72,7 @@ private fun ClipSyncNavHost(
         model: AppModel,
         settings: AppSettings,
         roomCode: String?,
+        onQuit: (() -> Unit)?,
 ) {
     NavHost(
             navController = nav,
@@ -110,6 +111,7 @@ private fun ClipSyncNavHost(
                     roomCode = roomCode,
                     onBack = { nav.popBackStack() },
                     onLeave = model::requestLeaveRoom,
+                    onQuit = onQuit,
             )
         }
     }

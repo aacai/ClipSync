@@ -80,6 +80,7 @@ internal fun SettingsView(
         roomCode: String?,
         onBack: () -> Unit,
         onLeave: () -> Unit,
+        onQuit: (() -> Unit)? = null,
 ) {
     val status by model.status.collectAsState()
     val localCount by model.localCount.collectAsState()
@@ -289,6 +290,10 @@ internal fun SettingsView(
                                 )
                                 RowDivider()
                                 ValueRow(title = Res.string.setting_os, value = model.deviceOs)
+                                if (onQuit != null) {
+                                    RowDivider()
+                                    ActionRow(Res.string.app_quit, onQuit)
+                                }
                             }
                         }
                     }

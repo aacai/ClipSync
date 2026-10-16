@@ -264,7 +264,7 @@
     <string name="nickname_placeholder">Name this device</string>
     <string name="nickname_hint">This is what other devices in the room see. Leave blank to use the system device name</string>
     <string name="tray_show_window">Show main window</string>
-    <string name="tray_quit">Quit ClipSync</string>
+    <string name="app_quit">Quit ClipSync</string>
     <plurals name="setting_item_count">
         <item quantity="one">%1$d item</item>
         <item quantity="other">%1$d items</item>
