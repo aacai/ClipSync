@@ -411,7 +411,7 @@ internal fun MainView(
                                                     Modifier.animateItem(
                                                             placementSpec = tween(M3.MEDIUM_3, easing = M3.EMPHASIZED),
                                                             fadeInSpec = tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN),
-                                                            fadeOutSpec = tween(M3.SHORT_4, easing = M3.EMPHASIZED_OUT),
+                                                            fadeOutSpec = null,
                                                     ),
                                     )
                                 }
