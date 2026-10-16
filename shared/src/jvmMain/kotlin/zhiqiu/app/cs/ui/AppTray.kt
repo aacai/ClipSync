@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.WindowState
+import java.awt.Desktop
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.event.MouseAdapter
@@ -28,8 +29,15 @@ import zhiqiu.app.cs.resources.*
 fun showFromTray(state: WindowState, window: AwtWindow?) {
     state.isMinimized = false
     window?.isVisible = true
+    requestAppForeground()
     window?.toFront()
     window?.requestFocus()
+}
+
+private fun requestAppForeground() {
+    if (!Desktop.isDesktopSupported()) return
+    val desktop = Desktop.getDesktop()
+    if (desktop.isSupported(Desktop.Action.APP_REQUEST_FOREGROUND)) desktop.requestForeground(true)
 }
 
 @Composable
