@@ -14,6 +14,31 @@ compose.resources {
     publicResClass = false
 }
 
+// 版本号的唯一来源是根 build.gradle.kts 的 appVersion，这里把它烤成一个常量给 shared 用。
+val appVersion: String = rootProject.extra["appVersion"] as String
+
+val appVersionSource = layout.buildDirectory.dir("generated/appVersion/kotlin")
+
+val writeAppVersion by tasks.registering {
+    description = "生成 APP_VERSION 常量"
+    val outDir = appVersionSource
+    val version = appVersion
+    inputs.property("appVersion", version)
+    outputs.dir(outDir)
+    doLast {
+        val target = outDir.get().file("AppVersion.kt").asFile
+        target.parentFile.mkdirs()
+        target.writeText(
+            """
+            package zhiqiu.app.cs.core
+
+            // 由根 build.gradle.kts 的 appVersion 生成，改版本号请改那边。
+            const val APP_VERSION: String = "$version"
+            """.trimIndent() + "\n"
+        )
+    }
+}
+
 kotlin {
     listOf(
         iosArm64(),
@@ -105,6 +130,8 @@ kotlin {
         }
     }
 }
+
+kotlin.sourceSets.getByName("commonMain").kotlin.srcDir(writeAppVersion)
 
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
