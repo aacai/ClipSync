@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusEvent
@@ -123,6 +125,7 @@ internal fun MainView(
     var editing by remember { mutableStateOf<ClipItem?>(null) }
     var noting by remember { mutableStateOf<ClipItem?>(null) }
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
+    var translating by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
     var zooming by remember { mutableStateOf<ClipItem?>(null) }
     var moving by remember { mutableStateOf<ClipItem?>(null) }
@@ -309,8 +312,8 @@ internal fun MainView(
 
     fun hasOverlay() =
             composingNew || confirmClear || safetyNumber != null || shareOpen || helpOpen ||
-                    editing != null || noting != null || transforming != null || inspecting != null ||
-                    zooming != null
+                    editing != null || noting != null || transforming != null || translating != null ||
+                    inspecting != null || zooming != null
 
     fun closeOverlay() {
         when {
@@ -322,6 +325,7 @@ internal fun MainView(
             editing != null -> editing = null
             noting != null -> noting = null
             transforming != null -> transforming = null
+            translating != null -> translating = null
             inspecting != null -> inspecting = null
             composingNew -> composingNew = false
         }
@@ -368,7 +372,12 @@ internal fun MainView(
                             label = "body",
                     ) { empty ->
                         if (empty) {
-                            EmptyState(query, barHeight) {
+                            EmptyState(
+                                    query = query,
+                                    contentTop = barHeight,
+                                    online = online,
+                                    onNew = { composingNew = true },
+                            ) {
                                 Banners(model, status, roomCode, transfer, connecting, online, invalidQuery, onShare = { shareOpen = true })
                             }
                         } else {
@@ -404,6 +413,7 @@ internal fun MainView(
                                             onDetail = { inspecting = item },
                                             onZoom = { zooming = item },
                                             onTransform = { transforming = item },
+                                            onTranslate = { translating = item },
                                             onMoveTop = { model.moveToTop(item) },
                                             onMoveBottom = { model.moveToBottom(item) },
                                             onMoveTo = { moving = item },
@@ -527,6 +537,9 @@ internal fun MainView(
                 onDismiss = { transforming = null },
                 onApply = { op -> model.transform(item, op) },
         )
+    }
+    translating?.let { item ->
+        TranslateDialog(item = item, model = model, onDismiss = { translating = null })
     }
     inspecting?.let { item ->
         DetailDialog(
@@ -693,16 +706,39 @@ private fun Header(
                     Text(
                             stringResource(Res.string.local_history),
                             style = MaterialTheme.typography.titleSmall,
-                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurface,
                     )
                 } else {
                     Tip(stringResource(Res.string.cd_copy_room)) {
-                        Text(
-                                code,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.clickable(onClick = onCopyRoom),
-                        )
+                        Row(
+                                modifier =
+                                        Modifier.clip(MaterialTheme.shapes.extraSmall)
+                                                .background(
+                                                        MaterialTheme.colorScheme.surfaceVariant,
+                                                        MaterialTheme.shapes.extraSmall,
+                                                )
+                                                .border(
+                                                        1.dp,
+                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                                        MaterialTheme.shapes.extraSmall,
+                                                )
+                                                .clickable(onClick = onCopyRoom)
+                                                .padding(horizontal = 7.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                    AppIcons.Key,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                    code,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontFamily = FontFamily.Monospace,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.width(9.dp))
@@ -848,7 +884,7 @@ private fun Toolbar(
                 hintFor(model, online),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 textAlign = TextAlign.End,
                 maxLines = 2,
                 modifier = Modifier.widthIn(max = 340.dp).padding(end = 6.dp),
@@ -961,6 +997,8 @@ private fun SelectionBar(
 private fun EmptyState(
         query: String,
         contentTop: Dp,
+        online: Boolean,
+        onNew: () -> Unit,
         banners: @Composable () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(top = contentTop + 8.dp)) {
@@ -987,6 +1025,19 @@ private fun EmptyState(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // 空列表别只摆一句话：在线时直接把「新建条目」摆出来当行动引导
+                if (online && query.isBlank()) {
+                    Spacer(Modifier.height(18.dp))
+                    Button(
+                            onClick = onNew,
+                            shape = MaterialTheme.shapes.small,
+                            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                    ) {
+                        Icon(AppIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(stringResource(Res.string.new_entry))
+                    }
+                }
             }
         }
     }

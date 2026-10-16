@@ -2,6 +2,7 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipProtocol
@@ -65,6 +68,11 @@ import zhiqiu.app.cs.files.displayTitle
 import zhiqiu.app.cs.files.humanSize
 import zhiqiu.app.cs.files.isImage
 import zhiqiu.app.cs.resources.*
+import zhiqiu.app.cs.translate.MAX_TRANSLATE_CHARS
+import zhiqiu.app.cs.translate.TranslateFailure
+import zhiqiu.app.cs.translate.TranslateTarget
+import zhiqiu.app.cs.translate.TranslationException
+import zhiqiu.app.cs.translate.detectTarget
 
 @Composable
 internal fun TextEntryDialog(
@@ -227,6 +235,185 @@ private fun opLabel(op: TextOp): String =
                     TextOp.Base64Decode -> Res.string.op_b64_decode
                 }
         )
+
+/**
+ * 中英互译弹窗：选方向 → 点翻译 → 展示译文，再由用户决定复制 / 另存 / 替换。
+ * 不再像旧版那样静默翻完直接塞一条历史、只弹个提示。
+ */
+@Composable
+internal fun TranslateDialog(
+        item: ClipItem,
+        model: AppModel,
+        onDismiss: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val source = item.text
+    var target by remember { mutableStateOf(detectTarget(source)) }
+    var running by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<String?>(null) }
+    var failure by remember { mutableStateOf<Pair<TranslateFailure, String?>?>(null) }
+    val tooLong = source.length > MAX_TRANSLATE_CHARS
+
+    fun run() {
+        if (running || tooLong) return
+        running = true
+        failure = null
+        scope.launch {
+            runCatching { model.translateText(source, target) }
+                    .onSuccess { result = it }
+                    .onFailure { e ->
+                            failure =
+                                    if (e is TranslationException) e.failure to e.detail
+                                    else TranslateFailure.Request to e.message
+                    }
+            running = false
+        }
+    }
+
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.translate_title), fontSize = 17.sp) },
+            text = {
+                Column(
+                        modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        DirectionChip(
+                                label = stringResource(Res.string.translate_to_en),
+                                selected = target == TranslateTarget.English,
+                                onClick = { target = TranslateTarget.English },
+                        )
+                        DirectionChip(
+                                label = stringResource(Res.string.translate_to_zh),
+                                selected = target == TranslateTarget.Chinese,
+                                onClick = { target = TranslateTarget.Chinese },
+                        )
+                    }
+                    SectionLabel(Res.string.translate_source)
+                    ReadOnlyTextBox(source)
+                    if (tooLong) {
+                        Text(
+                                stringResource(
+                                        Res.string.fb_translate_too_long,
+                                        source.length,
+                                        MAX_TRANSLATE_CHARS,
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    val failed = failure
+                    if (failed != null) {
+                        Text(
+                                translateFailureText(failed.first, failed.second),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    val translated = result
+                    if (translated != null) {
+                        SectionLabel(Res.string.translate_result)
+                        ReadOnlyTextBox(translated)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { model.copyToClipboard(translated) }) {
+                                Text(
+                                        stringResource(Res.string.translate_copy_result),
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                )
+                            }
+                            TextButton(
+                                    onClick = {
+                                            model.addEntry(translated)
+                                            onDismiss()
+                                    },
+                            ) {
+                                Text(stringResource(Res.string.translate_save_new), fontSize = 12.sp, maxLines = 1)
+                            }
+                            TextButton(
+                                    onClick = {
+                                            model.editItem(item, translated)
+                                            onDismiss()
+                                    },
+                            ) {
+                                Text(stringResource(Res.string.translate_replace), fontSize = 12.sp, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                        onClick = { run() },
+                        enabled = !running && !tooLong,
+                        shape = MaterialTheme.shapes.small,
+                ) {
+                    if (running) {
+                        CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(
+                            stringResource(
+                                    if (running) Res.string.translate_running else Res.string.translate_run
+                            ),
+                    )
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
+private fun DirectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+            modifier =
+                    Modifier.clip(MaterialTheme.shapes.extraSmall)
+                            .background(if (selected) scheme.primary.copy(alpha = 0.14f) else scheme.surfaceVariant)
+                            .border(
+                                    1.dp,
+                                    if (selected) scheme.primary.copy(alpha = 0.55f) else Color.Transparent,
+                                    MaterialTheme.shapes.extraSmall,
+                            )
+                            .clickable(onClick = onClick)
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(
+                label,
+                fontSize = 12.sp,
+                color = if (selected) scheme.primary else scheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}
+
+/** 只读文本块：原文/译文共用，限高 + 内部滚动，长内容不把弹窗撑爆。 */
+@Composable
+private fun ReadOnlyTextBox(text: String) {
+    Box(
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .heightIn(max = 160.dp)
+                            .clip(MaterialTheme.shapes.extraSmall)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .verticalScroll(rememberScrollState())
+                            .padding(10.dp),
+    ) {
+        Text(
+                text.ifBlank { stringResource(Res.string.empty_text) },
+                style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
 
 @Composable
 internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmit: (Int) -> Unit) {

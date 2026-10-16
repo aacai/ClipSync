@@ -2,6 +2,7 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -9,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -83,6 +86,7 @@ internal fun ClipRow(
         onDetail: () -> Unit,
         onZoom: () -> Unit,
         onTransform: () -> Unit,
+        onTranslate: () -> Unit,
         onMoveTop: () -> Unit,
         onMoveBottom: () -> Unit,
         onMoveTo: () -> Unit,
@@ -107,6 +111,10 @@ internal fun ClipRow(
     val colorSpec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
     val background by animateColorAsState(rowBackground(cursor, picked), colorSpec, label = "rowBg")
     val edge by animateColorAsState(rowBorder(cursor, picked), colorSpec, label = "rowEdge")
+    // 桌面/网页：快捷操作默认收起，指针掠过（或键盘聚焦）才展开；勾选/选中不再触发显隐。触摸设备常驻。
+    val rowInteraction = remember { MutableInteractionSource() }
+    val hovered by rowInteraction.collectIsHoveredAsState()
+    val revealQuick = !model.hoverRevealsActions || hovered || cursor
     val badge by
             animateColorAsState(
                     if (item.pinned) {
@@ -125,7 +133,13 @@ internal fun ClipRow(
             modifier = modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 3.dp),
     ) {
         Row(
-                modifier = Modifier.clickable(onClick = onActivate).padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                modifier =
+                        Modifier.clickable(
+                                        interactionSource = rowInteraction,
+                                        indication = LocalIndication.current,
+                                        onClick = onActivate,
+                                )
+                                .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
                 verticalAlignment = Alignment.Top,
         ) {
             AnimatedVisibility(
@@ -211,26 +225,41 @@ internal fun ClipRow(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // 右侧操作区始终按完整尺寸占位，hover 只淡入淡出透明度——不动画宽度，
+            // 左侧 weight(1f) 的文本列宽度才恒定，长文本不会因为重排闪烁。
+            // 触摸设备（没有 hover）不进淡出逻辑，行为同旧版。
+            val fadeSupported = model.hoverRevealsActions
+            val actionsAlpha by animateFloatAsState(
+                    if (!fadeSupported || revealQuick) 1f else 0f,
+                    tween(M3.SHORT_4, easing = M3.STANDARD),
+                    label = "actionsAlpha",
+            )
+            val actionsEnabled = !fadeSupported || revealQuick
+            Row(
+                    modifier = Modifier.alpha(actionsAlpha),
+                    verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (!isFile) {
-                    RowAction(AppIcons.Send, stringResource(Res.string.cd_send), enabled = online) {
+                    RowAction(AppIcons.Send, stringResource(Res.string.cd_send), enabled = actionsEnabled && online) {
                         model.sendText(item.text)
                     }
                 }
                 if (!isFile || copyAsImage || copyAsFile) {
-                    RowAction(AppIcons.Copy, copyLabel) { model.copy(item) }
+                    RowAction(AppIcons.Copy, copyLabel, enabled = actionsEnabled) { model.copy(item) }
                 }
                 if (isFile && cached && model.supportsLocalFiles) {
-                    RowAction(AppIcons.OpenInNew, stringResource(Res.string.cd_open)) { model.open(item) }
+                    RowAction(AppIcons.OpenInNew, stringResource(Res.string.cd_open), enabled = actionsEnabled) { model.open(item) }
                 } else if (isFile && !cached && model.supportsLocalFiles) {
-                    RowAction(AppIcons.Download, stringResource(Res.string.cd_download)) { model.download(item) }
+                    RowAction(AppIcons.Download, stringResource(Res.string.cd_download), enabled = actionsEnabled) { model.download(item) }
                 }
                 RowAction(
                         AppIcons.Pin,
                         if (item.pinned) stringResource(Res.string.cd_unpin) else stringResource(Res.string.cd_pin),
                         active = item.pinned,
+                        enabled = actionsEnabled,
                 ) { model.togglePin(item) }
-                Box {
+            }
+            Box {
                     RowAction(AppIcons.More, stringResource(Res.string.cd_more), onClick = { menu = true })
                     DropdownMenu(
                             expanded = menu,
@@ -255,7 +284,7 @@ internal fun ClipRow(
                         }
                         MenuAction(AppIcons.Translate, Res.string.act_translate, enabled = !isFile) {
                             menu = false
-                            model.translate(item)
+                            onTranslate()
                         }
                         MenuAction(AppIcons.Duplicate, Res.string.act_duplicate) {
                             menu = false
@@ -305,7 +334,6 @@ internal fun ClipRow(
                         }
                     }
                 }
-            }
         }
     }
 }
@@ -397,9 +425,10 @@ private fun PickBox(picked: Boolean, onToggle: () -> Unit) {
 private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
     val scheme = MaterialTheme.colorScheme
     return when {
-        picked -> scheme.primary.copy(alpha = 0.17f)
-        cursor -> scheme.primary.copy(alpha = 0.07f)
-        else -> if (isAppDarkTheme()) Color.White.copy(alpha = 0.035f) else Color.White.copy(alpha = 0.55f)
+        picked -> scheme.primary.copy(alpha = 0.16f)
+        cursor -> scheme.primary.copy(alpha = 0.08f)
+        // 浅色用纯白面而不是半透明白：叠在渐变底上会发脏灰，纯白卡片才干净
+        else -> if (isAppDarkTheme()) scheme.surfaceVariant.copy(alpha = 0.5f) else scheme.surface
     }
 }
 

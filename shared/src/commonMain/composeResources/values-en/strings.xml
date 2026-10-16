@@ -114,6 +114,16 @@
     <string name="act_note">Add a note</string>
     <string name="act_transform">Text commands</string>
     <string name="act_translate">Translate</string>
+    <string name="translate_title">Translate</string>
+    <string name="translate_to_en">To English</string>
+    <string name="translate_to_zh">To Chinese</string>
+    <string name="translate_source">Original</string>
+    <string name="translate_result">Result</string>
+    <string name="translate_run">Translate</string>
+    <string name="translate_running">Translating…</string>
+    <string name="translate_copy_result">Copy result</string>
+    <string name="translate_save_new">Save as new</string>
+    <string name="translate_replace">Replace original</string>
     <string name="act_detail">Show details</string>
     <string name="act_duplicate">Duplicate</string>
     <string name="act_save_to_downloads">Save to Downloads</string>

@@ -55,18 +55,7 @@ internal fun feedbackText(feedback: Feedback): String =
                         else Res.string.fb_translated_zh,
                         feedback.chars,
                 )
-            is Feedback.TranslateFailed -> {
-                val detail = feedback.detail?.takeIf { it.isNotBlank() }
-                when (feedback.failure) {
-                    TranslateFailure.Malformed -> stringResource(Res.string.fb_translate_failed_malformed)
-                    TranslateFailure.Empty -> stringResource(Res.string.fb_translate_failed_empty)
-                    TranslateFailure.Rejected ->
-                        stringResource(Res.string.fb_translate_failed_rejected, detail.orEmpty())
-                    TranslateFailure.Request ->
-                        if (detail == null) stringResource(Res.string.fb_translate_failed)
-                        else stringResource(Res.string.fb_translate_failed_request, detail)
-                }
-            }
+            is Feedback.TranslateFailed -> translateFailureText(feedback.failure, feedback.detail)
             is Feedback.TranslateTooLong ->
                 stringResource(Res.string.fb_translate_too_long, feedback.chars, feedback.limit)
             is Feedback.PinChanged ->
@@ -81,6 +70,19 @@ internal fun feedbackText(feedback: Feedback): String =
                 stringResource(Res.string.fb_local_read_failed, feedback.name, feedback.reason)
             Feedback.AutostartFailed -> stringResource(Res.string.fb_autostart_failed)
             is Feedback.FileProblem -> fileIssueText(feedback.issue)
+        }
+
+/** 翻译失败的对外文案：弹窗内联展示和吐司共用同一份。 */
+@Composable
+internal fun translateFailureText(failure: TranslateFailure, detail: String? = null): String =
+        when (failure) {
+            TranslateFailure.Malformed -> stringResource(Res.string.fb_translate_failed_malformed)
+            TranslateFailure.Empty -> stringResource(Res.string.fb_translate_failed_empty)
+            TranslateFailure.Rejected ->
+                    stringResource(Res.string.fb_translate_failed_rejected, detail.orEmpty())
+            TranslateFailure.Request ->
+                    if (detail == null) stringResource(Res.string.fb_translate_failed)
+                    else stringResource(Res.string.fb_translate_failed_request, detail)
         }
 
 @Composable

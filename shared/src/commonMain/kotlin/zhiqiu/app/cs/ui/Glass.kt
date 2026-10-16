@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -29,28 +28,25 @@ import dev.chrisbanes.haze.blur.hazeBlur
 
 val LocalHazeState: ProvidableCompositionLocal<HazeState?> = compositionLocalOf { null }
 
-/** 背景光晕：毛玻璃层透出来的就是它，所以必须放在 hazeSource 之下。 */
+/** 背景光晕：毛玻璃层透出来的就是它，所以必须放在 hazeSource 之下。
+ *
+ *  只用同一色系的两束光——顶部主光源压住视线起点，底部一束给纵深，
+ *  不再拿三种高饱和色互相叠加，避免脏、花。 */
 @Composable
 fun BackdropGlow(modifier: Modifier = Modifier) {
     val dark = isAppDarkTheme()
     val themeSpec = tween<Color>(M3.MEDIUM_3, easing = M3.STANDARD)
-    val accent by
+    val glowTop by
             animateColorAsState(
-                    if (dark) Color(0xFF1B3B6B) else Color(0xFFB6DDFA),
+                    if (dark) Color(0xFF1A3D66) else Color(0xFFBFD9F5),
                     themeSpec,
-                    label = "glowAccent",
+                    label = "glowTop",
             )
-    val accent2 by
+    val glowBottom by
             animateColorAsState(
-                    if (dark) Color(0xFF3A1D5C) else Color(0xFFD8C7F7),
+                    if (dark) Color(0xFF1D1A38) else Color(0xFFDDE5F2),
                     themeSpec,
-                    label = "glowAccent2",
-            )
-    val accent3 by
-            animateColorAsState(
-                    if (dark) Color(0xFF0E3A3A) else Color(0xFFC6EBD8),
-                    themeSpec,
-                    label = "glowAccent3",
+                    label = "glowBottom",
             )
     val base by animateColorAsState(MaterialTheme.colorScheme.background, themeSpec, label = "glowBase")
     Box(
@@ -59,30 +55,23 @@ fun BackdropGlow(modifier: Modifier = Modifier) {
                             .fillMaxSize()
                             .background(base)
                             .background(
-                                    Brush.linearGradient(
-                                            listOf(base.copy(alpha = 0.92f), accent2.copy(alpha = 0.55f)),
-                                            start = Offset.Zero,
-                                            end = Offset.Infinite,
+                                    Brush.verticalGradient(
+                                            0f to glowTop.copy(alpha = if (dark) 0.55f else 0.45f),
+                                            0.5f to Color.Transparent,
+                                            1f to glowBottom.copy(alpha = if (dark) 0.45f else 0.35f),
                                     )
                             ),
     ) {
         Box(
                 modifier =
                         Modifier.align(Alignment.TopStart)
-                                .fillMaxSize(0.85f)
+                                .fillMaxSize(0.9f)
                                 .background(
                                         Brush.radialGradient(
-                                                listOf(accent.copy(alpha = if (dark) 0.85f else 0.7f), Color.Transparent)
-                                        )
-                                ),
-        )
-        Box(
-                modifier =
-                        Modifier.align(Alignment.BottomEnd)
-                                .fillMaxSize(0.75f)
-                                .background(
-                                        Brush.radialGradient(
-                                                listOf(accent3.copy(alpha = if (dark) 0.8f else 0.65f), Color.Transparent)
+                                                listOf(
+                                                        glowTop.copy(alpha = if (dark) 0.5f else 0.38f),
+                                                        Color.Transparent,
+                                                )
                                         )
                                 ),
         )

@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,7 +34,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.resources.*
@@ -90,17 +88,20 @@ internal fun ToastHost(model: AppModel, bottom: Dp, modifier: Modifier = Modifie
 @Composable
 private fun ToastCard(feedback: Feedback, onDismiss: () -> Unit, onUndo: (() -> Unit)?) {
     val scheme = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(percent = 50)
+    val shape = MaterialTheme.shapes.extraSmall
     val error = feedback.level == Level.Error
+    // 主流 Snackbar 配色：反面色（浅色主题深灰底白字，深色主题浅灰底深字），
+    // 去边框、去毛玻璃，压一点阴影浮起来。
+    val container = if (error) scheme.error else scheme.inverseSurface
+    val content = if (error) scheme.onError else scheme.inverseOnSurface
 
     Row(
             modifier =
-                    Modifier.shadow(10.dp, shape, clip = false)
+                    Modifier.shadow(8.dp, shape, clip = false)
                             .widthIn(max = 480.dp)
-                            .background(if (error) scheme.errorContainer else scheme.surfaceContainerHigh, shape)
-                            .border(1.dp, glassBorder().copy(alpha = 0.45f), shape)
+                            .background(container, shape)
                             .clickable(onClick = onDismiss)
-                            .padding(start = 13.dp, end = if (onUndo == null) 13.dp else 5.dp, top = 8.dp, bottom = 8.dp),
+                            .padding(start = 14.dp, end = if (onUndo == null) 14.dp else 5.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -109,27 +110,25 @@ private fun ToastCard(feedback: Feedback, onDismiss: () -> Unit, onUndo: (() -> 
                     else -> AppIcons.Check
                 },
                 contentDescription = null,
-                tint =
-                        when {
-                            error -> scheme.error
-                            feedback.level == Level.Warn ->
-                                    if (isAppDarkTheme()) PinAmberDark else PinAmber
-                            else -> if (isAppDarkTheme()) SuccessGreenDark else SuccessGreen
-                        },
-                modifier = Modifier.size(16.dp),
+                tint = content.copy(alpha = 0.85f),
+                modifier = Modifier.size(15.dp),
         )
         Spacer(Modifier.width(9.dp))
         Text(
                 text = feedbackText(feedback),
                 style = MaterialTheme.typography.labelLarge,
-                color = if (error) scheme.onErrorContainer else scheme.onSurface,
+                color = content,
                 fontWeight = FontWeight.Medium,
-                fontSize = 12.5.sp,
                 modifier = Modifier.weight(1f, fill = false),
         )
         if (onUndo != null) {
             Spacer(Modifier.width(6.dp))
-            RowAction(AppIcons.Undo, stringResource(Res.string.act_undo), onClick = onUndo)
+            RowAction(
+                    AppIcons.Undo,
+                    stringResource(Res.string.act_undo),
+                    tinted = content,
+                    onClick = onUndo,
+            )
         }
     }
 }

@@ -45,9 +45,9 @@ import zhiqiu.app.cs.files.sanitizeFileName
 import zhiqiu.app.cs.translate.MAX_TRANSLATE_CHARS
 import zhiqiu.app.cs.translate.TranslateClient
 import zhiqiu.app.cs.translate.TranslateFailure
+import zhiqiu.app.cs.translate.TranslateTarget
 import zhiqiu.app.cs.translate.TranslationException
 import zhiqiu.app.cs.translate.createTranslateClient
-import zhiqiu.app.cs.translate.detectTarget
 import kotlin.time.Clock
 
 class AppModel internal constructor(
@@ -113,6 +113,9 @@ class AppModel internal constructor(
     val supportsSaveToDownloads: Boolean = platform.downloads.isAvailable
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
+
+    /** 有指针悬浮的平台上行内快捷操作默认收起（hover 才展开），触摸设备常驻显示。 */
+    val hoverRevealsActions: Boolean = platform.hoverRevealsActions
     val deviceName: StateFlow<String> =
         settings.nickname.map { it.ifBlank { platform.deviceName } }
             .stateIn(scope, SharingStarted.Eagerly, platform.deviceName)
@@ -145,7 +148,6 @@ class AppModel internal constructor(
         repository.items.map { repository.moveInfos() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
     private var monitorJob: Job? = null
-    private var translateJob: Job? = null
     private val translator: TranslateClient by lazy { createTranslateClient() }
     private var connectJob: Job? = null
     private var receiveJob: Job? = null
@@ -624,40 +626,33 @@ class AppModel internal constructor(
         }
     }
 
-    /** 中英互译：结果作为新条目进历史，原文保留，也不广播给同屋。 */
-    fun translate(item: ClipItem) {
-        val source = item.text
-        if (source.isBlank() || translateJob?.isActive == true) return
+    /** 中英互译：只负责发请求并把译文交回弹窗，失败原样抛给调用方展示。 */
+    suspend fun translateText(source: String, target: TranslateTarget): String {
+        if (source.isBlank()) throw TranslationException(TranslateFailure.Empty)
         if (source.length > MAX_TRANSLATE_CHARS) {
-            _failure.value = Feedback.TranslateTooLong(source.length, MAX_TRANSLATE_CHARS)
-            return
+            throw TranslationException(
+                    TranslateFailure.Rejected,
+                    "source too long: ${source.length} > $MAX_TRANSLATE_CHARS",
+            )
         }
-        val target = detectTarget(source)
-        translateJob =
-                scope.launch {
-                    runCatching { translator.translate(source, target) }
-                        .onSuccess { text ->
-                            repository.add(
-                                    ClipItem(
-                                            id = newId(),
-                                            kind = ClipRepository.KIND_TEXT,
-                                            ts = Clock.System.now().toEpochMilliseconds(),
-                                            senderId = platform.installId,
-                                            senderName = senderName(),
-                                            text = text,
-                                    ),
-                            )
-                            _info.value = Feedback.Translated(target, text.length)
-                        }
-                        .onFailure {
-                            _failure.value =
-                                    if (it is TranslationException) {
-                                        Feedback.TranslateFailed(it.failure, it.detail)
-                                    } else {
-                                        Feedback.TranslateFailed(TranslateFailure.Request, it.message)
-                                    }
-                        }
-                }
+        return translator.translate(source, target)
+    }
+
+    /** 译文另存为一条本机历史：不广播给同屋，原文保留。 */
+    fun addEntry(text: String) {
+        if (text.isBlank()) return
+        scope.launch {
+            repository.add(
+                    ClipItem(
+                            id = newId(),
+                            kind = ClipRepository.KIND_TEXT,
+                            ts = Clock.System.now().toEpochMilliseconds(),
+                            senderId = platform.installId,
+                            senderName = senderName(),
+                            text = text,
+                    ),
+            )
+        }
     }
 
     fun remove(items: List<ClipItem>) {

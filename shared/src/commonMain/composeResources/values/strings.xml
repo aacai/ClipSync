@@ -115,6 +115,16 @@
     <string name="act_edit">编辑内容</string>
     <string name="act_transform">文本处理</string>
     <string name="act_translate">中英互译</string>
+    <string name="translate_title">中英互译</string>
+    <string name="translate_to_en">译成英文</string>
+    <string name="translate_to_zh">译成中文</string>
+    <string name="translate_source">原文</string>
+    <string name="translate_result">译文</string>
+    <string name="translate_run">翻译</string>
+    <string name="translate_running">翻译中…</string>
+    <string name="translate_copy_result">复制译文</string>
+    <string name="translate_save_new">另存为新条目</string>
+    <string name="translate_replace">替换原文</string>
     <string name="act_detail">查看详情</string>
     <string name="act_duplicate">生成副本</string>
     <string name="act_save_to_downloads">存到下载目录</string>

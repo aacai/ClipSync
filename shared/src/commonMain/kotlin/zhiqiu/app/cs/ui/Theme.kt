@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import zhiqiu.app.cs.core.ThemeMode
 
 internal val LightColors =
@@ -34,6 +36,9 @@ internal val LightColors =
                 onError = Color(0xFFFFFFFF),
                 errorContainer = Color(0xFFFFEBE9),
                 onErrorContainer = Color(0xFF86181D),
+                // 吐司用反面色：浅色主题深灰底白字，深色主题浅灰底深字
+                inverseSurface = Color(0xFF2B2F36),
+                inverseOnSurface = Color(0xFFF2F4F7),
         )
 
 internal val DarkColors =
@@ -46,7 +51,7 @@ internal val DarkColors =
                 background = Color(0xFF0A0E14),
                 surface = Color(0xFF161B22),
                 onSurface = Color(0xFFE6EDF3),
-                surfaceVariant = Color(0xFF1C2128),
+                surfaceVariant = Color(0xFF21262D),
                 onSurfaceVariant = Color(0xFF9DA7B3),
                 surfaceContainer = Color(0xFF161B22),
                 surfaceContainerHigh = Color(0xFF1C2128),
@@ -56,6 +61,8 @@ internal val DarkColors =
                 onError = Color(0xFF0D1117),
                 errorContainer = Color(0xFF490202),
                 onErrorContainer = Color(0xFFFFB4AE),
+                inverseSurface = Color(0xFFE8EBF0),
+                inverseOnSurface = Color(0xFF1B1F26),
         )
 
 internal val AppShapes =
@@ -86,6 +93,17 @@ internal fun isAppDarkTheme(): Boolean =
 internal fun glassBorder(): Color =
         if (isAppDarkTheme()) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
 
+/** 标题压字重、正文放宽行高、小字加点字距，把层级从默认 M3 规格里拉出来。 */
+private fun Typography.tuned(): Typography =
+        copy(
+                titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                titleMedium = titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                bodyMedium = bodyMedium.copy(lineHeight = 21.sp),
+                bodySmall = bodySmall.copy(lineHeight = 17.sp),
+                labelSmall = labelSmall.copy(letterSpacing = 0.2.sp),
+                labelLarge = labelLarge.copy(fontWeight = FontWeight.Medium),
+        )
+
 @Composable
 fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () -> Unit) {
     val dark =
@@ -98,7 +116,7 @@ fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () ->
         MaterialTheme(
                 colorScheme = if (dark) DarkColors else LightColors,
                 shapes = AppShapes,
-                typography = Typography(fontFamily = appFontFamily()),
+                typography = Typography(fontFamily = appFontFamily()).tuned(),
                 content = content,
         )
     }

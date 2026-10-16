@@ -29,6 +29,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     opener = UnavailableFileOpener,
     store = remember { WasmClipStore(LocalWebStorage()) },
     downloads = WebDownloads,
+    hoverRevealsActions = true,
 )
 
 @Composable

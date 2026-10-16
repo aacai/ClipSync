@@ -106,6 +106,11 @@ class PlatformUi(
     val deviceOs: String,
     val installId: String,
     val downloads: PlatformDownloads = UnavailableDownloads,
+    /**
+     * 有指针悬浮的平台（桌面、网页）：列表行快捷操作默认收起，hover 才展开，减少视觉噪音；
+     * 触摸设备（手机）没有 hover 事件，常驻显示，操作效率不打折。
+     */
+    val hoverRevealsActions: Boolean = false,
 )
 
 /** 「存到下载目录」：桌面和 Android 写用户自己的 Downloads，浏览器交给它自己的下载行为。 */
@@ -152,7 +157,8 @@ internal fun rememberPlatformUi(
     store: ClipStore,
     autostart: PlatformAutostart = UnavailableAutostart,
     downloads: PlatformDownloads = UnavailableDownloads,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads) {
+    hoverRevealsActions: Boolean = false,
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -163,6 +169,7 @@ internal fun rememberPlatformUi(
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),
+        hoverRevealsActions = hoverRevealsActions,
     )
 }
 
