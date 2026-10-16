@@ -43,6 +43,10 @@ internal actual fun platformOs(): String = "Web"
 
 internal actual val platformSupportsResidentSync: Boolean = false
 
+internal actual fun platformArch(): String = ""
+
+internal actual val platformSupportsSelfUpdate: Boolean = false
+
 internal actual fun platformSettings(): Settings = StorageSettings()
 
 internal actual val appLanguageSupport: AppLanguageSupport

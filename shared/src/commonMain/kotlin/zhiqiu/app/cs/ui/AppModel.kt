@@ -15,13 +15,21 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import zhiqiu.app.cs.core.APP_VERSION
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DefaultMqttLinks
+import zhiqiu.app.cs.core.DefaultReleaseSource
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.MqttLinkFactory
+import zhiqiu.app.cs.core.ReleaseSource
+import zhiqiu.app.cs.core.UpdateState
+import zhiqiu.app.cs.core.assetFor
+import zhiqiu.app.cs.core.isBehind
+import zhiqiu.app.cs.core.platformArch
 import zhiqiu.app.cs.core.platformSupportsResidentSync
+import zhiqiu.app.cs.core.platformSupportsSelfUpdate
 import zhiqiu.app.cs.core.sha256Hex
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
@@ -47,6 +55,7 @@ class AppModel internal constructor(
     private val platform: PlatformUi,
     private val settings: AppSettings,
     private val links: MqttLinkFactory,
+    private val releases: ReleaseSource = DefaultReleaseSource,
 ) {
     constructor(scope: CoroutineScope, platform: PlatformUi, settings: AppSettings) :
             this(scope, platform, settings, DefaultMqttLinks)
@@ -111,6 +120,12 @@ class AppModel internal constructor(
     private fun senderName(): String = settings.nickname.value.ifBlank { platform.deviceName }
 
     val deviceOs: String = platform.deviceOs
+
+    val appVersion: String = APP_VERSION
+    val supportsUpdate: Boolean = platformSupportsSelfUpdate && platform.downloads.isAvailable
+
+    private val _update = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val update: StateFlow<UpdateState> = _update.asStateFlow()
 
     fun setNickname(name: String) {
         settings.setNickname(name)
@@ -740,6 +755,38 @@ class AppModel internal constructor(
             runCatching { platform.downloads.save(name, bytes) }
                     .onSuccess { _info.value = Feedback.SavedTo(it) }
                     .onFailure { _failure.value = Feedback.DownloadFailed(it.message.orEmpty()) }
+        }
+    }
+
+    fun checkUpdates() {
+        if (_update.value is UpdateState.Checking) return
+        _update.value = UpdateState.Checking
+        scope.launch {
+            runCatching { releases.latest() }
+                    .onSuccess { release ->
+                        _update.value =
+                                if (isBehind(APP_VERSION, release.version)) {
+                                    UpdateState.Available(release, release.assetFor(platform.deviceOs, platformArch()))
+                                } else {
+                                    UpdateState.UpToDate(release.version)
+                                }
+                    }
+                    .onFailure { _update.value = UpdateState.Failed(it.message.orEmpty()) }
+        }
+    }
+
+    /** 安装包落到下载目录：桌面重名会让路，浏览器按它自己的下载行为走。 */
+    fun downloadUpdate() {
+        val asset = (_update.value as? UpdateState.Available)?.asset ?: return
+        _update.value = UpdateState.Downloading(asset, 0)
+        scope.launch {
+            runCatching {
+                val bytes = releases.download(asset) { received, _ ->
+                    _update.value = UpdateState.Downloading(asset, received)
+                }
+                platform.downloads.save(asset.name, bytes)
+            }.onSuccess { _update.value = UpdateState.Downloaded(it) }
+                    .onFailure { _update.value = UpdateState.Failed(it.message.orEmpty()) }
         }
     }
 

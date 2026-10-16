@@ -46,6 +46,10 @@ internal actual fun platformOs(): String {
 
 internal actual val platformSupportsResidentSync: Boolean = false
 
+internal actual fun platformArch(): String = normalizeArch(System.getProperty("os.arch").orEmpty())
+
+internal actual val platformSupportsSelfUpdate: Boolean = true
+
 internal actual fun platformSettings(): Settings =
     PreferencesSettings(Preferences.userRoot().node("clipsync"))
 

@@ -40,6 +40,10 @@ internal actual fun platformOs(): String = "Android"
 
 internal actual val platformSupportsResidentSync: Boolean = true
 
+internal actual fun platformArch(): String = normalizeArch(android.os.Build.SUPPORTED_ABIS.firstOrNull().orEmpty())
+
+internal actual val platformSupportsSelfUpdate: Boolean = true
+
 internal actual fun platformSettings(): Settings {
     val context = checkNotNull(ClipSyncAppContext.context) { "ClipSyncAppContext.context must be set before settings are used" }
     return SharedPreferencesSettings(context.getSharedPreferences("clipsync", Context.MODE_PRIVATE))

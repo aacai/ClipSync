@@ -68,7 +68,9 @@ import zhiqiu.app.cs.core.AppLanguageSupport
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.ThemeMode
+import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.appLanguageSupport
+import zhiqiu.app.cs.files.humanSize
 import zhiqiu.app.cs.resources.*
 
 @Composable
@@ -249,6 +251,12 @@ internal fun SettingsView(
 
                         item(key = "about") {
                             SettingGroup(Res.string.settings_group_about) {
+                                ValueRow(title = Res.string.setting_version, value = model.appVersion)
+                                if (model.supportsUpdate) {
+                                    RowDivider()
+                                    UpdateRow(model)
+                                }
+                                RowDivider()
                                 ValueRow(
                                         title = Res.string.local_history,
                                         value = pluralStringResource(Res.plurals.setting_item_count, localCount, localCount),
@@ -369,6 +377,72 @@ internal fun SettingsView(
                     editingNickname = false
                 },
         )
+    }
+}
+
+@Composable
+private fun UpdateRow(model: AppModel) {
+    val state by model.update.collectAsState()
+    val busy = state is UpdateState.Checking || state is UpdateState.Downloading
+    val asset = (state as? UpdateState.Available)?.asset
+    RowScaffold(onClick = null) {
+        Text(
+                stringResource(Res.string.setting_update),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+                updateLabel(state),
+                style = MaterialTheme.typography.labelMedium,
+                color = updateColor(state),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 220.dp),
+        )
+        Spacer(Modifier.width(2.dp))
+        if (asset != null) {
+            RowAction(AppIcons.Download, stringResource(Res.string.cd_download_update), enabled = !busy) {
+                model.downloadUpdate()
+            }
+        }
+        RowAction(AppIcons.Refresh, stringResource(Res.string.setting_update), enabled = !busy) {
+            model.checkUpdates()
+        }
+    }
+    if (state is UpdateState.Available && asset == null) {
+        GroupFootnote(Res.string.update_no_asset)
+    }
+    if (state is UpdateState.Idle) {
+        GroupFootnote(Res.string.update_hint)
+    }
+}
+
+@Composable
+private fun updateLabel(state: UpdateState): String =
+        when (state) {
+            UpdateState.Idle -> stringResource(Res.string.update_idle)
+            UpdateState.Checking -> stringResource(Res.string.update_checking)
+            is UpdateState.UpToDate -> stringResource(Res.string.update_current, state.version)
+            is UpdateState.Available -> stringResource(Res.string.update_available, state.release.version)
+            is UpdateState.Downloading ->
+                    stringResource(
+                            Res.string.update_downloading,
+                            humanSize(state.received),
+                            humanSize(state.asset.size),
+                    )
+            is UpdateState.Downloaded -> stringResource(Res.string.update_downloaded, state.name)
+            is UpdateState.Failed -> stringResource(Res.string.update_failed, state.message)
+        }
+
+@Composable
+private fun updateColor(state: UpdateState): Color {
+    val dark = isAppDarkTheme()
+    return when (state) {
+        is UpdateState.Failed -> MaterialTheme.colorScheme.error
+        is UpdateState.Available -> if (dark) PinAmberDark else PinAmber
+        is UpdateState.Downloaded -> if (dark) SuccessGreenDark else SuccessGreen
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
 

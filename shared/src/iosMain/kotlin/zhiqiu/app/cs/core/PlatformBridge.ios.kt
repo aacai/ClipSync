@@ -32,6 +32,10 @@ internal actual fun platformOs(): String = UIDevice.currentDevice.systemName
 
 internal actual val platformSupportsResidentSync: Boolean = false
 
+internal actual fun platformArch(): String = "arm64"
+
+internal actual val platformSupportsSelfUpdate: Boolean = false
+
 internal actual fun platformSettings(): Settings =
     NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
 
