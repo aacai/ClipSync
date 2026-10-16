@@ -436,6 +436,7 @@ internal fun MainView(
                             onSettings = onOpenSettings,
                             onSafety = { safetyNumber = it },
                             onHelp = { helpOpen = true },
+                            onCopyRoom = { roomCode?.let(model::copyToClipboard) },
                     )
                     Toolbar(
                             model = model,
@@ -661,6 +662,7 @@ private fun Header(
         onSettings: () -> Unit,
         onSafety: (String) -> Unit,
         onHelp: () -> Unit,
+        onCopyRoom: () -> Unit,
 ) {
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
@@ -686,11 +688,23 @@ private fun Header(
         Spacer(Modifier.width(9.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                        roomCode ?: stringResource(Res.string.local_history),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontFamily = FontFamily.Monospace,
-                )
+                val code = roomCode
+                if (code == null) {
+                    Text(
+                            stringResource(Res.string.local_history),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontFamily = FontFamily.Monospace,
+                    )
+                } else {
+                    Tip(stringResource(Res.string.cd_copy_room)) {
+                        Text(
+                                code,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.clickable(onClick = onCopyRoom),
+                        )
+                    }
+                }
                 Spacer(Modifier.width(9.dp))
                 Text(
                         when {
