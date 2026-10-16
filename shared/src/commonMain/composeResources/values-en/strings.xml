@@ -103,7 +103,7 @@
     <string name="cd_close_image">Close image</string>
     <string name="cd_open">Open</string>
     <string name="cd_download">Download</string>
-    <string name="cd_edit">Edit this entry</string>
+    <string name="cd_send">Send to the room</string>
     <string name="cd_more">More actions</string>
     <string name="cd_pin">Pin</string>
     <string name="cd_unpin">Unpin</string>

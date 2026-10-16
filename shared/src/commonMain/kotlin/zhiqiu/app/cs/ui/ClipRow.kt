@@ -213,7 +213,9 @@ internal fun ClipRow(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!isFile) {
-                    RowAction(AppIcons.Edit, stringResource(Res.string.cd_edit), onClick = onEdit)
+                    RowAction(AppIcons.Send, stringResource(Res.string.cd_send), enabled = online) {
+                        model.sendText(item.text)
+                    }
                 }
                 if (!isFile || copyAsImage || copyAsFile) {
                     RowAction(AppIcons.Copy, copyLabel) { model.copy(item) }
@@ -239,6 +241,10 @@ internal fun ClipRow(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
                             modifier = Modifier.width(216.dp),
                     ) {
+                        MenuAction(AppIcons.Edit, Res.string.act_edit, enabled = !isFile) {
+                            menu = false
+                            onEdit()
+                        }
                         MenuAction(AppIcons.Note, Res.string.act_note) {
                             menu = false
                             onNote()

@@ -103,7 +103,7 @@
     <string name="cd_close_image">关闭大图</string>
     <string name="cd_open">打开</string>
     <string name="cd_download">下载</string>
-    <string name="cd_edit">编辑这条内容</string>
+    <string name="cd_send">发送到房间</string>
     <string name="cd_more">更多操作</string>
     <string name="cd_pin">置顶</string>
     <string name="cd_unpin">取消置顶</string>
@@ -111,6 +111,7 @@
     <string name="act_undo">撤销</string>
     <string name="cd_undo">撤销删除</string>
     <string name="act_note">写备注</string>
+    <string name="act_edit">编辑内容</string>
     <string name="act_transform">文本处理</string>
     <string name="act_translate">中英互译</string>
     <string name="act_detail">查看详情</string>
