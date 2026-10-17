@@ -61,7 +61,7 @@
     <string name="hint_offline">Offline: this list is only your local history</string>
     <string name="hint_manual_send">Browsers never read the clipboard in background: copy, then press Send clipboard, or use New to paste manually</string>
     <string name="hint_no_picker">This platform cannot pick files yet</string>
-    <string name="shortcuts_hint">Up/Down select · Enter copy/open · F2 edit · Ctrl+D duplicate · Ctrl+Shift+Up/Down reorder · Del remove · Ctrl+Z undo · Ctrl+A select · Ctrl+N new · Ctrl+F search · Esc cancel</string>
+    <string name="shortcuts_hint">↑↓ select · Enter copy/open · F2 edit · %1$s+D duplicate · %1$s+Shift+↑↓ reorder · Del remove · %1$s+Z undo · %1$s+A select all · %1$s+N new · %1$s+F search · Esc cancel</string>
 
     <string name="clear_all_title">Clear all history?</string>
     <string name="clear_all_body">Only these locally stored entries are deleted. The other end of the room and files already downloaded stay untouched.</string>

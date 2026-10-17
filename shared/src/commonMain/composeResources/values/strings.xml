@@ -61,7 +61,7 @@
     <string name="hint_offline">未连接：这里只做本机历史浏览</string>
     <string name="hint_manual_send">浏览器不会后台读剪贴板：复制后点“发送剪贴板”，或用“新建”手动粘贴</string>
     <string name="hint_no_picker">本机暂不支持挑选文件</string>
-    <string name="shortcuts_hint">↑↓ 选择 · Enter 复制/打开 · F2 编辑 · Ctrl+D 副本 · Ctrl+Shift+↑↓ 排序 · Del 删除 · Ctrl+Z 撤销 · Ctrl+A 多选 · Ctrl+N 新建 · Ctrl+F 搜索 · Esc 取消</string>
+    <string name="shortcuts_hint">↑↓ 选择 · Enter 复制/打开 · F2 编辑 · %1$s+D 副本 · %1$s+Shift+↑↓ 排序 · Del 删除 · %1$s+Z 撤销 · %1$s+A 多选 · %1$s+N 新建 · %1$s+F 搜索 · Esc 取消</string>
 
     <string name="clear_all_title">清空全部历史？</string>
     <string name="clear_all_body">只删除本机保存的这些条目，房间另一端的历史与已经收到的文件不受影响。</string>

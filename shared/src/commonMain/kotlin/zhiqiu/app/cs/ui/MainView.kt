@@ -147,6 +147,11 @@ internal fun MainView(
     val barLift by animateDpAsState(if (picking) 78.dp else 0.dp, tween(M3.MEDIUM_2, easing = M3.STANDARD), label = "barLift")
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
+    // 删除/撤销会让带焦点的那一行从树上消失，焦点一丢，挂在根节点上的快捷键全部失效
+    // （macOS 上就是「删完条目按 Cmd+Z 没反应」）。undoDepth 一变就把焦点还给根节点。
+    LaunchedEffect(undoDepth) {
+        if (undoDepth > 0) runCatching { rootFocus.requestFocus() }
+    }
     LaunchedEffect(items.size) { if (selected >= items.size) selected = items.size - 1 }
     LaunchedEffect(selected) { if (selected >= 0) listState.animateScrollToItem(selected) }
     LaunchedEffect(Unit) {
@@ -247,9 +252,9 @@ internal fun MainView(
                         } else {
                             false
                         }
-            Key.Delete -> deleteTargets()
-            // macOS 上 Cmd+Backspace 才是「往前删」，单独按 Backspace 不接管，免得打字时误删。
-            Key.Backspace -> modifier && deleteTargets()
+            // 列表聚焦时退格/Delete 都按「删除条目」处理（Finder 的直觉，macOS 的退格键就是 Delete）。
+            // 搜索框有自己的退格行为，searchFocused 时不让它渗透到列表；对话框是独立窗口，按键根本到不了这。
+            Key.Delete, Key.Backspace -> !searchFocused && deleteTargets()
             Key.F2 -> {
                 val item = cursorItem
                 if (!searchFocused && item != null && item.kind != ClipRepository.KIND_FILE) {
@@ -313,7 +318,7 @@ internal fun MainView(
     fun hasOverlay() =
             composingNew || confirmClear || safetyNumber != null || shareOpen || helpOpen ||
                     editing != null || noting != null || transforming != null || translating != null ||
-                    inspecting != null || zooming != null
+                    inspecting != null || zooming != null || moving != null
 
     fun closeOverlay() {
         when {
@@ -327,8 +332,14 @@ internal fun MainView(
             transforming != null -> transforming = null
             translating != null -> translating = null
             inspecting != null -> inspecting = null
+            moving != null -> moving = null
             composingNew -> composingNew = false
         }
+    }
+
+    // 遮罩（对话框/面板）关闭后把焦点还给列表：不恢复的话焦点随弹层一起消失，后续快捷键全部失灵。
+    LaunchedEffect(hasOverlay()) {
+        if (!hasOverlay()) runCatching { rootFocus.requestFocus() }
     }
 
     DisposableEffect(Unit) {
@@ -894,13 +905,18 @@ private fun Toolbar(
 }
 
 @Composable
-private fun hintFor(model: AppModel, online: Boolean): String =
-        when {
-            !online -> stringResource(Res.string.hint_offline)
-            !model.supportsClipboardAutoSync -> stringResource(Res.string.hint_manual_send)
-            !model.supportsFilePicker -> stringResource(Res.string.hint_no_picker)
-            else -> stringResource(Res.string.shortcuts_hint)
-        }
+private fun hintFor(model: AppModel, online: Boolean): String {
+    // macOS/iOS 显示 ⌘ 修饰键，其他平台显示 Ctrl——跟用户键盘上的真实按键对齐。
+    val modifier = if (model.deviceOs.isAppleOs()) "⌘" else "Ctrl"
+    return when {
+        !online -> stringResource(Res.string.hint_offline)
+        !model.supportsClipboardAutoSync -> stringResource(Res.string.hint_manual_send)
+        !model.supportsFilePicker -> stringResource(Res.string.hint_no_picker)
+        else -> stringResource(Res.string.shortcuts_hint, modifier)
+    }
+}
+
+private fun String.isAppleOs(): Boolean = this == "macOS" || this == "iOS" || this == "iPadOS"
 
 private fun chordKey(name: String): Key? =
         when (name.lowercase()) {

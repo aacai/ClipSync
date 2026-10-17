@@ -37,7 +37,7 @@ internal object AppIcons {
     val Top: ImageVector = icon("top", VerticalAlignTopPath)
     val Bottom: ImageVector = icon("bottom", VerticalAlignBottomPath)
     val Position: ImageVector = icon("position", FormatListNumberedPath)
-    val SelectAll: ImageVector = icon("selectAll", DoneAllPath)
+    val SelectAll: ImageVector = icon("selectAll", SelectAllPath)
     val Duplicate: ImageVector = icon("duplicate", FilterNonePath)
     val Transform: ImageVector = icon("transform", TextFormatPath)
     val Translate: ImageVector = icon("translate", TranslatePath)
@@ -78,8 +78,9 @@ private const val VerticalAlignBottomPath = "M8,13h3V3h2v10h3l-4,4 -4,-4zM4,19v2
 private const val FormatListNumberedPath =
         "M2,17h2v0.5H3v1h1v0.5H2v1h3v-4H2v1zM3,8h1V4H2v1h1v3zM2,11h1.8L2,13.1v0.9h3v-1H3.2L5,10.9V10H2v1zM20,4h-8v2h8V4zM20,12h-8v2h8v-2zM20,20h-8v2h8v-2z"
 
-private const val DoneAllPath =
-        "M18,7l-1.41,-1.41 -6.34,6.34 1.41,1.41L18,7zM22.24,5.59L11.66,16.17 7.48,12l-1.41,1.41L11.66,19l12,-12 -1.42,-1.41zM0.41,13.41L4,17l1.41,-1.41L1.83,12 0.41,13.41z"
+/** 多选：空勾选框（check_box_outline_blank），「进入多选态」的中性按钮。 */
+private const val SelectAllPath =
+        "M19,5v14H5V5H19M19,3H5C3.9,3 3,3.9 3,5v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2V5c0,-1.1-0.9,-2-2,-2L19,3z"
 
 private const val FilterNonePath =
         "M3,5L1,5v16c0,1.1 0.9,2 2,2h16v-2L3,21L3,5zM21,1L7,1c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2L23,3c0,-1.1 -0.9,-2 -2,-2zM21,17L7,17L7,3h14v14z"
