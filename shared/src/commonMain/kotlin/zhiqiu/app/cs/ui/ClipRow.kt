@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,6 +67,9 @@ import zhiqiu.app.cs.resources.*
 
 internal val ROW_HORIZONTAL_PADDING = 14.dp
 
+/** 左侧编号栏：右对齐，三位数也放得下。 */
+private val NUMBER_WIDTH = 24.dp
+
 /** 正文整段显示，行高跟着内容走；只给超长内容留个兜底上限。 */
 private const val MAX_BODY_LINES = 24
 
@@ -74,6 +78,7 @@ internal fun ClipRow(
         model: AppModel,
         item: ClipItem,
         now: Long,
+        position: Int,
         cursor: Boolean,
         picked: Boolean,
         selectionActive: Boolean,
@@ -159,7 +164,20 @@ internal fun ClipRow(
 
             val thumbPath = file?.localPath?.takeIf { isImage(file.mime) }
             val thumb = rememberImageBitmap(thumbPath, THUMB_MAX_SIDE) { model.cachedBytes(item) }
+            Box(
+                    modifier = Modifier.width(NUMBER_WIDTH).padding(top = 7.dp),
+                    contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text(
+                        text = position.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = if (cursor) FontWeight.SemiBold else FontWeight.Normal,
+                        color = badge,
+                )
+            }
             if (thumb != null) {
+                Spacer(Modifier.width(10.dp))
                 Box(
                         modifier =
                                 Modifier.size(32.dp)
@@ -173,16 +191,6 @@ internal fun ClipRow(
                             modifier = Modifier.fillMaxSize(),
                     )
                 }
-            } else {
-                IconBadge(
-                        icon =
-                                when {
-                                    !isFile -> AppIcons.Clipboard
-                                    file != null && isImage(file.mime) -> AppIcons.Image
-                                    else -> AppIcons.Description
-                                },
-                        tint = badge,
-                )
             }
 
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp, top = 5.dp)) {
@@ -472,22 +480,6 @@ internal fun RowAction(
                     modifier = Modifier.size(18.dp),
             )
         }
-    }
-}
-
-@Composable
-internal fun IconBadge(icon: ImageVector, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    val size = 32.dp
-    Box(
-            modifier =
-                    Modifier.size(size)
-                            .background(
-                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                                    MaterialTheme.shapes.extraSmall,
-                            ),
-            contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.52f))
     }
 }
 

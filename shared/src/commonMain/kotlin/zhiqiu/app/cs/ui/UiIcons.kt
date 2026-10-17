@@ -21,8 +21,6 @@ internal object AppIcons {
     val Refresh: ImageVector = icon("refresh", RefreshPath)
     val Check: ImageVector = icon("check", CheckCirclePath)
     val Warning: ImageVector = icon("warning", WarningPath)
-    val Image: ImageVector = icon("image", ImageOutlinePath)
-    val Description: ImageVector = icon("description", DescriptionPath)
     val Key: ImageVector = icon("key", VpnKeyPath)
     val Lock: ImageVector = icon("lock", LockPath)
     val Devices: ImageVector = icon("devices", LaptopPath)
@@ -140,12 +138,6 @@ private const val CheckCirclePath =
     "M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM10,17l-5,-5 1.41,-1.41L10,14.17l7.59,-7.59L19,8l-9,9z"
 
 private const val WarningPath = "M1,21h22L12,2 1,21zM13,18h-2v-2h2v2zM13,14h-2v-4h2v4z"
-
-private const val ImageOutlinePath =
-    "M21,19V5c0,-1.1 -0.9,-2 -2,-2H5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2zM8.5,8.5c0,0.83 -0.67,1.5 -1.5,1.5S5.5,9.33 5.5,8.5 6.17,7 7,7s1.5,0.67 1.5,1.5zM19,17l-4.5,-6 -3.5,4.5 -2.5,-3L5,17h14z"
-
-private const val DescriptionPath =
-    "M14,2H6c-1.1,0 -1.99,0.9 -1.99,2L4,20c0,1.1 0.89,2 1.99,2H18c1.1,0 2,-0.9 2,-2V8l-6,-6zM16,18H8v-2h8v2zM16,14H8v-2h8v2zM13,9V3.5L18.5,9H13z"
 
 private const val VpnKeyPath =
     "M12.65,10C11.83,7.67 9.61,6 7,6c-3.31,0 -6,2.69 -6,6s2.69,6 6,6c2.61,0 4.83,-1.67 5.65,-4H17v4h4v-4h2v-2H12.65zM7,14c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2z"

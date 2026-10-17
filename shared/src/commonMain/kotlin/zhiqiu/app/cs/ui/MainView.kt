@@ -398,6 +398,7 @@ internal fun MainView(
                                             model = model,
                                             item = item,
                                             now = now,
+                                            position = index + 1,
                                             cursor = index == selected,
                                             picked = item.id in picked,
                                             selectionActive = picking,
