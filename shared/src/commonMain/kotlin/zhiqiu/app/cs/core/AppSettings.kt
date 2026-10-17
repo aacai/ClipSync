@@ -4,7 +4,6 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.io.encoding.Base64
 
 enum class ThemeMode {
     System,
@@ -20,7 +19,12 @@ enum class AppLanguage(val tag: String?) {
 
 internal expect fun platformSettings(): Settings
 
-class AppSettings(private val store: Settings = platformSettings()) {
+class AppSettings(
+    private val store: Settings = platformSettings(),
+    seed: String = installId(),
+) {
+
+    private val vault = RoomVault(store, seed)
 
     private val _themeMode = MutableStateFlow(themeOf(store.getStringOrNull(KEY_THEME)))
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
@@ -50,7 +54,7 @@ class AppSettings(private val store: Settings = platformSettings()) {
         _rememberRoom.value = enabled
         store.putBoolean(KEY_REMEMBER_ROOM, enabled)
         if (!enabled) {
-            clearRoomSession()
+            forgetRoomKey()
             setResidentSync(false)
         }
     }
@@ -121,30 +125,35 @@ class AppSettings(private val store: Settings = platformSettings()) {
         store.putBoolean(KEY_RESIDENT_SYNC, enabled)
     }
 
-    /**
-     * 上次房间：存 Argon2id 派生密钥而不是明文密码。密钥是按房间码加盐的，
-     * 存储被翻出来最多丢这一间房，不会牵出用户在别处复用的密码。
-     */
-    fun saveRoomSession(roomCode: String, roomKey: ByteArray) {
-        if (!_rememberRoom.value || roomKey.size != RoomCrypto.KEY_SIZE) return
+    fun rememberLastRoomCode(roomCode: String) {
+        if (roomCode.isBlank()) return
         store.putString(KEY_ROOM_CODE, roomCode)
-        store.putString(KEY_ROOM_KEY, Base64.encode(roomKey))
+    }
+
+    fun lastRoomCode(): String? = store.getStringOrNull(KEY_ROOM_CODE)?.takeIf { it.isNotBlank() }
+
+    fun lastRoomPassword(): String = vault.read(KEY_ROOM_PASSWORD) ?: ""
+
+    fun saveRoomSession(roomCode: String, roomKey: ByteArray, password: String) {
+        if (roomKey.size != RoomCrypto.KEY_SIZE) return
+        rememberLastRoomCode(roomCode)
+        if (!_rememberRoom.value) return
+        vault.writeBytes(KEY_ROOM_KEY, roomKey)
+        vault.write(KEY_ROOM_PASSWORD, password)
     }
 
     fun hasRoomSession(): Boolean = _rememberRoom.value && roomSession() != null
 
     fun roomSession(): Pair<String, ByteArray>? {
         val code = store.getStringOrNull(KEY_ROOM_CODE) ?: return null
-        val key = store.getStringOrNull(KEY_ROOM_KEY)
-            ?.let { runCatching { Base64.decode(it) }.getOrNull() }
-            ?: return null
+        val key = vault.readBytes(KEY_ROOM_KEY) ?: return null
         if (code.isBlank() || key.size != RoomCrypto.KEY_SIZE) return null
         return code to key
     }
 
-    fun clearRoomSession() {
-        store.remove(KEY_ROOM_CODE)
-        store.remove(KEY_ROOM_KEY)
+    fun forgetRoomKey() {
+        vault.forget(KEY_ROOM_KEY)
+        vault.forget(KEY_ROOM_PASSWORD)
     }
 
     companion object {
@@ -166,6 +175,7 @@ class AppSettings(private val store: Settings = platformSettings()) {
         private const val KEY_NICKNAME = "device.nickname"
         private const val KEY_ROOM_CODE = "room.code"
         private const val KEY_ROOM_KEY = "room.key"
+        private const val KEY_ROOM_PASSWORD = "room.password"
 
         private const val MAX_NICKNAME = 24
 

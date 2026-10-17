@@ -33,6 +33,7 @@ class AppModelLeaveRoomTest {
 
     private val room = "ABC123"
     private val key = ByteArray(RoomCrypto.KEY_SIZE) { 7 }
+    private val password = "hunter2"
 
     @Test
     fun `leaving the room asks first and only then lets go`() = runTest {
@@ -82,6 +83,39 @@ class AppModelLeaveRoomTest {
         runCurrent()
 
         assertEquals(false, harness.model.leavePrompt.value)
+    }
+
+    @Test
+    fun `leaving the room keeps the code but drops the credentials`() = runTest {
+        val harness = Harness(backgroundScope)
+        runCurrent()
+
+        harness.model.confirmLeaveRoom()
+        runCurrent()
+
+        assertEquals(null, harness.settings.roomSession())
+        assertEquals("", harness.settings.lastRoomPassword())
+        assertEquals(room, harness.settings.lastRoomCode())
+        assertEquals(room, harness.model.roomCode.value)
+    }
+
+    @Test
+    fun `the remembered password is in the field when the app opens`() = runTest {
+        val harness = Harness(backgroundScope)
+
+        assertEquals(password, harness.model.password.value)
+    }
+
+    @Test
+    fun `the last code is refilled even when remembering is off`() = runTest {
+        val settings = AppSettings(MapSettings(mutableMapOf()), "test-install")
+        settings.setRememberRoom(false)
+        settings.rememberLastRoomCode(room)
+        val model = AppModel(backgroundScope, platform(FakeClipboard()), settings, RecordingLinks())
+        runCurrent()
+
+        assertEquals(room, model.roomCode.value)
+        assertEquals(null, model.joinedRoom.value)
     }
 
     @Test
@@ -149,11 +183,11 @@ class AppModelLeaveRoomTest {
     ) {
         val clipboard = clipboard
         val links = links
-        val settings = AppSettings(MapSettings(mutableMapOf()))
+        val settings = AppSettings(MapSettings(mutableMapOf()), "test-install")
         val model: AppModel
 
         init {
-            if (savedRoom) settings.saveRoomSession(room, key)
+            if (savedRoom) settings.saveRoomSession(room, key, password)
             model = AppModel(scope, platform(clipboard), settings, links)
         }
     }

@@ -235,7 +235,7 @@
     <string name="language_english">English</string>
     <string name="language_restart_hint">语言改动会在下次启动应用后生效</string>
     <string name="setting_remember_room">记住房间</string>
-    <string name="setting_remember_room_hint">重开时自动回到上次的房间。只保存派生出的房间密钥，不保存你输入的密码；离开房间即清除</string>
+    <string name="setting_remember_room_hint">重开时自动回到上次的房间。房间码明文存着方便重填，派生密钥和你输入的密码加密后存在本机设置里；离开房间即清除</string>
     <string name="setting_launch_at_login">开机自动启动</string>
     <string name="setting_launch_at_login_hint">登录后自动开始守剪贴板，先收进托盘不弹主窗口；要界面就点托盘图标</string>
     <string name="setting_watch_clipboard">记录剪贴板</string>

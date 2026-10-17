@@ -240,7 +240,7 @@
     <string name="language_english">English</string>
     <string name="language_restart_hint">Language changes take effect the next time the app starts</string>
     <string name="setting_remember_room">Remember this room</string>
-    <string name="setting_remember_room_hint">Rejoin the last room when the app opens again. Only the derived room key is kept, never the password you typed; leaving the room erases it</string>
+    <string name="setting_remember_room_hint">Rejoin the last room when the app opens again. The room code stays in plain text so the field can be refilled; the derived key and the password you typed are encrypted before they go into this device's settings, and leaving the room erases them</string>
     <string name="setting_launch_at_login">Launch at login</string>
     <string name="setting_launch_at_login_hint">Start watching the clipboard as soon as you sign in, kept in the tray with no window. Click the tray icon when you want the window</string>
     <string name="setting_watch_clipboard">Watch clipboard</string>

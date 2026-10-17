@@ -81,10 +81,10 @@ class AppModel internal constructor(
     private val _invalidQuery = MutableStateFlow(false)
     val invalidQuery: StateFlow<Boolean> = _invalidQuery.asStateFlow()
 
-    private val _roomCode = MutableStateFlow(randomRoomCode())
+    private val _roomCode = MutableStateFlow(settings.lastRoomCode() ?: randomRoomCode())
     val roomCode: StateFlow<String> = _roomCode.asStateFlow()
 
-    private val _password = MutableStateFlow("")
+    private val _password = MutableStateFlow(settings.lastRoomPassword())
     val password: StateFlow<String> = _password.asStateFlow()
 
     private val _connecting = MutableStateFlow(false)
@@ -424,8 +424,9 @@ class AppModel internal constructor(
 
     private fun persistRoomSession() {
         val room = _joinedRoom.value ?: return
+        settings.rememberLastRoomCode(room)
         val key = engine.roomKeyMaterial() ?: return
-        settings.saveRoomSession(room, key)
+        settings.saveRoomSession(room, key, _password.value)
         key.fill(0)
     }
 
@@ -451,7 +452,7 @@ class AppModel internal constructor(
         connectJob?.cancel()
         wantedRoom = null
         _joinedRoom.value = null
-        settings.clearRoomSession()
+        settings.forgetRoomKey()
         if (settings.residentSync.value) settings.setResidentSync(false)
         scope.launch { engine.stop() }
     }

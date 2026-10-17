@@ -124,7 +124,7 @@ class AppModelUpdateTest {
         private val releases: ReleaseSource,
         private val downloads: PlatformDownloads = UnavailableDownloads,
     ) {
-        val settings = AppSettings(MapSettings(mutableMapOf()))
+        val settings = AppSettings(MapSettings(mutableMapOf()), "test-install")
         val model =
                 AppModel(
                         scope,
