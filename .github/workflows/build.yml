@@ -134,6 +134,12 @@ jobs:
       - name: Build desktop package
         run: ./gradlew :desktopApp:${{ matrix.task }} --stacktrace
 
+      - name: Surface jpackage error log on failure
+        if: failure()
+        run: |
+          find desktopApp/build/compose/logs -name 'jpackage-*-err.txt' -print -exec cat {} \; 2>/dev/null || true
+          find desktopApp/build/compose/logs -name 'jpackage-*-out.txt' -print -exec cat {} \; 2>/dev/null || true
+
       - name: Rename packages to ClipSync-<version>-<arch>
         run: |
           VER=$(sed -nE 's/^extra\["appVersion"\] = "([^"]+)".*/\1/p' build.gradle.kts | head -1)
