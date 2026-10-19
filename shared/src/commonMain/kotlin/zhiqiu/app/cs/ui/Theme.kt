@@ -18,66 +18,77 @@ import zhiqiu.app.cs.core.ThemeMode
 
 internal val LightColors =
         lightColorScheme(
-                primary = Color(0xFF0969DA),
+                primary = Color(0xFFC0426B),
                 onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFDDF4FF),
-                onPrimaryContainer = Color(0xFF0A3060),
-                onBackground = Color(0xFF1F2328),
-                background = Color(0xFFF2F5F9),
-                surface = Color(0xFFFFFFFF),
-                onSurface = Color(0xFF1F2328),
-                surfaceVariant = Color(0xFFEEF1F4),
-                onSurfaceVariant = Color(0xFF57606A),
-                surfaceContainer = Color(0xFFF3F5F7),
-                surfaceContainerHigh = Color(0xFFEAEEF2),
-                outline = Color(0xFF6E7781),
-                outlineVariant = Color(0xFFCBD5E1),
-                error = Color(0xFFCF222E),
+                primaryContainer = Color(0xFFFBDCE4),
+                onPrimaryContainer = Color(0xFF6E1235),
+                secondary = Color(0xFF7C9A82),
+                onSecondary = Color(0xFFFFFFFF),
+                secondaryContainer = Color(0xFFE3EFE5),
+                onSecondaryContainer = Color(0xFF2C4A34),
+                onBackground = Color(0xFF241A1E),
+                background = Color(0xFFFBF3F5),
+                surface = Color(0xFFFFFBFB),
+                onSurface = Color(0xFF241A1E),
+                surfaceVariant = Color(0xFFF4E7EB),
+                onSurfaceVariant = Color(0xFF6B5560),
+                surfaceContainer = Color(0xFFF9EDF0),
+                surfaceContainerHigh = Color(0xFFF3E2E8),
+                outline = Color(0xFFA08794),
+                outlineVariant = Color(0xFFE7D5DD),
+                error = Color(0xFFC2453F),
                 onError = Color(0xFFFFFFFF),
-                errorContainer = Color(0xFFFFEBE9),
-                onErrorContainer = Color(0xFF86181D),
-                // 吐司用反面色：浅色主题深灰底白字，深色主题浅灰底深字
-                inverseSurface = Color(0xFF2B2F36),
-                inverseOnSurface = Color(0xFFF2F4F7),
+                errorContainer = Color(0xFFFCE9E7),
+                onErrorContainer = Color(0xFF7A1B18),
+                inverseSurface = Color(0xFF2A1F24),
+                inverseOnSurface = Color(0xFFFBEEF1),
         )
 
 internal val DarkColors =
         darkColorScheme(
-                primary = Color(0xFF4493F8),
-                onPrimary = Color(0xFF0D1117),
-                primaryContainer = Color(0xFF143A66),
-                onPrimaryContainer = Color(0xFFB6E3FF),
-                onBackground = Color(0xFFE6EDF3),
-                background = Color(0xFF0A0E14),
-                surface = Color(0xFF161B22),
-                onSurface = Color(0xFFE6EDF3),
-                surfaceVariant = Color(0xFF21262D),
-                onSurfaceVariant = Color(0xFF9DA7B3),
-                surfaceContainer = Color(0xFF161B22),
-                surfaceContainerHigh = Color(0xFF1C2128),
-                outline = Color(0xFF6E7681),
-                outlineVariant = Color(0xFF3D444D),
-                error = Color(0xFFF85149),
-                onError = Color(0xFF0D1117),
-                errorContainer = Color(0xFF490202),
-                onErrorContainer = Color(0xFFFFB4AE),
-                inverseSurface = Color(0xFFE8EBF0),
-                inverseOnSurface = Color(0xFF1B1F26),
+                primary = Color(0xFFF4A8C0),
+                onPrimary = Color(0xFF3D0F20),
+                primaryContainer = Color(0xFF6B2440),
+                onPrimaryContainer = Color(0xFFFFD9E4),
+                secondary = Color(0xFFA3C7AC),
+                onSecondary = Color(0xFF16301C),
+                secondaryContainer = Color(0xFF35503A),
+                onSecondaryContainer = Color(0xFFD5EBD9),
+                onBackground = Color(0xFFF0E4E9),
+                background = Color(0xFF100A0E),
+                surface = Color(0xFF1A1218),
+                onSurface = Color(0xFFF0E4E9),
+                surfaceVariant = Color(0xFF261B21),
+                onSurfaceVariant = Color(0xFFBFA5B0),
+                surfaceContainer = Color(0xFF1E151B),
+                surfaceContainerHigh = Color(0xFF2A1D25),
+                outline = Color(0xFF7A5F6B),
+                outlineVariant = Color(0xFF3A2A33),
+                error = Color(0xFFF87171),
+                onError = Color(0xFF450A0A),
+                errorContainer = Color(0xFF4C1D1D),
+                onErrorContainer = Color(0xFFFFC9C9),
+                inverseSurface = Color(0xFFF0E4E9),
+                inverseOnSurface = Color(0xFF1A1218),
         )
 
 internal val AppShapes =
         Shapes(
-                extraSmall = RoundedCornerShape(8.dp),
-                small = RoundedCornerShape(12.dp),
-                medium = RoundedCornerShape(16.dp),
-                large = RoundedCornerShape(22.dp),
-                extraLarge = RoundedCornerShape(28.dp),
+                extraSmall = RoundedCornerShape(10.dp),
+                small = RoundedCornerShape(14.dp),
+                medium = RoundedCornerShape(18.dp),
+                large = RoundedCornerShape(26.dp),
+                extraLarge = RoundedCornerShape(34.dp),
         )
 
-internal val SuccessGreen = Color(0xFF1A7F37)
-internal val SuccessGreenDark = Color(0xFF3FB950)
-internal val PinAmber = Color(0xFF9A6700)
-internal val PinAmberDark = Color(0xFFD29922)
+internal val SuccessGreen = Color(0xFF15803D)
+internal val SuccessGreenDark = Color(0xFF4ADE80)
+internal val PinAmber = Color(0xFFB45309)
+internal val PinAmberDark = Color(0xFFFBBF24)
+
+internal val AuroraSakura = Color(0xFFF472B6)
+internal val AuroraPeach = Color(0xFFFBA68C)
+internal val AuroraWisteria = Color(0xFFB79BE8)
 
 internal val LocalThemeMode = staticCompositionLocalOf { ThemeMode.System }
 
@@ -93,7 +104,6 @@ internal fun isAppDarkTheme(): Boolean =
 internal fun glassBorder(): Color =
         if (isAppDarkTheme()) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
 
-/** 标题压字重、正文放宽行高、小字加点字距，把层级从默认 M3 规格里拉出来。 */
 private fun Typography.tuned(): Typography =
         copy(
                 titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),

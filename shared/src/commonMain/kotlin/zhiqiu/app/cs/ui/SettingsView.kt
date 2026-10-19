@@ -304,7 +304,7 @@ internal fun SettingsView(
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = MaterialTheme.shapes.large,
+                        cornerRadius = 22.dp,
                 ) {
                     Row(
                             modifier =

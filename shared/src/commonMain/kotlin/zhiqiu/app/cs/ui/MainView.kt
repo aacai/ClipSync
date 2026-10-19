@@ -49,12 +49,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -69,6 +71,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -359,7 +362,7 @@ internal fun MainView(
         onDispose(removeChords)
     }
 
-    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    CompositionLocalProvider(LocalHazeState provides hazeState, LocalWindowSize provides rememberWindowSize()) {
         Box(
                 modifier =
                         Modifier.fillMaxSize()
@@ -447,7 +450,7 @@ internal fun MainView(
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = MaterialTheme.shapes.medium,
+                        cornerRadius = 20.dp,
                 ) {
                     Header(
                             status,
@@ -608,7 +611,10 @@ private fun Banners(
         onShare: () -> Unit,
 ) {
     Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING),
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .padding(horizontal = ROW_HORIZONTAL_PADDING)
+                            .padding(top = 18.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         val progress = transfer
@@ -619,7 +625,7 @@ private fun Banners(
                     } else {
                         stringResource(Res.string.progress_download)
                     }
-            GlassPanel(shape = MaterialTheme.shapes.small, alpha = 0.78f) {
+            GlassPanel(cornerRadius = 14.dp, alpha = 0.78f) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)) {
                     Text(
                             stringResource(
@@ -891,32 +897,8 @@ private fun Toolbar(
                 tinted = MaterialTheme.colorScheme.error,
                 onClick = onClear,
         )
-        Spacer(Modifier.weight(1f))
-        Text(
-                hintFor(model, online),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 11.sp,
-                textAlign = TextAlign.End,
-                maxLines = 2,
-                modifier = Modifier.widthIn(max = 340.dp).padding(end = 6.dp),
-        )
     }
 }
-
-@Composable
-private fun hintFor(model: AppModel, online: Boolean): String {
-    // macOS/iOS 显示 ⌘ 修饰键，其他平台显示 Ctrl——跟用户键盘上的真实按键对齐。
-    val modifier = if (model.deviceOs.isAppleOs()) "⌘" else "Ctrl"
-    return when {
-        !online -> stringResource(Res.string.hint_offline)
-        !model.supportsClipboardAutoSync -> stringResource(Res.string.hint_manual_send)
-        !model.supportsFilePicker -> stringResource(Res.string.hint_no_picker)
-        else -> stringResource(Res.string.shortcuts_hint, modifier)
-    }
-}
-
-private fun String.isAppleOs(): Boolean = this == "macOS" || this == "iOS" || this == "iPadOS"
 
 private fun chordKey(name: String): Key? =
         when (name.lowercase()) {
@@ -979,7 +961,7 @@ private fun SelectionBar(
         onDelete: () -> Unit,
         onClose: () -> Unit,
 ) {
-    GlassPanel(modifier = modifier, shape = MaterialTheme.shapes.medium, alpha = 0.82f) {
+    GlassPanel(modifier = modifier, cornerRadius = 22.dp, alpha = 0.82f) {
         Row(
                 modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1024,35 +1006,64 @@ private fun EmptyState(
                 modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(24.dp),
                 contentAlignment = Alignment.Center,
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                        if (query.isBlank()) AppIcons.Clipboard else AppIcons.Search,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.size(40.dp),
-                )
-                Spacer(Modifier.height(10.dp))
+            Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.widthIn(max = 340.dp),
+            ) {
+                Box(
+                        modifier =
+                                Modifier.size(62.dp)
+                                        .background(
+                                                Brush.linearGradient(
+                                                        listOf(
+                                                                MaterialTheme.colorScheme.primary.copy(
+                                                                        alpha = 0.18f
+                                                                ),
+                                                                MaterialTheme.colorScheme.secondary.copy(
+                                                                        alpha = 0.10f
+                                                                ),
+                                                        )
+                                                ),
+                                                MaterialTheme.shapes.extraLarge,
+                                        )
+                                        .border(1.dp, glassBorder(), MaterialTheme.shapes.extraLarge),
+                        contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                            if (query.isBlank()) AppIcons.Clipboard else AppIcons.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
                 Text(
                         if (query.isBlank()) {
-                            stringResource(Res.string.empty_title)
+                            stringResource(Res.string.empty_state_title)
                         } else {
                             stringResource(Res.string.empty_no_match, query)
                         },
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                        stringResource(Res.string.empty_state_hint),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                // 空列表别只摆一句话：在线时直接把「新建条目」摆出来当行动引导
                 if (online && query.isBlank()) {
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(20.dp))
                     Button(
                             onClick = onNew,
                             shape = MaterialTheme.shapes.small,
-                            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 11.dp),
                     ) {
                         Icon(AppIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(7.dp))
-                        Text(stringResource(Res.string.new_entry))
+                        Text(stringResource(Res.string.new_entry), fontWeight = FontWeight.Medium)
                     }
                 }
             }

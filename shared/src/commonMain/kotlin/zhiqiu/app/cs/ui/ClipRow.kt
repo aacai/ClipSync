@@ -116,7 +116,8 @@ internal fun ClipRow(
     val colorSpec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
     val background by animateColorAsState(rowBackground(cursor, picked), colorSpec, label = "rowBg")
     val edge by animateColorAsState(rowBorder(cursor, picked), colorSpec, label = "rowEdge")
-    // 桌面/网页：快捷操作默认收起，指针掠过（或键盘聚焦）才展开；勾选/选中不再触发显隐。触摸设备常驻。
+    // 窄屏（WindowSizeClass.Compact）：行内不放快捷操作，全部收进「更多」菜单，列表更干净。
+    val compact = LocalWindowSize.current.isCompact
     val rowInteraction = remember { MutableInteractionSource() }
     val hovered by rowInteraction.collectIsHoveredAsState()
     val revealQuick = !model.hoverRevealsActions || hovered || cursor
@@ -134,19 +135,25 @@ internal fun ClipRow(
     Surface(
             color = background,
             border = BorderStroke(1.dp, edge),
-            shape = MaterialTheme.shapes.small,
-            modifier = modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 3.dp),
+            shape = MaterialTheme.shapes.medium,
+            modifier = modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 4.dp),
     ) {
-        Row(
-                modifier =
-                        Modifier.clickable(
-                                        interactionSource = rowInteraction,
-                                        indication = LocalIndication.current,
-                                        onClick = onActivate,
-                                )
-                                .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                verticalAlignment = Alignment.Top,
-        ) {
+        Box {
+            Box(
+                    Modifier.fillMaxWidth()
+                            .height(1.dp)
+                            .background(rimHighlight(isAppDarkTheme()))
+            )
+            Row(
+                    modifier =
+                            Modifier.clickable(
+                                            interactionSource = rowInteraction,
+                                            indication = LocalIndication.current,
+                                            onClick = onActivate,
+                                    )
+                                    .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                    verticalAlignment = Alignment.Top,
+            ) {
             AnimatedVisibility(
                     visible = selectionActive,
                     enter =
@@ -165,8 +172,8 @@ internal fun ClipRow(
             val thumbPath = file?.localPath?.takeIf { isImage(file.mime) }
             val thumb = rememberImageBitmap(thumbPath, THUMB_MAX_SIDE) { model.cachedBytes(item) }
             Box(
-                    modifier = Modifier.width(NUMBER_WIDTH).padding(top = 7.dp),
-                    contentAlignment = Alignment.CenterEnd,
+                    modifier = Modifier.width(if (compact) 20.dp else NUMBER_WIDTH).padding(top = 7.dp),
+                    contentAlignment = if (compact) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Text(
                         text = position.toString(),
@@ -233,9 +240,6 @@ internal fun ClipRow(
                 )
             }
 
-            // 右侧操作区始终按完整尺寸占位，hover 只淡入淡出透明度——不动画宽度，
-            // 左侧 weight(1f) 的文本列宽度才恒定，长文本不会因为重排闪烁。
-            // 触摸设备（没有 hover）不进淡出逻辑，行为同旧版。
             val fadeSupported = model.hoverRevealsActions
             val actionsAlpha by animateFloatAsState(
                     if (!fadeSupported || revealQuick) 1f else 0f,
@@ -243,29 +247,39 @@ internal fun ClipRow(
                     label = "actionsAlpha",
             )
             val actionsEnabled = !fadeSupported || revealQuick
-            Row(
-                    modifier = Modifier.alpha(actionsAlpha),
-                    verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (!isFile) {
-                    RowAction(AppIcons.Send, stringResource(Res.string.cd_send), enabled = actionsEnabled && online) {
-                        model.sendText(item.text)
+            if (!compact) {
+                Row(
+                        modifier = Modifier.alpha(actionsAlpha),
+                        verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!isFile) {
+                        RowAction(
+                                AppIcons.Send,
+                                stringResource(Res.string.cd_send),
+                                enabled = actionsEnabled && online,
+                        ) { model.sendText(item.text) }
                     }
+                    if (!isFile || copyAsImage || copyAsFile) {
+                        RowAction(AppIcons.Copy, copyLabel, enabled = actionsEnabled) { model.copy(item) }
+                    }
+                    if (isFile && cached && model.supportsLocalFiles) {
+                        RowAction(AppIcons.OpenInNew, stringResource(Res.string.cd_open), enabled = actionsEnabled) {
+                            model.open(item)
+                        }
+                    } else if (isFile && !cached && model.supportsLocalFiles) {
+                        RowAction(
+                                AppIcons.Download,
+                                stringResource(Res.string.cd_download),
+                                enabled = actionsEnabled,
+                        ) { model.download(item) }
+                    }
+                    RowAction(
+                            AppIcons.Pin,
+                            if (item.pinned) stringResource(Res.string.cd_unpin) else stringResource(Res.string.cd_pin),
+                            active = item.pinned,
+                            enabled = actionsEnabled,
+                    ) { model.togglePin(item) }
                 }
-                if (!isFile || copyAsImage || copyAsFile) {
-                    RowAction(AppIcons.Copy, copyLabel, enabled = actionsEnabled) { model.copy(item) }
-                }
-                if (isFile && cached && model.supportsLocalFiles) {
-                    RowAction(AppIcons.OpenInNew, stringResource(Res.string.cd_open), enabled = actionsEnabled) { model.open(item) }
-                } else if (isFile && !cached && model.supportsLocalFiles) {
-                    RowAction(AppIcons.Download, stringResource(Res.string.cd_download), enabled = actionsEnabled) { model.download(item) }
-                }
-                RowAction(
-                        AppIcons.Pin,
-                        if (item.pinned) stringResource(Res.string.cd_unpin) else stringResource(Res.string.cd_pin),
-                        active = item.pinned,
-                        enabled = actionsEnabled,
-                ) { model.togglePin(item) }
             }
             Box {
                     RowAction(AppIcons.More, stringResource(Res.string.cd_more), onClick = { menu = true })
@@ -278,6 +292,41 @@ internal fun ClipRow(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
                             modifier = Modifier.width(216.dp),
                     ) {
+                        if (compact) {
+                            if (!isFile) {
+                                MenuAction(AppIcons.Send, Res.string.cd_send, enabled = online) {
+                                    menu = false
+                                    model.sendText(item.text)
+                                }
+                            }
+                            MenuAction(
+                                    AppIcons.Copy,
+                                    when {
+                                        copyAsImage -> Res.string.cd_copy_image
+                                        copyAsFile -> Res.string.cd_copy_file
+                                        else -> Res.string.cd_copy_text
+                                    },
+                            ) {
+                                menu = false
+                                model.copy(item)
+                            }
+                            MenuAction(AppIcons.Pin, if (item.pinned) Res.string.cd_unpin else Res.string.cd_pin) {
+                                menu = false
+                                model.togglePin(item)
+                            }
+                            if (isFile && cached && model.supportsLocalFiles) {
+                                MenuAction(AppIcons.OpenInNew, Res.string.cd_open) {
+                                    menu = false
+                                    model.open(item)
+                                }
+                            } else if (isFile && !cached && model.supportsLocalFiles) {
+                                MenuAction(AppIcons.Download, Res.string.cd_download) {
+                                    menu = false
+                                    model.download(item)
+                                }
+                            }
+                            MenuDivider()
+                        }
                         MenuAction(AppIcons.Edit, Res.string.act_edit, enabled = !isFile) {
                             menu = false
                             onEdit()
@@ -342,6 +391,7 @@ internal fun ClipRow(
                         }
                     }
                 }
+        }
         }
     }
 }
