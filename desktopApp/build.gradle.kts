@@ -1,5 +1,4 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.compose.desktop.application.tasks.AbstractJvmToolOperationTask
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -113,16 +112,4 @@ tasks.matching { it.name == "packageDmg" }.configureEach {
     // 不关掉它的话，jpackage 会把上面刚打好的那份盖回去。
     onlyIf { false }
     dependsOn(packageDmgFromAppImage)
-}
-
-// MSI 卸载/升级时若 ClipSync 仍在运行，.exe 被占用会导致 Windows Installer 只能推迟删除并弹出“需要重启”提示。
-// 这里通过 jpackage 的 --win-wix 注入自定义 WiX 模板：在删除文件前用 taskkill 强制结束进程，并抑制重启提示。
-// （--win-wix 仅对 MSI 打包有效，故只挂到 Msi 任务上，避免影响 exe/dmg/deb。）
-tasks.withType<AbstractJvmToolOperationTask>().configureEach {
-    if (name == "packageMsi" || name == "packageReleaseMsi") {
-        freeArgs.addAll(
-            "--win-wix",
-            layout.projectDirectory.file("desktopApp/package/wix/main.wxs").asFile.absolutePath,
-        )
-    }
 }
