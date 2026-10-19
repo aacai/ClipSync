@@ -45,14 +45,31 @@ class ClipRepository(
     }
 
     suspend fun add(item: ClipItem): Boolean {
-        val existing = _items.value.firstOrNull { it.id == item.id }
-        if (existing != null) {
-            replace(existing.copy(ts = item.ts, text = item.text, file = item.file, pinned = item.pinned))
+        val byId = _items.value.firstOrNull { it.id == item.id }
+        if (byId != null) {
+            replace(byId.copy(ts = item.ts, text = item.text, file = item.file, pinned = item.pinned))
+            return false
+        }
+        // 同内容（不同 id）视为同一条：把已有的那条抬到顶部，不再新增重复项。
+        // 这样从列表里点“发送”、或同一条被再次复制/同伴又发了一遍，都不会叠出第二条一样的。
+        val dup = _items.value.firstOrNull { sameContent(it, item) }
+        if (dup != null) {
+            replace(dup.copy(ts = item.ts, order = item.ts))
             return false
         }
         _items.value = (_items.value + item).sortedWith(ordering).take(maxItems)
         persist()
         return true
+    }
+
+    /** 两条条目是否为“同一份内容”：文本比文字，文件比 sha256（没哈希的不强行合并）。 */
+    private fun sameContent(a: ClipItem, b: ClipItem): Boolean {
+        if (a.kind != b.kind) return false
+        return when (a.kind) {
+            KIND_TEXT -> a.text == b.text
+            KIND_FILE -> a.file?.sha256?.isNotBlank() == true && a.file?.sha256 == b.file?.sha256
+            else -> a.text == b.text && a.file == b.file
+        }
     }
 
     suspend fun updateText(id: String, text: String) {

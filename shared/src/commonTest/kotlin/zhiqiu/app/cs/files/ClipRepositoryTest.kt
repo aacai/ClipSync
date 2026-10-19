@@ -49,12 +49,13 @@ class ClipRepositoryTest {
         cached: Boolean = false,
         localPath: String? = null,
         link: String = "http://x/$id",
+        sha256: String = id,
     ) =
         ClipItem(
             id = id, kind = ClipRepository.KIND_FILE, ts = ts,
             senderId = "dev", senderName = "Pixel", text = name,
             file = FileClip(
-                id = id, name = name, mime = "image/png", size = 5, sha256 = "aa",
+                id = id, name = name, mime = "image/png", size = 5, sha256 = sha256,
                 link = link, expiresAt = 99, ts = ts,
                 senderId = "dev", senderName = "Pixel",
                 cached = cached, localPath = localPath,
@@ -98,6 +99,34 @@ class ClipRepositoryTest {
         assertEquals("updated", updated.text)
         assertEquals(9, updated.ts)
         assertEquals(4, store.writes)
+    }
+
+    @Test
+    fun add_same_text_different_id_moves_existing_to_top() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(text("a", ts = 1)) // 已有 "body-a"
+        repo.add(text("b", ts = 2))
+        assertEquals(listOf("b", "a"), repo.items.value.map { it.id })
+
+        // 同内容、不同 id：典型场景是从列表里点“发送”，发送路径用 mid 当 id 再加回本地
+        val added = repo.add(text("x", ts = 9, body = "body-a"))
+        assertFalse(added)
+        assertEquals(2, repo.items.value.size) // 没有叠出第二条
+        assertEquals(listOf("a", "b"), repo.items.value.map { it.id }) // 原有的 "a" 被抬到顶部
+        assertEquals(9, repo.items.value.first().ts)
+    }
+
+    @Test
+    fun add_same_file_sha256_different_id_moves_existing_to_top() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(file("f1", ts = 1, name = "a.png", sha256 = "same"))
+        // 同 sha256、不同 id：模拟同伴又发了一遍同一文件
+        val added = repo.add(file("f2", ts = 5, name = "a.png", sha256 = "same"))
+        assertFalse(added)
+        assertEquals(1, repo.items.value.size)
+        assertEquals("f1", repo.items.value.first().id)
     }
 
     @Test
