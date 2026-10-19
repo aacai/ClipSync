@@ -36,7 +36,12 @@ compose.desktop {
                 packageVersion = jpackageVersion
                 iconFile.set(file("packaging/ClipSync.icns"))
             }
-            windows { packageVersion = jpackageVersion }
+            windows {
+                packageVersion = jpackageVersion
+                // 生成开始菜单项（Win 键才能搜到），并往桌面放一个快捷方式
+                menuGroup = "ClipSync"
+                shortcut = true
+            }
         }
     }
 }
