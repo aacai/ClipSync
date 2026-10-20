@@ -122,7 +122,7 @@ tasks.withType<AbstractJvmToolOperationTask>().configureEach {
     if (name == "packageMsi" || name == "packageReleaseMsi") {
         freeArgs.addAll(
             "--resource-dir",
-            layout.projectDirectory.file("desktopApp/package/wix").asFile.absolutePath,
+            rootProject.layout.projectDirectory.file("desktopApp/package/wix").asFile.absolutePath,
         )
     }
 }
