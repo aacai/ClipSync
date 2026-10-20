@@ -76,8 +76,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -111,7 +109,6 @@ internal fun MainView(
     val inRoom = devices.map { deviceLabel(it.name, it.os) }
             .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
 
-    val hazeState = rememberHazeState()
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val rootFocus = remember { FocusRequester() }
@@ -362,19 +359,16 @@ internal fun MainView(
         onDispose(removeChords)
     }
 
-    CompositionLocalProvider(LocalHazeState provides hazeState, LocalWindowSize provides rememberWindowSize()) {
-        Box(
+    CompositionLocalProvider(LocalWindowSize provides rememberWindowSize()) {
+        AppBackground(
                 modifier =
                         Modifier.fillMaxSize()
                                 .focusRequester(rootFocus)
                                 .focusable()
                                 .onPreviewKeyEvent { handleKey(it) },
-                contentAlignment = Alignment.TopCenter,
         ) {
-            BackdropGlow()
-
             Box(modifier = Modifier.widthIn(max = 940.dp).fillMaxSize().padding(horizontal = 6.dp)) {
-                Column(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
+                Column(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                             targetState = items.isEmpty(),
                             transitionSpec = {
@@ -445,41 +439,43 @@ internal fun MainView(
                     }
                 }
 
-                GlassPanel(
+                GlassCard(
                         modifier =
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        cornerRadius = 20.dp,
+                        shape = RoundedCornerShape(20.dp),
                 ) {
-                    Header(
-                            status,
-                            roomCode,
-                            inRoom,
-                            onLeave,
-                            onShare = { shareOpen = true },
-                            onSettings = onOpenSettings,
-                            onSafety = { safetyNumber = it },
-                            onHelp = { helpOpen = true },
-                            onCopyRoom = { roomCode?.let(model::copyToClipboard) },
-                    )
-                    Toolbar(
-                            model = model,
-                            query = query,
-                            regex = regex,
-                            caseSensitive = caseSensitive,
-                            online = online,
-                            canClear = items.isNotEmpty(),
-                            undoDepth = undoDepth,
-                            picking = picking,
-                            searchFocus = searchFocus,
-                            onSearchFocused = { searchFocused = it },
-                            onToggleSelect = {
-                                if (picking) endPicking() else picking = true
-                            },
-                            onNew = { composingNew = true },
-                            onClear = { confirmClear = true },
-                    )
+                    Column(Modifier.fillMaxWidth()) {
+                        Header(
+                                status,
+                                roomCode,
+                                inRoom,
+                                onLeave,
+                                onShare = { shareOpen = true },
+                                onSettings = onOpenSettings,
+                                onSafety = { safetyNumber = it },
+                                onHelp = { helpOpen = true },
+                                onCopyRoom = { roomCode?.let(model::copyToClipboard) },
+                        )
+                        Toolbar(
+                                model = model,
+                                query = query,
+                                regex = regex,
+                                caseSensitive = caseSensitive,
+                                online = online,
+                                canClear = items.isNotEmpty(),
+                                undoDepth = undoDepth,
+                                picking = picking,
+                                searchFocus = searchFocus,
+                                onSearchFocused = { searchFocused = it },
+                                onToggleSelect = {
+                                    if (picking) endPicking() else picking = true
+                                },
+                                onNew = { composingNew = true },
+                                onClear = { confirmClear = true },
+                        )
+                    }
                 }
 
                 AnimatedVisibility(
@@ -625,7 +621,7 @@ private fun Banners(
                     } else {
                         stringResource(Res.string.progress_download)
                     }
-            GlassPanel(cornerRadius = 14.dp, alpha = 0.78f) {
+            GlassCard(shape = RoundedCornerShape(14.dp)) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)) {
                     Text(
                             stringResource(
@@ -961,9 +957,9 @@ private fun SelectionBar(
         onDelete: () -> Unit,
         onClose: () -> Unit,
 ) {
-    GlassPanel(modifier = modifier, cornerRadius = 22.dp, alpha = 0.82f) {
+    GlassCard(modifier = modifier, shape = RoundedCornerShape(22.dp)) {
         Row(
-                modifier = Modifier.padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

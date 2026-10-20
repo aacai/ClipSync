@@ -90,6 +90,27 @@ internal val AuroraSakura = Color(0xFFF472B6)
 internal val AuroraPeach = Color(0xFFFBA68C)
 internal val AuroraWisteria = Color(0xFFB79BE8)
 
+// 与 HouseStudy 对齐的配色对象（毛玻璃方案 Glass.kt 使用 Background 作底色）。
+object Palette {
+    val Background = Color(0xFF0E1014)
+    val Surface = Color(0xFF161A21)
+    val SurfaceHigh = Color(0xFF1E242D)
+    val Primary = Color(0xFF4C8DFF)
+    val Success = Color(0xFF34C759)
+    val Danger = Color(0xFFFF453A)
+    val TextPrimary = Color(0xFFF2F2F7)
+    val TextSecondary = Color(0xFF9AA1AD)
+    val TextMuted = Color(0xFF6B7280)
+
+    val Gold = Primary
+    val GoldSoft = Primary
+    val Jade = Success
+    val Crimson = Danger
+    val Ink = Background
+    val InkMid = Surface
+    val InkSoft = SurfaceHigh
+}
+
 internal val LocalThemeMode = staticCompositionLocalOf { ThemeMode.System }
 
 @Composable

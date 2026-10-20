@@ -57,9 +57,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -100,7 +99,6 @@ internal fun SettingsView(
     val languageSupport = appLanguageSupport
     val showLanguage = languageSupport != AppLanguageSupport.Unsupported
 
-    val hazeState = rememberHazeState()
     val density = LocalDensity.current
     val rootFocus = remember { FocusRequester() }
     var barHeight by remember { mutableStateOf(0.dp) }
@@ -124,30 +122,26 @@ internal fun SettingsView(
         onDispose(removeChords)
     }
 
-    CompositionLocalProvider(LocalHazeState provides hazeState) {
-        Box(
-                modifier =
-                        Modifier.fillMaxSize()
-                                .focusRequester(rootFocus)
-                                .focusable()
-                                .onPreviewKeyEvent { event ->
-                                        event.type == KeyEventType.KeyDown &&
-                                                event.key == Key.Escape &&
-                                                !pickingTheme &&
-                                                !pickingLanguage &&
-                                                !pickingRetention &&
-                                                !editingNickname &&
-                                                run {
-                                                        onBack()
-                                                        true
-                                                }
-                                },
-                contentAlignment = Alignment.TopCenter,
-        ) {
-            BackdropGlow()
-
-            Box(modifier = Modifier.widthIn(max = 640.dp).fillMaxSize().padding(horizontal = 10.dp)) {
-                Column(modifier = Modifier.fillMaxSize().hazeSource(hazeState)) {
+    AppBackground(
+            modifier =
+                    Modifier.fillMaxSize()
+                            .focusRequester(rootFocus)
+                            .focusable()
+                            .onPreviewKeyEvent { event ->
+                                    event.type == KeyEventType.KeyDown &&
+                                            event.key == Key.Escape &&
+                                            !pickingTheme &&
+                                            !pickingLanguage &&
+                                            !pickingRetention &&
+                                            !editingNickname &&
+                                            run {
+                                                    onBack()
+                                                    true
+                                            }
+                            },
+    ) {
+        Box(modifier = Modifier.widthIn(max = 640.dp).fillMaxSize().padding(horizontal = 10.dp)) {
+            Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(top = barHeight + 14.dp, bottom = 30.dp),
@@ -299,12 +293,12 @@ internal fun SettingsView(
                     }
                 }
 
-                GlassPanel(
+                GlassCard(
                         modifier =
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        cornerRadius = 22.dp,
+                        shape = RoundedCornerShape(22.dp),
                 ) {
                     Row(
                             modifier =
