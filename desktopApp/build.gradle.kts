@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJvmToolOperationTask
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -112,4 +113,16 @@ tasks.matching { it.name == "packageDmg" }.configureEach {
     // 不关掉它的话，jpackage 会把上面刚打好的那份盖回去。
     onlyIf { false }
     dependsOn(packageDmgFromAppImage)
+}
+
+// MSI 卸载/升级时若 ClipSync 仍在运行，.exe 被占用会导致 Windows Installer 只能推迟删除并弹出“需要重启”提示。
+// 通过 jpackage 的 --resource-dir 覆盖默认 main.wxs（JDK21 即支持，无需升级 JDK）：
+// 在删除文件前用 taskkill 强制结束进程，并抑制重启提示。仅挂在 Msi 任务上（其它任务无需自定义模板）。
+tasks.withType<AbstractJvmToolOperationTask>().configureEach {
+    if (name == "packageMsi" || name == "packageReleaseMsi") {
+        freeArgs.addAll(
+            "--resource-dir",
+            layout.projectDirectory.file("desktopApp/package/wix").asFile.absolutePath,
+        )
+    }
 }
