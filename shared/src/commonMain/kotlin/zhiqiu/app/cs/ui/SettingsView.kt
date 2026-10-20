@@ -317,7 +317,6 @@ internal fun SettingsView(
                 }
             }
         }
-    }
 
     if (pickingTheme) {
         ChoiceDialog(

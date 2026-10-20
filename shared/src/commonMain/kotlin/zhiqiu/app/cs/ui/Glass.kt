@@ -14,6 +14,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
@@ -40,11 +41,32 @@ fun AppBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
             BackdropBlob(Color(0xFF7C3AED), 320.dp, 220.dp, 20.dp)
             BackdropBlob(Color(0xFF0EA5E9), 280.dp, 20.dp, 520.dp)
         }
-        CompositionLocalProvider(LocalBackdrop provides backdrop) {
+        CompositionLocalProvider(LocalBackdrop provides backdrop        ) {
             content()
         }
     }
 }
+
+// ClipRow 行高光描边（ClipSync 原有辅助，HouseStudy 方案未含）。
+internal fun rimHighlight(dark: Boolean) =
+        Brush.verticalGradient(
+                colorStops =
+                        if (dark) {
+                            arrayOf(
+                                    0f to Color.White.copy(alpha = 0.20f),
+                                    0.15f to Color.White.copy(alpha = 0.04f),
+                                    1f to Color.White.copy(alpha = 0.0f),
+                            )
+                        } else {
+                            arrayOf(
+                                    0f to Color.White.copy(alpha = 0.65f),
+                                    0.15f to Color.White.copy(alpha = 0.10f),
+                                    1f to Color.White.copy(alpha = 0.0f),
+                            )
+                        },
+                startY = 0f,
+                endY = 240f,
+        )
 
 @Composable
 private fun BackdropBlob(color: Color, size: Dp, x: Dp, y: Dp) {
