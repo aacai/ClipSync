@@ -23,8 +23,10 @@ import kotlinx.serialization.json.Json
 import zhiqiu.app.cs.core.platformHttpClientEngine
 
 /**
- * 文件直链托管：x0.at 主用（1 GiB，链接至少活 3 天），uguu.se 备用（128 MiB，3 小时）。
+ * 文件直链托管：uguu.se 主用（128 MiB，3 小时），x0.at 备用（1 GiB，链接至少活 3 天）。
  * 两家都免注册免 key，上传即得直链；uguu 回 JSON 且会打乱文件名。
+ * 主用选 uguu 是因为它两头都快（实测上行 1.9MB/s、下行 2.4MB/s，x0.at 只有约一半，
+ * 且 HTTP/2 下行会在几百 KB 处被 reset）；x0.at 慢但命长，留给 uguu 拒收时兜底。
  *
  * 注意：这里传的永远是**已用房间密钥加密后的字节**，托管方只能看到密文。
  */
@@ -58,9 +60,9 @@ class FileTransferClient(
         bytes: ByteArray,
         onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> },
     ): UploadedLink {
-        val primary = runCatching { uploadToX0at(fileName, bytes, onProgress) }
+        val primary = runCatching { uploadToUugu(fileName, bytes, onProgress) }
         return primary.getOrNull()
-            ?: runCatching { uploadToUugu(fileName, bytes, onProgress) }.getOrElse { throw primary.exceptionOrNull() ?: it }
+            ?: runCatching { uploadToX0at(fileName, bytes, onProgress) }.getOrElse { throw primary.exceptionOrNull() ?: it }
     }
 
     private suspend fun uploadToX0at(
