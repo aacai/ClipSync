@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask
 import org.jetbrains.compose.desktop.application.tasks.AbstractJvmToolOperationTask
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -115,10 +116,29 @@ tasks.matching { it.name == "packageDmg" }.configureEach {
     dependsOn(packageDmgFromAppImage)
 }
 
-// MSI 卸载/升级时若 ClipSync 仍在运行，.exe 被占用会导致 Windows Installer 只能推迟删除并弹出“需要重启”提示。
-// 通过 jpackage 的 --resource-dir 覆盖默认 main.wxs（JDK21 即支持，无需升级 JDK）：
-// 在删除文件前用 taskkill 强制结束进程，并抑制重启提示。仅挂在 Msi 任务上（其它任务无需自定义模板）。
+// 单机小工具的 JVM 默认值全按服务器调：-Xms 取物理内存的 1/64（16G 机器上 256M）一开机就占住，
+// G1 的 remember-set、240M code cache、不设限的 Metaspace 也一样留着，而实际堆只用十几 M。
+// 同一份包实测：空闲 footprint 299M → 212~235M，峰值 405M → 324~341M，启动时间没变。
+val jvmMemoryOptions = listOf(
+    "-Xms32m",
+    "-Xmx512m",
+    "-XX:SoftMaxHeapSize=192m",
+    "-XX:MinHeapFreeRatio=1",
+    "-XX:MaxHeapFreeRatio=10",
+    "-XX:MaxMetaspaceSize=256m",
+    "-XX:ReservedCodeCacheSize=96m",
+    "-XX:+UseSerialGC",
+)
+
+tasks.withType<AbstractJPackageTask>().configureEach {
+    // 每项各自一条：@argfile 按空白切分，合成一行的话后面的选项会被 jpackage 当成自己的参数报「无效」。
+    jvmMemoryOptions.forEach { freeArgs.addAll(listOf("--java-options", it)) }
+}
+
 tasks.withType<AbstractJvmToolOperationTask>().configureEach {
+    // MSI 卸载/升级时若 ClipSync 仍在运行，.exe 被占用会导致 Windows Installer 只能推迟删除并弹出“需要重启”提示。
+    // 通过 jpackage 的 --resource-dir 覆盖默认 main.wxs（JDK21 即支持，无需升级 JDK）：
+    // 在删除文件前用 taskkill 强制结束进程，并抑制重启提示。仅挂在 Msi 任务上（其它任务无需自定义模板）。
     if (name == "packageMsi" || name == "packageReleaseMsi") {
         freeArgs.addAll(
             "--resource-dir",
