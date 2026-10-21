@@ -143,8 +143,9 @@ internal fun SettingsView(
         Box(modifier = Modifier.widthIn(max = 640.dp).fillMaxSize().padding(horizontal = 10.dp)) {
             Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(top = barHeight + 14.dp, bottom = 30.dp),
+                            // 视口从卡片下沿开始：内容不再滚进毛玻璃后面
+                            modifier = Modifier.fillMaxSize().padding(top = barHeight + 14.dp),
+                            contentPadding = PaddingValues(bottom = 30.dp),
                             verticalArrangement = Arrangement.spacedBy(22.dp),
                     ) {
                         item(key = "appearance") {

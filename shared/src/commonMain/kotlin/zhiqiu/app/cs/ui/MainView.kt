@@ -391,10 +391,10 @@ internal fun MainView(
                         } else {
                             LazyColumn(
                                     state = listState,
-                                    modifier = Modifier.fillMaxSize(),
+                                    // 视口从卡片下沿开始：列表文字不再滚进毛玻璃后面
+                                    modifier = Modifier.fillMaxSize().padding(top = barHeight + 8.dp),
                                     contentPadding =
                                             PaddingValues(
-                                                    top = barHeight + 8.dp,
                                                     bottom = 28.dp + barLift,
                                             ),
                             ) {
