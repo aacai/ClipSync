@@ -48,6 +48,35 @@ compose.desktop {
     }
 }
 
+// jpackage 的 Apple 打包器不接受首段为 0 的 app-version，只能先拿 1.0.6 过打包校验，再把版本号写回 appVersion。
+// 后处理（去重 skiko jar、改 plist）动了包里的文件，签名 seal 会失效，所以按原 entitlements 重签一次。
+fun execMacTool(vararg command: String) {
+    val process = ProcessBuilder(command.toList()).redirectErrorStream(true).start()
+    val output = process.inputStream.bufferedReader().readText()
+    if (process.waitFor() != 0) throw GradleException("${command.first()} 失败：$output")
+}
+
+fun restampMacAppImage(app: File, outward: String, packed: String) {
+    val plist = File(app, "Contents/Info.plist").path
+    for (key in listOf("CFBundleShortVersionString", "CFBundleVersion")) {
+        execMacTool("plutil", "-replace", key, "-string", outward, plist)
+    }
+    val cfg = File(app, "Contents/app/${app.nameWithoutExtension}.cfg")
+    if (cfg.isFile) {
+        cfg.writeText(cfg.readText().replace("-Djpackage.app-version=$packed", "-Djpackage.app-version=$outward"))
+    }
+    val ent = File(app.parentFile, "${app.name}.entitlements.plist")
+    // stderr 不能并进文件：codesign 转储时会打一行 "Executable=…"，进了就是非法 blob。
+    val dumped = ProcessBuilder("codesign", "-d", "--entitlements", ":-", app.path)
+        .redirectOutput(ent)
+        .redirectError(ProcessBuilder.Redirect.DISCARD)
+        .start()
+        .waitFor() == 0 && ent.length() > 0
+    val entitlements = if (dumped) listOf("--entitlements", ent.path) else emptyList()
+    execMacTool("codesign", "--force", "--options", "runtime", "--sign", "-", *entitlements.toTypedArray(), app.path)
+    ent.delete()
+}
+
 // macOS 的 skiko runtime jar 是双架构的：插件只把本机那份解成 Contents/app 里的 dylib，另一半还留在 jar 里进包，
 // 而 -Dskiko.library.path=$APPDIR 让运行时不读它。Linux / Windows 的 jar 只有本机架构，解完就空了，那边没活可干。
 tasks.matching { it.name == "createDistributable" }.configureEach {
@@ -80,6 +109,10 @@ tasks.matching { it.name == "createDistributable" }.configureEach {
                     stripped.renameTo(jar)
                 }
             }
+
+        appImagesDir.get().asFile.walkTopDown()
+            .filter { it.isDirectory && it.name.endsWith(".app") }
+            .forEach { restampMacAppImage(it, appVersion, jpackageVersion) }
     }
 }
 
@@ -91,7 +124,7 @@ val packageDmgFromAppImage = tasks.register<Exec>("packageDmgFromAppImage") {
 
     val appImages = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
     val staging = layout.buildDirectory.dir("compose/tmp/dmgStaging").get().asFile
-    val dmg = layout.buildDirectory.file("compose/binaries/main/dmg/ClipSync-$jpackageVersion.dmg").get().asFile
+    val dmg = layout.buildDirectory.file("compose/binaries/main/dmg/ClipSync-$appVersion.dmg").get().asFile
 
     inputs.dir(appImages)
     outputs.file(dmg)
