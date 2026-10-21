@@ -248,11 +248,16 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download Web artifact
         uses: actions/download-artifact@v4
         with:
           name: web
           path: _site
+
+      - name: Add update manifest
+        run: cp update.json _site/update.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

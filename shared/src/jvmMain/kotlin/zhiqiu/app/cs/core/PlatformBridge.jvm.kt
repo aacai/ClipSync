@@ -21,7 +21,8 @@ internal actual fun mqttTransportFactory(): MqttTransportFactory =
 internal actual fun mqttEndpoint(): MqttEndpoint =
     MqttEndpoint.parse("${MqttSecrets.SCHEME}://${MqttSecrets.HOST}:${MqttSecrets.PORT_TLS}")
 
-internal actual fun platformHttpClientEngine(): HttpClientEngine = Java.create()
+internal actual fun platformHttpClientEngine(): HttpClientEngine =
+    Java.create { config { version(java.net.http.HttpClient.Version.HTTP_1_1) } }
 
 internal actual fun installId(): String {
     installIdFile.parentFile?.mkdirs()

@@ -1,0 +1,30 @@
+{
+  "version": "0.0.6",
+  "assets": [
+    {
+      "name": "ClipSync-0.0.6-arm64.dmg",
+      "url": "https://x0.at/ClipSync-0.0.6-arm64_BBLW.dmg",
+      "size": 73167785
+    },
+    {
+      "name": "ClipSync-0.0.6-x64.msi",
+      "url": "https://x0.at/ClipSync-0.0.6-x64_pdpS.msi",
+      "size": 74969399
+    },
+    {
+      "name": "ClipSync-0.0.6-arm64.deb",
+      "url": "https://x0.at/ClipSync-0.0.6-arm64_kzeU.deb",
+      "size": 68170174
+    },
+    {
+      "name": "ClipSync-0.0.6-x64.deb",
+      "url": "https://x0.at/ClipSync-0.0.6-x64_cVzd.deb",
+      "size": 68963806
+    },
+    {
+      "name": "ClipSync-0.0.6-release.apk",
+      "url": "https://github.com/aacai/ClipSync/releases/download/v0.0.6/ClipSync-0.0.6-release.apk",
+      "size": 2049330
+    }
+  ]
+}

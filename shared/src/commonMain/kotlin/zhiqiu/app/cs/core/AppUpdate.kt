@@ -6,7 +6,6 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -32,23 +31,20 @@ interface ReleaseSource {
     suspend fun download(asset: ReleaseAsset, onProgress: (received: Long, total: Long) -> Unit): ByteArray
 }
 
-class GitHubReleases(
+class ManifestReleases(
     private val http: HttpClient,
     private val endpoint: String = DEFAULT_ENDPOINT,
 ) : ReleaseSource {
 
     override suspend fun latest(): Release {
         val response = runCatching {
-            http.get(endpoint) {
-                header(HttpHeaders.UserAgent, "ClipSync")
-                header(HttpHeaders.Accept, "application/vnd.github+json")
-            }
-        }.getOrElse { throw UpdateException(it.message ?: "连不上发布页", it) }
+            http.get(endpoint) { header(HttpHeaders.UserAgent, "ClipSync") }
+        }.getOrElse { throw UpdateException(it.message ?: "连不上更新服务", it) }
         val raw = response.bodyAsText()
         if (!response.status.isSuccess()) {
-            throw UpdateException("发布页返回 ${response.status.value}：${failureMessage(raw) ?: raw.take(120)}")
+            throw UpdateException("更新服务返回 ${response.status.value}：${raw.take(120)}")
         }
-        return decodeRelease(raw)
+        return decodeManifest(raw)
     }
 
     override suspend fun download(
@@ -57,12 +53,12 @@ class GitHubReleases(
     ): ByteArray = FileTransferClient(http).download(asset.url, onProgress)
 
     companion object {
-        const val DEFAULT_ENDPOINT = "https://api.github.com/repos/aacai/ClipSync/releases/latest"
+        const val DEFAULT_ENDPOINT = "https://aacai.github.io/ClipSync/update.json"
     }
 }
 
 internal object DefaultReleaseSource : ReleaseSource {
-    private val client: GitHubReleases by lazy { GitHubReleases(createSharedHttpClient()) }
+    private val client: ManifestReleases by lazy { ManifestReleases(createSharedHttpClient()) }
 
     override suspend fun latest(): Release = client.latest()
 
@@ -72,11 +68,11 @@ internal object DefaultReleaseSource : ReleaseSource {
     ): ByteArray = client.download(asset, onProgress)
 }
 
-internal fun decodeRelease(raw: String): Release {
-    val dto = runCatching { releaseJson.decodeFromString<ReleaseDto>(raw) }
-        .getOrElse { throw UpdateException("发布信息读不懂", it) }
-    val version = dto.tagName.orEmpty().removePrefix("v").removePrefix("V")
-    if (version.isBlank()) throw UpdateException(dto.message?.takeIf { it.isNotBlank() } ?: "发布信息里没有版本号")
+internal fun decodeManifest(raw: String): Release {
+    val dto = runCatching { releaseJson.decodeFromString<ManifestDto>(raw) }
+        .getOrElse { throw UpdateException("更新清单读不懂", it) }
+    val version = dto.version.orEmpty().trim().removePrefix("v").removePrefix("V")
+    if (version.isBlank()) throw UpdateException("更新清单里没有版本号")
     return Release(
         version = version,
         assets = dto.assets
@@ -87,21 +83,17 @@ internal fun decodeRelease(raw: String): Release {
 
 private val releaseJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
-private fun failureMessage(raw: String): String? =
-    runCatching { releaseJson.decodeFromString<ReleaseDto>(raw).message }.getOrNull()
-
 @Serializable
-private class ReleaseDto(
-    @SerialName("tag_name") val tagName: String? = null,
-    @SerialName("message") val message: String? = null,
-    @SerialName("assets") val assets: List<AssetDto> = emptyList(),
+private class ManifestDto(
+    val version: String? = null,
+    val assets: List<AssetDto> = emptyList(),
 )
 
 @Serializable
 private class AssetDto(
-    @SerialName("name") val name: String = "",
-    @SerialName("browser_download_url") val url: String = "",
-    @SerialName("size") val size: Long = 0,
+    val name: String = "",
+    val url: String = "",
+    val size: Long = 0,
 )
 
 /** 版本号逐段比数字：0.9 比 0.10 旧，缺的段当 0。 */

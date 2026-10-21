@@ -7,46 +7,17 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** 固定数据取自 v0.0.3 那次真发布，字段名和产物名都是 GitHub 原样。 */
-private const val REAL_RELEASE =
+/** 清单就是 update.json 的样子：版本 + 各家安装包在 x0.at 上的直链。 */
+private const val REAL_MANIFEST =
         """
 {
-  "tag_name": "v0.0.3",
-  "name": "v0.0.3",
-  "draft": false,
-  "prerelease": false,
+  "version": "0.0.6",
   "assets": [
-    {
-      "name": "ClipSync-0.0.3-arm64.deb",
-      "size": 63870608,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/ClipSync-0.0.3-arm64.deb",
-      "content_type": "application/octet-stream"
-    },
-    {
-      "name": "ClipSync-0.0.3-arm64.dmg",
-      "size": 68845575,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/ClipSync-0.0.3-arm64.dmg"
-    },
-    {
-      "name": "ClipSync-0.0.3-release.apk",
-      "size": 2054514,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/ClipSync-0.0.3-release.apk"
-    },
-    {
-      "name": "ClipSync-0.0.3-x64.deb",
-      "size": 64696196,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/ClipSync-0.0.3-x64.deb"
-    },
-    {
-      "name": "ClipSync-0.0.3-x64.msi",
-      "size": 70696042,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/ClipSync-0.0.3-x64.msi"
-    },
-    {
-      "name": "web.zip",
-      "size": 9749180,
-      "browser_download_url": "https://github.com/aacai/ClipSync/releases/download/v0.0.3/web.zip"
-    }
+    {"name": "ClipSync-0.0.6-arm64.deb", "size": 68170174, "url": "https://x0.at/ClipSync-0.0.6-arm64_Fi3a.deb"},
+    {"name": "ClipSync-0.0.6-arm64.dmg", "size": 73167785, "url": "https://x0.at/ClipSync-0.0.6_Llkz.dmg"},
+    {"name": "ClipSync-0.0.6-release.apk", "size": 2049330, "url": "https://x0.at/ClipSync-0.0.6-release_Qm2b.apk"},
+    {"name": "ClipSync-0.0.6-x64.deb", "size": 68963806, "url": "https://x0.at/ClipSync-0.0.6-x64_Rt9c.deb"},
+    {"name": "ClipSync-0.0.6-x64.msi", "size": 74969399, "url": "https://x0.at/ClipSync-0.0.6-x64_Hz4d.msi"}
   ]
 }
 """
@@ -54,33 +25,30 @@ private const val REAL_RELEASE =
 class AppUpdateTest {
 
     @Test
-    fun `the real release payload decodes into version and assets`() {
-        val release = decodeRelease(REAL_RELEASE)
+    fun `the manifest decodes into version and assets`() {
+        val release = decodeManifest(REAL_MANIFEST)
 
-        assertEquals("0.0.3", release.version)
-        assertEquals(6, release.assets.size)
-        assertEquals("ClipSync-0.0.3-arm64.dmg", release.assets[1].name)
-        assertEquals(68845575L, release.assets[1].size)
-        assertTrue(release.assets[1].url.endsWith("/ClipSync-0.0.3-arm64.dmg"))
+        assertEquals("0.0.6", release.version)
+        assertEquals(5, release.assets.size)
+        assertEquals("ClipSync-0.0.6-arm64.dmg", release.assets[1].name)
+        assertEquals(73167785L, release.assets[1].size)
+        assertEquals("https://x0.at/ClipSync-0.0.6_Llkz.dmg", release.assets[1].url)
     }
 
     @Test
-    fun `an api error message beats a missing version`() {
-        val e =
-                assertFailsWith<UpdateException> {
-                    decodeRelease("""{"message":"API rate limit exceeded for 1.2.3.4."}""")
-                }
-        assertEquals("API rate limit exceeded for 1.2.3.4.", e.message)
+    fun `a manifest without a version is not usable`() {
+        val e = assertFailsWith<UpdateException> { decodeManifest("""{"assets":[]}""") }
+        assertEquals("更新清单里没有版本号", e.message)
     }
 
     @Test
     fun `html is not a release`() {
-        assertFailsWith<UpdateException> { decodeRelease("<html><body>502 Bad Gateway</body></html>") }
+        assertFailsWith<UpdateException> { decodeManifest("<html><body>502 Bad Gateway</body></html>") }
     }
 
     @Test
     fun `a release without any usable asset keeps its version`() {
-        val release = decodeRelease("""{"tag_name":"v9.9.9","assets":[{"name":"x","size":1}]}""")
+        val release = decodeManifest("""{"version":"v9.9.9","assets":[{"name":"x","size":1}]}""")
         assertEquals("9.9.9", release.version)
         assertTrue(release.assets.isEmpty())
     }
@@ -98,21 +66,21 @@ class AppUpdateTest {
 
     @Test
     fun `each system picks its own installer`() {
-        val release = decodeRelease(REAL_RELEASE)
+        val release = decodeManifest(REAL_MANIFEST)
 
-        assertEquals("ClipSync-0.0.3-arm64.dmg", release.assetFor("macOS", "arm64")?.name)
-        assertEquals("ClipSync-0.0.3-x64.msi", release.assetFor("Windows", "x64")?.name)
-        assertEquals("ClipSync-0.0.3-x64.deb", release.assetFor("Linux", "x64")?.name)
-        assertEquals("ClipSync-0.0.3-arm64.deb", release.assetFor("Linux", "arm64")?.name)
-        assertEquals("ClipSync-0.0.3-release.apk", release.assetFor("Android", "arm64")?.name)
+        assertEquals("ClipSync-0.0.6-arm64.dmg", release.assetFor("macOS", "arm64")?.name)
+        assertEquals("ClipSync-0.0.6-x64.msi", release.assetFor("Windows", "x64")?.name)
+        assertEquals("ClipSync-0.0.6-x64.deb", release.assetFor("Linux", "x64")?.name)
+        assertEquals("ClipSync-0.0.6-arm64.deb", release.assetFor("Linux", "arm64")?.name)
+        assertEquals("ClipSync-0.0.6-release.apk", release.assetFor("Android", "arm64")?.name)
     }
 
     @Test
     fun `no installer when the machine has no matching package`() {
-        val onlyArm = decodeRelease(
+        val onlyArm = decodeManifest(
             """
-            {"tag_name":"v1.0.0","assets":[
-              {"name":"ClipSync-1.0.0-arm64.dmg","size":1,"browser_download_url":"https://g/a.dmg"}]}
+            {"version":"v1.0.0","assets":[
+              {"name":"ClipSync-1.0.0-arm64.dmg","size":1,"url":"https://g/a.dmg"}]}
             """
                     .trimIndent(),
         )
@@ -123,11 +91,11 @@ class AppUpdateTest {
 
     @Test
     fun `an untagged package wins over a foreign arch`() {
-        val release = decodeRelease(
+        val release = decodeManifest(
             """
-            {"tag_name":"v1.0.0","assets":[
-              {"name":"ClipSync-1.0.0-arm64.deb","size":1,"browser_download_url":"https://g/a.deb"},
-              {"name":"ClipSync-1.0.0-universal.deb","size":1,"browser_download_url":"https://g/u.deb"}]}
+            {"version":"v1.0.0","assets":[
+              {"name":"ClipSync-1.0.0-arm64.deb","size":1,"url":"https://g/a.deb"},
+              {"name":"ClipSync-1.0.0-universal.deb","size":1,"url":"https://g/u.deb"}]}
             """
                     .trimIndent(),
         )
