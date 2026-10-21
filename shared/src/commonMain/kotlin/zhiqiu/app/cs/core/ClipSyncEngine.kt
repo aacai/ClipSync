@@ -287,7 +287,7 @@ internal class ClipSyncEngine(
         }
 
         val uploadName = FileCrypto.uploadFileName()
-        val link = runCatching {
+        val uploaded = runCatching {
             transfer.upload(uploadName, encrypted.cipher) { sent, total ->
                 _transfer.value = TransferProgress(TransferProgress.Direction.Upload, sent, total, safeName)
             }
@@ -297,7 +297,7 @@ internal class ClipSyncEngine(
             return null
         }
         _transfer.value = null
-        return Uploaded(safeName, encrypted.sha256, link, expiryFrom(FileLimits.DEFAULT_EXPIRES))
+        return Uploaded(safeName, encrypted.sha256, uploaded.url, uploaded.expiresAt(now()))
     }
 
     /** 上传完成后的元信息：还没决定条目身份。 */
@@ -642,17 +642,6 @@ internal class ClipSyncEngine(
         private const val PRESENCE_TTL_MS = PRESENCE_INTERVAL_MS * 3
         private const val RECOVERY_BASE_MS = 5_000L
         private const val RECOVERY_MAX_MS = 60_000L
-        private val EXPIRY_HOURS = mapOf(
-            "1h" to 1L,
-            "12h" to 12L,
-            "24h" to 24L,
-            "72h" to 72L,
-        )
-
-        internal fun expiryFrom(expires: String, nowMs: Long = currentTimeMillis()): Long =
-            nowMs +
-                    (EXPIRY_HOURS[expires.lowercase()] ?: EXPIRY_HOURS.getValue(FileLimits.DEFAULT_EXPIRES)) *
-                            3_600_000L
     }
 }
 @OptIn(ExperimentalTime::class)

@@ -22,7 +22,6 @@ data class FileClip(
 object FileLimits {
     const val MAX_FILE_BYTES = 50L * 1024 * 1024
     val maxMb: Int get() = (MAX_FILE_BYTES / 1024 / 1024).toInt()
-    const val DEFAULT_EXPIRES = "72h"
 }
 
 /** MQTT 上传递的文件元信息（加密后放在 ClipPayload 内）。 */

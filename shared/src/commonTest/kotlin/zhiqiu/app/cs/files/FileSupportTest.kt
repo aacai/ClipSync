@@ -1,9 +1,9 @@
 package zhiqiu.app.cs.files
 
-import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.FileIssue
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -88,13 +88,35 @@ class FileSupportTest {
     }
 
     @Test
-    fun expiry_defaults_to_72h_and_unknown_falls_back() {
+    fun x0at_reply_is_a_plain_text_link() {
+        assertEquals(
+            "https://x0.at/cs-ab12_cd34.bin",
+            FileTransferClient.parseX0atLink("https://x0.at/cs-ab12_cd34.bin\n"),
+        )
+        assertFailsWith<FileTransferException> { FileTransferClient.parseX0atLink("<html>500 Bad Gateway</html>") }
+    }
+
+    @Test
+    fun uguu_reply_is_the_first_url_in_the_json() {
+        val body =
+                """
+                {"success":true,"files":[{"hash":"f23f6083ea8cc63d","filename":"fQkJWLTP.bin",
+                 "url":"https://d.uguu.se/fQkJWLTP.bin","size":300000,"dupe":false}]}
+                """
+                    .trimIndent()
+        assertEquals("https://d.uguu.se/fQkJWLTP.bin", FileTransferClient.parseUuguLink(body))
+        assertFailsWith<FileTransferException> { FileTransferClient.parseUuguLink("""{"success":false,"files":[]}""") }
+        assertFailsWith<FileTransferException> { FileTransferClient.parseUuguLink("""{"success":true,"files":[]}""") }
+        assertFailsWith<FileTransferException> { FileTransferClient.parseUuguLink("<!doctype html>500") }
+    }
+
+    @Test
+    fun expiry_comes_from_the_host_that_took_the_upload() {
         val now = 1_700_000_000_000L
-        assertEquals(now + 3_600_000L, ClipSyncEngine.expiryFrom("1h", now))
-        assertEquals(now + 12L * 3_600_000L, ClipSyncEngine.expiryFrom("12h", now))
-        assertEquals(now + 24L * 3_600_000L, ClipSyncEngine.expiryFrom("24h", now))
-        assertEquals(now + 72L * 3_600_000L, ClipSyncEngine.expiryFrom("72h", now))
-        assertEquals(now + 72L * 3_600_000L, ClipSyncEngine.expiryFrom("999h", now))
+        val x0at = UploadedLink("https://x0.at/a.bin", FileTransferClient.X0_AT_TTL_MS)
+        val uguu = UploadedLink("https://d.uguu.se/a.bin", FileTransferClient.UUGU_TTL_MS)
+        assertEquals(now + 72L * 3_600_000L, x0at.expiresAt(now))
+        assertEquals(now + 3L * 3_600_000L, uguu.expiresAt(now))
     }
 
     @Test
