@@ -45,6 +45,12 @@ compose.desktop {
                 shortcut = true
             }
         }
+
+        // 只有 packageRelease* / createReleaseDistributable 这条任务链会过 ProGuard，
+        // 跑 packageDmg 时下面这份规则完全不参与，这是桌面打包最常见的踩坑点。
+        buildTypes.release.proguard {
+            configurationFiles.from(project.file("proguard-desktop.pro"))
+        }
     }
 }
 
@@ -52,8 +58,9 @@ compose.desktop {
 // 后处理动了包里的文件，签名 seal 会失效，所以按包内原有 entitlements 重签一次。
 // macOS 的 skiko runtime jar 是双架构的：插件只把本机那份解成 Contents/app 里的 dylib，另一半还留在 jar 里进包，
 // 而 -Dskiko.library.path=$APPDIR 让运行时不读它。Linux / Windows 的 jar 只有本机架构，解完就空了，那边没活可干。
-tasks.matching { it.name == "createDistributable" }.configureEach {
-    val appImagesDir = layout.buildDirectory.dir("compose/binaries/main/app")
+tasks.matching { it.name == "createDistributable" || it.name == "createReleaseDistributable" }.configureEach {
+    // 两条任务链各出一份 app 镜像，后处理对两边做同一件事，所以直接扫整个 binaries 目录
+    val binariesDir = layout.buildDirectory.dir("compose/binaries").get().asFile
     val outward = appVersion
     val packed = jpackageVersion
     doLast {
@@ -64,7 +71,7 @@ tasks.matching { it.name == "createDistributable" }.configureEach {
             if (process.waitFor() != 0) throw GradleException("${command.first()} 失败：$output")
         }
 
-        appImagesDir.get().asFile.walkTopDown()
+        binariesDir.walkTopDown()
             .filter { it.isFile && it.name.startsWith("skiko-awt-runtime-") && it.name.endsWith(".jar") }
             .forEach { jar ->
                 val unpacked = jar.parentFile.list()?.toSet() ?: emptySet()
@@ -92,7 +99,7 @@ tasks.matching { it.name == "createDistributable" }.configureEach {
                 }
             }
 
-        appImagesDir.get().asFile.walkTopDown()
+        binariesDir.walkTopDown()
             .filter { it.isDirectory && it.name.endsWith(".app") }
             .forEach { app ->
                 val plist = File(app, "Contents/Info.plist").path
@@ -120,34 +127,37 @@ tasks.matching { it.name == "createDistributable" }.configureEach {
 // jpackage 的 dmg 往卷根塞了背景图、卷图标、.DS_Store 和 .fseventsd，Applications 还是 Finder alias
 // 而不是软链，开着「显示隐藏文件」的机器上就是一片层叠的文件夹。app 镜像已经建好了，
 // 最后这层壳自己用 hdiutil 打，卷里只留 ClipSync.app 和 Applications。
-val packageDmgFromAppImage = tasks.register<Exec>("packageDmgFromAppImage") {
-    dependsOn("createDistributable")
+fun registerDmgFromAppImage(binaryDirName: String, taskName: String, createTask: String) =
+    tasks.register<Exec>(taskName) {
+        dependsOn(createTask)
 
-    val appImages = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
-    val staging = layout.buildDirectory.dir("compose/tmp/dmgStaging").get().asFile
-    val dmg = layout.buildDirectory.file("compose/binaries/main/dmg/ClipSync-$appVersion.dmg").get().asFile
+        val appImages = layout.buildDirectory.dir("compose/binaries/$binaryDirName/app").get().asFile
+        val staging = layout.buildDirectory.dir("compose/tmp/${binaryDirName}DmgStaging").get().asFile
+        val dmg = layout.buildDirectory.file("compose/binaries/$binaryDirName/dmg/ClipSync-$appVersion.dmg").get().asFile
 
-    inputs.dir(appImages)
-    outputs.file(dmg)
+        inputs.dir(appImages)
+        outputs.file(dmg)
 
-    commandLine(
-        "sh", "-c",
-        """
-        set -eu
-        rm -rf '$staging'
-        mkdir -p '${dmg.parent}' '${staging.parent}'
-        cp -R '${appImages}/.' '$staging/'
-        ln -s /Applications '$staging/Applications'
-        rm -f '$dmg'
-        hdiutil create -volname ClipSync -srcfolder '$staging' -ov -format UDZO -imagekey zlib-level=9 '$dmg'
-        """.trimIndent(),
-    )
-}
+        commandLine(
+            "sh", "-c",
+            """
+            set -eu
+            rm -rf '$staging' '${dmg.parent}'
+            mkdir -p '${dmg.parent}' '${staging.parent}'
+            cp -R '${appImages}/.' '$staging/'
+            ln -s /Applications '$staging/Applications'
+            hdiutil create -volname ClipSync -srcfolder '$staging' -ov -format UDZO -imagekey zlib-level=9 '$dmg'
+            """.trimIndent(),
+        )
+    }
 
-tasks.matching { it.name == "packageDmg" }.configureEach {
+val dmgMain = registerDmgFromAppImage("main", "packageDmgFromAppImage", "createDistributable")
+val dmgRelease = registerDmgFromAppImage("main-release", "packageReleaseDmgFromAppImage", "createReleaseDistributable")
+
+tasks.matching { it.name == "packageDmg" || it.name == "packageReleaseDmg" }.configureEach {
     // 不关掉它的话，jpackage 会把上面刚打好的那份盖回去。
     onlyIf { false }
-    dependsOn(packageDmgFromAppImage)
+    dependsOn(if (name == "packageDmg") dmgMain else dmgRelease)
 }
 
 // 单机小工具的 JVM 默认值全按服务器调：-Xms 取物理内存的 1/64（16G 机器上 256M）一开机就占住，

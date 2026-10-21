@@ -104,13 +104,13 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: x64
-            task: packageDeb
+            task: packageReleaseDeb
           - os: windows-latest
             arch: x64
-            task: packageMsi
+            task: packageReleaseMsi
           - os: macos-latest
             arch: arm64
-            task: packageDmg
+            task: packageReleaseDmg
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -143,7 +143,7 @@ jobs:
       - name: Rename packages to ClipSync-<version>-<arch>
         run: |
           VER=$(sed -nE 's/^extra\["appVersion"\] = "([^"]+)".*/\1/p' build.gradle.kts | head -1)
-          cd desktopApp/build/compose/binaries/main
+          cd desktopApp/build/compose/binaries/main-release
           for ext in deb msi dmg; do
             find . -type f -name "*.$ext" | while read -r f; do
               mv "$f" "$(dirname "$f")/ClipSync-$VER-${{ matrix.arch }}.$ext"
@@ -156,9 +156,9 @@ jobs:
         with:
           name: desktop-${{ matrix.os }}-${{ matrix.arch }}
           path: |
-            desktopApp/build/compose/binaries/main/**/*.deb
-            desktopApp/build/compose/binaries/main/**/*.msi
-            desktopApp/build/compose/binaries/main/**/*.dmg
+            desktopApp/build/compose/binaries/main-release/**/*.deb
+            desktopApp/build/compose/binaries/main-release/**/*.msi
+            desktopApp/build/compose/binaries/main-release/**/*.dmg
           if-no-files-found: error
 
   # arm64 桌面包：仅 Linux 走预览版 arm runner，不可用时不影响主发布
@@ -185,12 +185,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build desktop package
-        run: ./gradlew :desktopApp:packageDeb --stacktrace
+        run: ./gradlew :desktopApp:packageReleaseDeb --stacktrace
 
       - name: Rename packages to ClipSync-<version>-arm64
         run: |
           VER=$(sed -nE 's/^extra\["appVersion"\] = "([^"]+)".*/\1/p' build.gradle.kts | head -1)
-          cd desktopApp/build/compose/binaries/main
+          cd desktopApp/build/compose/binaries/main-release
           find . -type f -name "*.deb" | while read -r f; do
             mv "$f" "$(dirname "$f")/ClipSync-$VER-arm64.deb"
           done
@@ -200,7 +200,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-ubuntu-24.04-arm-arm64
-          path: desktopApp/build/compose/binaries/main/**/*.deb
+          path: desktopApp/build/compose/binaries/main-release/**/*.deb
           if-no-files-found: error
 
   # ----------------------------------------------------------------
