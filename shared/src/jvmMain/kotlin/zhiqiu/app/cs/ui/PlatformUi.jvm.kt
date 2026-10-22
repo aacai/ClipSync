@@ -44,6 +44,8 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     store = remember { JvmClipStore.default() },
     autostart = SystemAutostart,
     downloads = DesktopDownloads,
+    capture = RobotScreenCapture,
+    hotkeys = CarbonGlobalHotkey,
     hoverRevealsActions = true,
 )
 

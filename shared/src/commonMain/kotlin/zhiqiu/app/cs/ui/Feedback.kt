@@ -122,6 +122,36 @@ sealed class Feedback {
     data class FileProblem(val issue: FileIssue) : Feedback() {
         override val level get() = Level.Error
     }
+
+    data object ScreenshotTaken : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    /** 没有屏幕录制权限时 macOS 不报错，只把壁纸给你；不点名说清楚就像功能坏了。 */
+    data object ScreenshotPermission : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data class ScreenshotTooLarge(val mb: Int) : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data class ScreenshotFailed(val reason: String) : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    /** 抓到了屏但一张图都没编出来：没有可说的原因，只能说这次没成。 */
+    data object ScreenshotEmpty : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data class HotkeySaved(val spec: String) : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data class HotkeyFailed(val spec: String) : Feedback() {
+        override val level get() = Level.Error
+    }
 }
 
 enum class CopyTarget { Text, File, Image }

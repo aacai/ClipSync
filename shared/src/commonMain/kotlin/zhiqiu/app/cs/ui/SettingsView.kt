@@ -47,7 +47,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -66,6 +71,7 @@ import zhiqiu.app.cs.core.AppLanguage
 import zhiqiu.app.cs.core.AppLanguageSupport
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
+import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.ThemeMode
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.appLanguageSupport
@@ -96,6 +102,7 @@ internal fun SettingsView(
     val launchAtLogin by model.launchAtLogin.collectAsState()
     val deviceName by model.deviceName.collectAsState()
     val nickname by settings.nickname.collectAsState()
+    val screenshotHotkey by model.screenshotHotkey.collectAsState()
     val canWatch = model.supportsClipboardAutoSync
     val languageSupport = appLanguageSupport
     val showLanguage = languageSupport != AppLanguageSupport.Unsupported
@@ -109,6 +116,7 @@ internal fun SettingsView(
     var editingNickname by remember { mutableStateOf(false) }
     var editingRoom by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
+    var recordingHotkey by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
 
@@ -123,7 +131,8 @@ internal fun SettingsView(
                                         !pickingRetention &&
                                         !editingNickname &&
                                         !editingRoom &&
-                                        !aboutOpen) {
+                                        !aboutOpen &&
+                                        !recordingHotkey) {
                                 onBack()
                                 true
                         } else {
@@ -147,6 +156,7 @@ internal fun SettingsView(
                                             !editingNickname &&
                                             !editingRoom &&
                                             !aboutOpen &&
+                                            !recordingHotkey &&
                                             run {
                                                     onBack()
                                                     true
@@ -261,6 +271,19 @@ internal fun SettingsView(
                                             autoCopyIncoming,
                                             settings::setAutoCopyIncoming,
                                     )
+                                }
+                            }
+                        }
+
+                        if (model.supportsScreenshot) {
+                            item(key = "screenshot") {
+                                SettingGroup(Res.string.settings_group_screenshot) {
+                                    NavRow(
+                                            title = Res.string.setting_screenshot_hotkey,
+                                            value = screenshotHotkey,
+                                            onClick = { recordingHotkey = true },
+                                    )
+                                    GroupFootnote(Res.string.setting_screenshot_hint)
                                 }
                             }
                         }
@@ -392,6 +415,13 @@ internal fun SettingsView(
     }
     if (aboutOpen) {
         AboutDialog(model, onDismiss = { aboutOpen = false })
+    }
+    if (recordingHotkey) {
+        HotkeyDialog(
+                current = screenshotHotkey,
+                onDismiss = { recordingHotkey = false },
+                onPick = { spec -> model.setScreenshotHotkey(spec) },
+        )
     }
     if (editingNickname) {
         TextEntryDialog(
@@ -685,6 +715,166 @@ private fun <T> ChoiceDialog(
             shape = MaterialTheme.shapes.large,
     )
 }
+
+/** 录快捷键的弹窗：按下即生效，所以没有确认按钮，取消或 Escape 就退回原来的键。 */
+@Composable
+private fun HotkeyDialog(
+        current: String,
+        onDismiss: () -> Unit,
+        onPick: (String) -> Boolean,
+) {
+    var invalid by remember { mutableStateOf(false) }
+    var rejected by remember { mutableStateOf<String?>(null) }
+    val focus = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.setting_screenshot_hotkey), fontSize = 17.sp) },
+            text = {
+                Column(
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .focusRequester(focus)
+                                        .focusable()
+                                        .onPreviewKeyEvent { event ->
+                                                if (event.type != KeyEventType.KeyDown) {
+                                                        false
+                                                } else if (event.key == Key.Escape) {
+                                                        onDismiss()
+                                                        true
+                                                } else {
+                                                        // 每按一次都先把两条提示清空：否则上一次的失败会一直挂在这儿
+                                                        val spec = chordOf(event)
+                                                        rejected = null
+                                                        invalid = spec == null
+                                                        when {
+                                                            spec == null -> Unit
+                                                            onPick(spec) -> onDismiss()
+                                                            else -> rejected = spec
+                                                        }
+                                                        true
+                                                }
+                                        },
+                ) {
+                    Text(current, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(Modifier.height(10.dp))
+                    val rejectedSpec = rejected
+                    val failed = rejectedSpec != null || invalid
+                    Text(
+                            when {
+                                rejectedSpec != null ->
+                                        stringResource(Res.string.fb_hotkey_failed, rejectedSpec)
+                                invalid ->
+                                        stringResource(Res.string.setting_screenshot_record_invalid)
+                                else -> stringResource(Res.string.setting_screenshot_record_hint)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color =
+                                    if (failed) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+            },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+/** 一次按键 → 「Command+Shift+A」这种组合串；裸键和认不出的键都返回 null。 */
+private fun chordOf(event: KeyEvent): String? {
+    val key = chordKeyName(event.key) ?: return null
+    return ScreenshotHotkey.of(
+                    key,
+                    command = event.isMetaPressed,
+                    control = event.isCtrlPressed,
+                    alt = event.isAltPressed,
+                    shift = event.isShiftPressed,
+            )
+            ?.toString()
+}
+
+/** 键名用 Rust 端那套 token，两端的同一条「Alt+A」才是同一个键。 */
+private fun chordKeyName(key: Key): String? =
+        when (key) {
+            Key.A -> "A"
+            Key.B -> "B"
+            Key.C -> "C"
+            Key.D -> "D"
+            Key.E -> "E"
+            Key.F -> "F"
+            Key.G -> "G"
+            Key.H -> "H"
+            Key.I -> "I"
+            Key.J -> "J"
+            Key.K -> "K"
+            Key.L -> "L"
+            Key.M -> "M"
+            Key.N -> "N"
+            Key.O -> "O"
+            Key.P -> "P"
+            Key.Q -> "Q"
+            Key.R -> "R"
+            Key.S -> "S"
+            Key.T -> "T"
+            Key.U -> "U"
+            Key.V -> "V"
+            Key.W -> "W"
+            Key.X -> "X"
+            Key.Y -> "Y"
+            Key.Z -> "Z"
+            Key.Zero -> "0"
+            Key.One -> "1"
+            Key.Two -> "2"
+            Key.Three -> "3"
+            Key.Four -> "4"
+            Key.Five -> "5"
+            Key.Six -> "6"
+            Key.Seven -> "7"
+            Key.Eight -> "8"
+            Key.Nine -> "9"
+            Key.F1 -> "F1"
+            Key.F2 -> "F2"
+            Key.F3 -> "F3"
+            Key.F4 -> "F4"
+            Key.F5 -> "F5"
+            Key.F6 -> "F6"
+            Key.F7 -> "F7"
+            Key.F8 -> "F8"
+            Key.F9 -> "F9"
+            Key.F10 -> "F10"
+            Key.F11 -> "F11"
+            Key.F12 -> "F12"
+            Key.Spacebar -> "Space"
+            Key.Enter -> "Enter"
+            Key.Tab -> "Tab"
+            Key.Backspace -> "Backspace"
+            Key.Delete -> "Delete"
+            Key.MoveHome -> "Home"
+            Key.MoveEnd -> "End"
+            Key.PageUp -> "PageUp"
+            Key.PageDown -> "PageDown"
+            Key.DirectionUp -> "ArrowUp"
+            Key.DirectionDown -> "ArrowDown"
+            Key.DirectionLeft -> "ArrowLeft"
+            Key.DirectionRight -> "ArrowRight"
+            Key.Minus -> "Minus"
+            Key.Equals -> "Equal"
+            Key.LeftBracket -> "BracketLeft"
+            Key.RightBracket -> "BracketRight"
+            Key.Backslash -> "Backslash"
+            Key.Semicolon -> "Semicolon"
+            Key.Apostrophe -> "Quote"
+            Key.Comma -> "Comma"
+            Key.Period -> "Period"
+            Key.Slash -> "Slash"
+            Key.Grave -> "Backquote"
+            else -> null
+        }
 
 @Composable
 private fun statusLabel(status: ClipSyncEngine.Status): StringResource =

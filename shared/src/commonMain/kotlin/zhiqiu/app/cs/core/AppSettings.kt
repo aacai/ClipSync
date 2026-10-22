@@ -108,6 +108,22 @@ class AppSettings(
         store.putBoolean(KEY_WATCH_FILES, enabled)
     }
 
+    /** 全局截屏快捷键，写法与 Rust 端一致（例如 Alt+A）；坏值按默认值处理，不能让用户卡在一个按不动的键上。 */
+    private val _screenshotHotkey =
+        MutableStateFlow(
+            normalizeHotkey(store.getString(KEY_SCREENSHOT_HOTKEY, ScreenshotHotkey.DEFAULT_SPEC))
+        )
+    val screenshotHotkey: StateFlow<String> = _screenshotHotkey.asStateFlow()
+
+    fun setScreenshotHotkey(spec: String) {
+        val value = normalizeHotkey(spec)
+        _screenshotHotkey.value = value
+        store.putString(KEY_SCREENSHOT_HOTKEY, value)
+    }
+
+    private fun normalizeHotkey(spec: String): String =
+        ScreenshotHotkey.parse(spec)?.toString() ?: ScreenshotHotkey.DEFAULT_SPEC
+
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
 
@@ -175,6 +191,7 @@ class AppSettings(
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
         private const val KEY_WATCH_FILES = "clipboard.watchFiles"
+        private const val KEY_SCREENSHOT_HOTKEY = "screenshot.hotkey"
         private const val KEY_DELETE_EXPIRED = "history.deleteExpired"
         private const val KEY_RETENTION_DAYS = "history.retentionDays"
         val RETENTION_CHOICES = listOf(7, 30, 90, 365)

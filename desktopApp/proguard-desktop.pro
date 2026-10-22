@@ -55,6 +55,23 @@
     public static <1> INSTANCE;
 }
 
+# JNA 全靠反射装配：Library 接口用 Proxy 动态实现、Structure 按字段名读写内存、Callback 按方法
+# 签名找原生桩，这三样在静态调用图里都没有调用方，不点名就被当无用代码裁掉，而且要到按快捷键那一刻才炸。
+-keep class com.sun.jna.** { *; }
+-keep interface * extends com.sun.jna.Library { *; }
+# 原生桩按 invoke 这个名字回调，接口和实现类的方法名都得留着。实现类往往是匿名类，只
+# implements 我们自己那层 Callback 子接口，`implements com.sun.jna.Callback` 匹配不到它，
+# 所以用 -if 把「继承了 Callback 的接口」先挑出来，再点名它们的实现。
+-keep interface * extends com.sun.jna.Callback { *; }
+-if interface * extends com.sun.jna.Callback
+-keep class * implements <1> { *; }
+-keepclassmembers class * extends com.sun.jna.Structure {
+    <fields>;
+    <init>(...);
+}
+# jna 里那堆可选适配（AWT 之外的 VarHandler、脚本引擎、android 分支）本工程用不到。
+-dontwarn com.sun.jna.**
+
 # 其余按库补的口子，用到什么加什么（本仓库没用到，留个清单免得下次重新踩）：
 # - Room：Class.forName("<Database>_Impl") 找生成实现，静态图里没人引用它。
 #   -if @androidx.room3.Database class ** { *; }  /  -keep class <1>_Impl { <init>(...); }

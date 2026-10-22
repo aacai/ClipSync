@@ -70,6 +70,15 @@ internal fun feedbackText(feedback: Feedback): String =
             is Feedback.LocalFileReadFailed ->
                 stringResource(Res.string.fb_local_read_failed, feedback.name, feedback.reason)
             Feedback.AutostartFailed -> stringResource(Res.string.fb_autostart_failed)
+            Feedback.ScreenshotTaken -> stringResource(Res.string.fb_screenshot_taken)
+            Feedback.ScreenshotPermission -> stringResource(Res.string.fb_screenshot_permission)
+            is Feedback.ScreenshotTooLarge ->
+                stringResource(Res.string.fb_screenshot_too_large, feedback.mb)
+            is Feedback.ScreenshotFailed ->
+                stringResource(Res.string.fb_screenshot_failed, feedback.reason)
+            Feedback.ScreenshotEmpty -> stringResource(Res.string.fb_screenshot_empty)
+            is Feedback.HotkeySaved -> stringResource(Res.string.fb_hotkey_saved, feedback.spec)
+            is Feedback.HotkeyFailed -> stringResource(Res.string.fb_hotkey_failed, feedback.spec)
             is Feedback.FileProblem -> fileIssueText(feedback.issue)
         }
 

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.Flow
 import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.deviceName
 import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.core.installId
@@ -106,12 +107,36 @@ class PlatformUi(
     val deviceOs: String,
     val installId: String,
     val downloads: PlatformDownloads = UnavailableDownloads,
+    val capture: PlatformScreenCapture = UnavailableScreenCapture,
+    val hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     /**
      * 有指针悬浮的平台（桌面、网页）：列表行快捷操作默认收起，hover 才展开，减少视觉噪音；
      * 触摸设备（手机）没有 hover 事件，常驻显示，操作效率不打折。
      */
     val hoverRevealsActions: Boolean = false,
 )
+
+/** 整屏截图：拿到的是 PNG 字节，抓不到就抛，让界面如实报错。 */
+interface PlatformScreenCapture {
+    val isAvailable: Boolean get() = false
+
+    suspend fun capture(): ByteArray
+}
+
+/**
+ * 全局组合键：窗口不在前台也要能截屏，所以不能走 Compose 的按键事件。
+ *
+ * [isAvailable] 为 false 的平台（手机、浏览器）没有这个概念，设置里那一组要整组藏掉。
+ */
+interface PlatformGlobalHotkey {
+    val isAvailable: Boolean get() = false
+
+    /** 装监听；回调跑在平台自己的线程上，重复调用只装一次。 */
+    fun start(onTrigger: () -> Unit)
+
+    /** 换键：新键注册成功才放掉旧键，失败就保持原样并返回 false。 */
+    fun update(hotkey: ScreenshotHotkey): Boolean
+}
 
 /** 「存到下载目录」：桌面和 Android 写用户自己的 Downloads，浏览器交给它自己的下载行为。 */
 interface PlatformDownloads {
@@ -123,6 +148,13 @@ interface PlatformDownloads {
 
 class ClipboardUnavailable(val code: String? = null, detail: String? = null) : Exception(detail ?: code)
 
+/**
+ * 平台没有屏幕录制权限。
+ *
+ * 单独一个类型是因为 macOS 不报错、只把壁纸给你，而引导文案要跟界面语言走，不能让平台层写死。
+ */
+class ScreenCapturePermissionMissing : Exception()
+
 /** 没有登录项概念的平台（手机沙箱、浏览器）。 */
 internal object UnavailableAutostart : PlatformAutostart {
     override fun setEnabled(enabled: Boolean): Unit = throw UnsupportedOperationException("这个平台没有登录项")
@@ -132,6 +164,17 @@ internal object UnavailableAutostart : PlatformAutostart {
 internal object UnavailableDownloads : PlatformDownloads {
     override suspend fun save(name: String, bytes: ByteArray): String =
             throw UnsupportedOperationException("这个平台没有下载目录")
+}
+
+/** 抓不了屏的平台（手机沙箱、浏览器）。 */
+internal object UnavailableScreenCapture : PlatformScreenCapture {
+    override suspend fun capture(): ByteArray = throw UnsupportedOperationException("这个平台不能截屏")
+}
+
+/** 没有全局组合键概念的平台（手机、浏览器都在别的 app 前面插不进手）。 */
+internal object UnavailableGlobalHotkey : PlatformGlobalHotkey {
+    override fun start(onTrigger: () -> Unit) = Unit
+    override fun update(hotkey: ScreenshotHotkey): Boolean = false
 }
 
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */
@@ -157,8 +200,10 @@ internal fun rememberPlatformUi(
     store: ClipStore,
     autostart: PlatformAutostart = UnavailableAutostart,
     downloads: PlatformDownloads = UnavailableDownloads,
+    capture: PlatformScreenCapture = UnavailableScreenCapture,
+    hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     hoverRevealsActions: Boolean = false,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, hoverRevealsActions) {
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -166,6 +211,8 @@ internal fun rememberPlatformUi(
         store = store,
         autostart = autostart,
         downloads = downloads,
+        capture = capture,
+        hotkeys = hotkeys,
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),

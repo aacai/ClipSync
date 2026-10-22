@@ -24,6 +24,7 @@ import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
+import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.assetFor
 import zhiqiu.app.cs.core.isBehind
@@ -114,6 +115,12 @@ class AppModel internal constructor(
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
 
+    /** 截屏要同时有整屏抓取和全局快捷键：少了后者就只能在自己窗口里点，那不是截屏功能。 */
+    val supportsScreenshot: Boolean
+        get() = platform.capture.isAvailable && platform.hotkeys.isAvailable
+
+    val screenshotHotkey: StateFlow<String> = settings.screenshotHotkey
+
     /** 有指针悬浮的平台上行内快捷操作默认收起（hover 才展开），触摸设备常驻显示。 */
     val hoverRevealsActions: Boolean = platform.hoverRevealsActions
     val deviceName: StateFlow<String> =
@@ -182,6 +189,13 @@ class AppModel internal constructor(
         scope.launch {
             settings.watchClipboard.collect { watching ->
                 if (watching) startClipboardWatch() else stopClipboardWatch()
+            }
+        }
+        // 截屏快捷键得排在别的 app 前面，只能装成全局热键；装不上的平台整组设置都是空的
+        if (supportsScreenshot) {
+            platform.hotkeys.start(::takeScreenshot)
+            if (!registerHotkey(settings.screenshotHotkey.value)) {
+                _failure.value = Feedback.HotkeyFailed(settings.screenshotHotkey.value)
             }
         }
     }
@@ -276,6 +290,64 @@ class AppModel internal constructor(
         } else {
             recordLocalFile(name, image.mime, image.bytes, hash)
         }
+    }
+
+    /** 快捷键按下去那一整条链路：抓屏 → 进剪贴板 → 记一条并发给同屋。 */
+    fun takeScreenshot() {
+        scope.launch {
+            val captured = runCatching { platform.capture.capture() }
+            if (captured.isFailure) {
+                val cause = captured.exceptionOrNull()
+                _failure.value =
+                    if (cause is ScreenCapturePermissionMissing) Feedback.ScreenshotPermission
+                    else Feedback.ScreenshotFailed(cause?.message.orEmpty())
+                return@launch
+            }
+            val png = captured.getOrThrow()
+            if (png.isEmpty()) {
+                _failure.value = Feedback.ScreenshotEmpty
+                return@launch
+            }
+            if (png.size.toLong() > FileLimits.MAX_FILE_BYTES) {
+                _failure.value = Feedback.ScreenshotTooLarge(FileLimits.maxMb)
+                return@launch
+            }
+            val hash = sha256Hex(png)
+            // 自己写进剪贴板的这张必须先登记，否则监听器下一轮会把它当新复制的再记一遍
+            lastOwnImageWrite = hash
+            val written = runCatching { platform.clipboard.writeImage(png, SCREENSHOT_MIME) }
+            val writeError = written.exceptionOrNull()
+            if (writeError != null) {
+                lastOwnImageWrite = null
+                _failure.value = writeBlocked(writeError)
+                return@launch
+            }
+            recordScreenshot(png, hash)
+            _info.value = Feedback.ScreenshotTaken
+        }
+    }
+
+    private suspend fun recordScreenshot(png: ByteArray, hash: String) {
+        val name = "screenshot-${hash.take(8)}.${extForMime(SCREENSHOT_MIME)}"
+        if (status.value is ClipSyncEngine.Status.Online) {
+            val item = runCatching { engine.publishFile(name, SCREENSHOT_MIME, png) }.getOrNull()
+            if (item != null) cacheLocally(item.id, name, png)
+        } else {
+            recordLocalFile(name, SCREENSHOT_MIME, png, hash)
+        }
+    }
+
+    private fun registerHotkey(spec: String): Boolean {
+        val hotkey = ScreenshotHotkey.parse(spec) ?: return false
+        return platform.hotkeys.update(hotkey)
+    }
+
+    /** 换键：注册成功才写盘，否则旧键继续有效，界面按返回值如实报错。 */
+    fun setScreenshotHotkey(spec: String): Boolean {
+        if (!registerHotkey(spec)) return false
+        settings.setScreenshotHotkey(spec)
+        _info.value = Feedback.HotkeySaved(spec)
+        return true
     }
 
     private suspend fun recordLocalFile(name: String, mime: String, bytes: ByteArray, hash: String) {
@@ -896,6 +968,7 @@ class AppModel internal constructor(
 
     companion object {
         private const val MILLIS_PER_DAY = 24 * 60 * 60 * 1000L
+        private const val SCREENSHOT_MIME = "image/png"
         const val MAX_ROOM_CODE = 24
         private const val HEX_DIGITS = "0123456789abcdef"
         private const val ROOM_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"

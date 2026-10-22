@@ -106,6 +106,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(libs.mqtt.client.transport.tcp)
             implementation(libs.ktor.client.java)
+            implementation(libs.jna)
         }
         androidMain.dependencies {
             implementation(libs.mqtt.client.transport.tcp)

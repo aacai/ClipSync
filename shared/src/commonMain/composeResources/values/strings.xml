@@ -187,6 +187,13 @@
     <string name="fb_file_sent">已发送 %1$s</string>
     <string name="fb_local_read_failed">读取失败：%1$s（%2$s）</string>
     <string name="fb_autostart_failed">没能改到系统的登录项里</string>
+    <string name="fb_screenshot_taken">已截屏：图片进了剪贴板，也存进了列表</string>
+    <string name="fb_screenshot_permission">缺少屏幕录制权限：系统设置 → 隐私与安全性 → 屏幕与系统音频录制，勾上 ClipSync</string>
+    <string name="fb_screenshot_too_large">整屏超过 %1$dMB，这次没有截</string>
+    <string name="fb_screenshot_failed">截屏失败：%1$s</string>
+    <string name="fb_screenshot_empty">这次没能截到画面，再按一次试试</string>
+    <string name="fb_hotkey_saved">截屏快捷键已改为 %1$s</string>
+    <string name="fb_hotkey_failed">「%1$s」注册失败，换一个组合键试试</string>
     <plurals name="fb_deleted">
         <item quantity="other">已删除 %1$d 条</item>
     </plurals>
@@ -226,7 +233,12 @@
     <string name="settings_group_appearance">外观</string>
     <string name="settings_group_sync">同步</string>
     <string name="settings_group_clipboard">剪贴板</string>
+    <string name="settings_group_screenshot">截屏</string>
     <string name="settings_group_about">关于</string>
+    <string name="setting_screenshot_hotkey">截屏快捷键</string>
+    <string name="setting_screenshot_hint">按一下截下整屏：图直接进剪贴板，也存进列表发给同屋</string>
+    <string name="setting_screenshot_record_hint">直接按下新的组合键就能替换，需要带上 Command、Control 或 Alt</string>
+    <string name="setting_screenshot_record_invalid">这个键做不了全局快捷键，再按一次别的组合键</string>
     <string name="setting_theme">主题</string>
     <string name="setting_language">语言</string>
     <string name="theme_system">跟随系统</string>

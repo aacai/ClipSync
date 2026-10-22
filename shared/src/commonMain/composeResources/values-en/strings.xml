@@ -186,6 +186,13 @@
     <string name="fb_file_sent">Sent %1$s</string>
     <string name="fb_local_read_failed">Could not read %1$s (%2$s)</string>
     <string name="fb_autostart_failed">Could not change the system login item</string>
+    <string name="fb_screenshot_taken">Screenshot captured: it is on your clipboard and in the list</string>
+    <string name="fb_screenshot_permission">Screen Recording permission is missing: System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then enable ClipSync</string>
+    <string name="fb_screenshot_too_large">The whole screen is over %1$d MB, so nothing was captured</string>
+    <string name="fb_screenshot_failed">Screenshot failed: %1$s</string>
+    <string name="fb_screenshot_empty">Nothing came back from the screen, try the shortcut again</string>
+    <string name="fb_hotkey_saved">Screenshot hotkey is now %1$s</string>
+    <string name="fb_hotkey_failed">Could not register %1$s, try another chord</string>
     <plurals name="fb_deleted">
         <item quantity="one">Deleted %1$d item</item>
         <item quantity="other">Deleted %1$d items</item>
@@ -231,7 +238,12 @@
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_group_sync">Sync</string>
     <string name="settings_group_clipboard">Clipboard</string>
+    <string name="settings_group_screenshot">Screenshot</string>
     <string name="settings_group_about">About</string>
+    <string name="setting_screenshot_hotkey">Screenshot hotkey</string>
+    <string name="setting_screenshot_hint">One press captures the whole screen: the picture goes to your clipboard and into the list for the room</string>
+    <string name="setting_screenshot_record_hint">Press a new chord to replace it; it needs Command, Control or Alt</string>
+    <string name="setting_screenshot_record_invalid">That key cannot be a global shortcut, press another chord</string>
     <string name="setting_theme">Theme</string>
     <string name="setting_language">Language</string>
     <string name="theme_system">System</string>
