@@ -572,11 +572,10 @@ class AppModel internal constructor(
                 _failure.value = Feedback.DownloadFailed("")
                 return@launch
             }
+            // 同样先记账：写入挂起期间轮询会读到这张图，不先占住就会再发一遍
+            lastOwnImageWrite = runCatching { sha256Hex(bytes) }.getOrNull()
             runCatching { platform.clipboard.writeImage(bytes, file.mime) }
-                .onSuccess {
-                    lastOwnImageWrite = runCatching { sha256Hex(bytes) }.getOrNull()
-                    _info.value = Feedback.Copied(CopyTarget.Image)
-                }
+                .onSuccess { _info.value = Feedback.Copied(CopyTarget.Image) }
                 .onFailure { _failure.value = writeBlocked(it) }
         }
     }
@@ -689,11 +688,10 @@ class AppModel internal constructor(
 
     private fun writeSelection(payload: String, then: Feedback) {
         scope.launch {
+            lastOwnWrite = payload
+            lastCaptured = payload
             runCatching { platform.clipboard.write(payload) }
-                .onSuccess {
-                    lastOwnWrite = payload
-                    _info.value = then
-                }
+                .onSuccess { _info.value = then }
                 .onFailure { _failure.value = writeBlocked(it) }
         }
     }
@@ -870,8 +868,12 @@ class AppModel internal constructor(
             receiveJob = scope.launch {
                 engine.clips.collect { event ->
                     if (event.file != null) return@collect
-                    val outcome = runCatching { platform.clipboard.write(event.text) }
+                    // 先记账再写：write() 会挂起，轮询协程能在挂起点插进来读到刚写进去的内容。
+                    // 那时 lastOwnWrite 还是上一次的，这份复制就会被当成用户新拷贝再广播一次；
+                    // mid 带发送者设备号，重播算新条目，房间里人越多重复越多。
                     lastOwnWrite = event.text
+                    lastCaptured = event.text
+                    val outcome = runCatching { platform.clipboard.write(event.text) }
                     _info.value = if (outcome.isSuccess) {
                         Feedback.Received(event.senderName)
                     } else {
