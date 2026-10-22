@@ -161,7 +161,7 @@ class AppModel internal constructor(
     private val translator: TranslateClient by lazy { createTranslateClient() }
     private var connectJob: Job? = null
     private var receiveJob: Job? = null
-    private var lastPublished: String? = null
+    private val outbound = EchoLog()
     private var lastOwnWrite: String? = null
     private var lastCaptured: String? = null
     private var lastImageHash: String? = null
@@ -237,16 +237,19 @@ class AppModel internal constructor(
             return
         }
         if (text.isBlank()) return
-        if (text == lastOwnWrite || text == lastPublished || text == lastCaptured) return
+        if (isEcho(text) || text == lastCaptured) return
         lastCaptured = text
         if (status.value is ClipSyncEngine.Status.Online) {
             runCatching { engine.publishText(text) }
-                .onSuccess { lastPublished = text }
+                .onSuccess { outbound.remember(text) }
                 .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
         } else {
             recordLocal(text)
         }
     }
+
+    /** 这份内容是这台设备刚发出去的，或者刚替它写进剪贴板的：再写一次只会盖掉用户新的复制。 */
+    private fun isEcho(text: String): Boolean = outbound.isEcho(text) || text == lastOwnWrite
 
     /** 复制的文件：一份内容算一批，每个文件留一条。返回 true 表示这批剪贴板归文件管，别再当图片抓。 */
     private suspend fun captureFiles(): Boolean {
@@ -931,7 +934,7 @@ class AppModel internal constructor(
     private fun publish(text: String) {
         scope.launch {
             runCatching { engine.publishText(text) }
-                .onSuccess { lastPublished = text; _info.value = Feedback.Sent(text.length) }
+                .onSuccess { outbound.remember(text); _info.value = Feedback.Sent(text.length) }
                 .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
         }
     }
@@ -953,6 +956,9 @@ class AppModel internal constructor(
                         _info.value = Feedback.Received(event.senderName, copied = false)
                         return@collect
                     }
+                    // 屋里另一台机器（或本机另一个 ClipSync）把我们刚发出去的内容又推回来。
+                    // 用户的剪贴板这时候多半已经换成新的一份了，写下去就是把新的盖掉。
+                    if (isEcho(event.text)) return@collect
                     // 先记账再写：write() 会挂起，轮询协程能在挂起点插进来读到刚写进去的内容。
                     // 那时 lastOwnWrite 还是上一次的，这份复制就会被当成用户新拷贝再广播一次；
                     // mid 带发送者设备号，重播算新条目，房间里人越多重复越多。
