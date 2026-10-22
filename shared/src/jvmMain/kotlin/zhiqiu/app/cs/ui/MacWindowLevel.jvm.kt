@@ -1,8 +1,10 @@
 package zhiqiu.app.cs.ui
 
+import com.sun.jna.Callback
 import com.sun.jna.FunctionMapper
 import com.sun.jna.Library
 import com.sun.jna.Native
+import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
 
 /**
@@ -41,23 +43,36 @@ internal object MacWindowLevel {
     /**
      * 抬不动就当这平台没有菜单栏：窗口照常显示，只是顶上那一条归系统。
      *
-     * 这里是在 AWT 的事件线程上直接发消息给 AppKit，严格说 AppKit 只认主线程；改一个窗口层级是它少数
-     * 从别的线程调用也稳的操作，Java 自己处理置顶窗口也是这么走同一条通道的。
+     * AppKit 只认主线程，而这里是在 AWT 的事件线程上被调的——直接发消息过去会被窗口管理器
+     * 的队列断言当场打死（实测 SIGTRAP），所以整段都甩到主队列上去跑。
      */
     fun raiseAboveMenuBar() {
-        val lib = objc ?: return
-        val sel = selectors ?: return
-        val cf = foundation ?: return
-        val title = wanted ?: return
-        val app = lib.msgObject(lib.objc_getClass("NSApplication"), sel.sharedApplication) ?: return
-        val windows = lib.msgObject(app, sel.windows) ?: return
-        val count = lib.msgLong(windows, sel.count)
-        for (index in 0 until count) {
-            val window = lib.msgIndexed(windows, sel.objectAtIndex, index) ?: continue
-            val name = lib.msgObject(window, sel.title) ?: continue
-            if (cf.CFEqual(name, title)) {
-                lib.msgSetLevel(window, sel.setLevel, SCREEN_SAVER_LEVEL)
-                return
+        val dispatcher = dispatch ?: return
+        val queue = mainQueue ?: return
+        runCatching {
+            val work = Work { raiseNow() }
+            pending = work
+            dispatcher.dispatch_async_f(queue, null, work)
+        }
+    }
+
+    /** 这一段整条都在 AppKit 主队列上跑，出了岔子也只当没抬起来。 */
+    private fun raiseNow() {
+        runCatching {
+            val lib = objc ?: return@runCatching
+            val sel = selectors ?: return@runCatching
+            val cf = foundation ?: return@runCatching
+            val title = wanted ?: return@runCatching
+            val app = lib.msgObject(lib.objc_getClass("NSApplication"), sel.sharedApplication) ?: return@runCatching
+            val windows = lib.msgObject(app, sel.windows) ?: return@runCatching
+            val count = lib.msgLong(windows, sel.count)
+            for (index in 0 until count) {
+                val window = lib.msgIndexed(windows, sel.objectAtIndex, index) ?: continue
+                val name = lib.msgObject(window, sel.title) ?: continue
+                if (cf.CFEqual(name, title)) {
+                    lib.msgSetLevel(window, sel.setLevel, SCREEN_SAVER_LEVEL)
+                    return@runCatching
+                }
             }
         }
     }
@@ -68,6 +83,34 @@ internal object MacWindowLevel {
             if (method.name.startsWith("msg")) "objc_msgSend" else method.name
         },
     )
+
+    /** `dispatch_function_t` 就是 `void (void *)`：JNA 会把 Callback 当成真函数指针递过去。 */
+    private fun interface Work : Callback {
+        fun run(context: Pointer?)
+    }
+
+    private interface Dispatch : Library {
+        /** `dispatch_async_f(queue, context, work)`：上下文用不上，留个 `void *` 的位置。 */
+        fun dispatch_async_f(queue: Pointer, context: Pointer?, work: Work)
+    }
+
+    private const val DISPATCH = "/usr/lib/system/libdispatch.dylib"
+
+    private val dispatch: Dispatch? by lazy {
+        if (!Mac.isMacOs) null else runCatching {
+            Native.load(DISPATCH, Dispatch::class.java)
+        }.getOrNull()
+    }
+
+    /** `dispatch_get_main_queue()` 在新系统上是个宏，函数表里查不到，主队列得按全局变量 `_dispatch_main_q` 取地址。 */
+    private val mainQueue: Pointer? by lazy {
+        if (!Mac.isMacOs) null else runCatching {
+            NativeLibrary.getInstance(DISPATCH).getGlobalVariableAddress("_dispatch_main_q")
+        }.getOrNull()
+    }
+
+    /** 闭包还没跑就被回收的话，主队列拿到的就是个悬空指针。 */
+    private var pending: Work? = null
 
     private interface ObjectiveC : Library {
         fun objc_getClass(className: String): Pointer?
