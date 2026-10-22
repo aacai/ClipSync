@@ -21,6 +21,7 @@ import java.util.prefs.Preferences
 import kotlin.concurrent.thread
 import zhiqiu.app.cs.ui.AppTray
 import zhiqiu.app.cs.ui.LAUNCH_HIDDEN_ARGUMENT
+import zhiqiu.app.cs.ui.ScreenshotOverlay
 import zhiqiu.app.cs.ui.showFromTray
 
 // 本机回环端口充当单实例互斥锁：能绑定说明本进程是唯一的，绑定失败说明已有实例在跑
@@ -59,6 +60,9 @@ fun main(args: Array<String>) {
             },
             onQuit = ::exitApplication,
         )
+
+        // 截屏遮罩层：整个进程就这一个窗口，平时藏着，框完还藏回去——关掉只会关掉 Compose 那一半。
+        ScreenshotOverlay.OverlayWindow()
 
         Window(
             // 关窗口只是收进托盘，进程要继续守着剪贴板；没有托盘的平台才真的退出。

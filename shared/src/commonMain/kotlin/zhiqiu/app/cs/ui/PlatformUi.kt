@@ -109,6 +109,7 @@ class PlatformUi(
     val downloads: PlatformDownloads = UnavailableDownloads,
     val capture: PlatformScreenCapture = UnavailableScreenCapture,
     val hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
+    val overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
     /**
      * 有指针悬浮的平台（桌面、网页）：列表行快捷操作默认收起，hover 才展开，减少视觉噪音；
      * 触摸设备（手机）没有 hover 事件，常驻显示，操作效率不打折。
@@ -121,6 +122,19 @@ interface PlatformScreenCapture {
     val isAvailable: Boolean get() = false
 
     suspend fun capture(): ByteArray
+}
+
+/**
+ * 微信那种框选截屏：先把屏幕冻住，盖一层能拖能缩的遮罩，用户定下哪块就只留哪块。
+ *
+ * 只有桌面有「一整屏接得住鼠标的无边框窗口」这个概念；别的平台 [isAvailable] 为假，
+ * 快捷键退回原来的整屏直存。
+ */
+interface PlatformScreenshotOverlay {
+    val isAvailable: Boolean get() = false
+
+    /** 弹遮罩层等用户框选：切好了返回 PNG 字节，按取消返回 null，抓不到就抛。 */
+    suspend fun crop(): ByteArray?
 }
 
 /**
@@ -171,6 +185,11 @@ internal object UnavailableScreenCapture : PlatformScreenCapture {
     override suspend fun capture(): ByteArray = throw UnsupportedOperationException("这个平台不能截屏")
 }
 
+/** 没有遮罩层框选的平台（手机、浏览器都盖不住别人的整屏）。 */
+internal object UnavailableScreenshotOverlay : PlatformScreenshotOverlay {
+    override suspend fun crop(): ByteArray? = throw UnsupportedOperationException("这个平台没有框选遮罩层")
+}
+
 /** 没有全局组合键概念的平台（手机、浏览器都在别的 app 前面插不进手）。 */
 internal object UnavailableGlobalHotkey : PlatformGlobalHotkey {
     override fun start(onTrigger: () -> Unit) = Unit
@@ -202,8 +221,9 @@ internal fun rememberPlatformUi(
     downloads: PlatformDownloads = UnavailableDownloads,
     capture: PlatformScreenCapture = UnavailableScreenCapture,
     hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
+    overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
     hoverRevealsActions: Boolean = false,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, hoverRevealsActions) {
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, overlay, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -213,6 +233,7 @@ internal fun rememberPlatformUi(
         downloads = downloads,
         capture = capture,
         hotkeys = hotkeys,
+        overlay = overlay,
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),

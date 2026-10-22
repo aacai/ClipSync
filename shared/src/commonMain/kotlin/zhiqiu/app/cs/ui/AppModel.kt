@@ -292,10 +292,13 @@ class AppModel internal constructor(
         }
     }
 
-    /** 快捷键按下去那一整条链路：抓屏 → 进剪贴板 → 记一条并发给同屋。 */
+    /** 快捷键按下去那一整条链路：框选 → 进剪贴板 → 记一条并发给同屋。 */
     fun takeScreenshot() {
         scope.launch {
-            val captured = runCatching { platform.capture.capture() }
+            // 有遮罩层的平台先让用户圈一块；没有的平台（手机、浏览器）才整屏直存。
+            val captured = runCatching {
+                if (platform.overlay.isAvailable) platform.overlay.crop() else platform.capture.capture()
+            }
             if (captured.isFailure) {
                 val cause = captured.exceptionOrNull()
                 _failure.value =
@@ -303,7 +306,8 @@ class AppModel internal constructor(
                     else Feedback.ScreenshotFailed(cause?.message.orEmpty())
                 return@launch
             }
-            val png = captured.getOrThrow()
+            // 用户在遮罩层上按了取消：这不是失败，什么都不记、什么都不提示。
+            val png = captured.getOrNull() ?: return@launch
             if (png.isEmpty()) {
                 _failure.value = Feedback.ScreenshotEmpty
                 return@launch
