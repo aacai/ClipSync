@@ -25,7 +25,12 @@ sealed class Feedback {
         override val level get() = Level.Info
     }
 
-    data class Received(val sender: String, val code: String? = null, val detail: String? = null) : Feedback() {
+    data class Received(
+        val sender: String,
+        val code: String? = null,
+        val detail: String? = null,
+        val copied: Boolean = true,
+    ) : Feedback() {
         override val level get() = if (code == null && detail == null) Level.Info else Level.Warn
     }
 

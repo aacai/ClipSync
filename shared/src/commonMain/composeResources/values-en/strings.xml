@@ -168,6 +168,7 @@
     <string name="reason_insecure">Open this page over https or localhost</string>
     <string name="fb_sent">Synced %1$d characters</string>
     <string name="fb_received">Text from %1$s is now in the clipboard</string>
+    <string name="fb_received_saved">Saved the text from %1$s to the list</string>
     <string name="fb_received_blocked">Got text from %1$s (clipboard write refused: %2$s)</string>
     <string name="fb_copied_text">Copied</string>
     <string name="fb_copied_file">File placed on the clipboard, paste it anywhere</string>
@@ -250,6 +251,8 @@
     <string name="setting_watch_images_hint">Images you copy are saved to the list, and shared with the room when you are in one. Oversized images are skipped</string>
     <string name="setting_watch_files">Keep files</string>
     <string name="setting_watch_files_hint">Files you copy are saved to the list, and shared with the room when you are in one. Oversized files are skipped</string>
+    <string name="setting_auto_copy">Copy on receive</string>
+    <string name="setting_auto_copy_hint">Turn off and incoming text only lands in this device list; the clipboard stays as it is until you choose copy on an entry</string>
     <string name="setting_delete_expired">Delete expired entries</string>
     <string name="setting_delete_expired_hint">Entries older than the retention window are dropped together with their local cache. Pinned entries are kept</string>
     <string name="setting_retention">Keep for</string>

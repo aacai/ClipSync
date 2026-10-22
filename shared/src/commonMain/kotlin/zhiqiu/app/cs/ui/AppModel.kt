@@ -871,6 +871,12 @@ class AppModel internal constructor(
             receiveJob = scope.launch {
                 engine.clips.collect { event ->
                     if (event.file != null) return@collect
+                    // 关掉自动写入就只做记录：本机剪贴板没变，lastCaptured 也不能提前认下这份内容，
+                    // 否则用户后亲手复制同样的文字会被当成"没变化"而不再广播。
+                    if (!settings.autoCopyIncoming.value) {
+                        _info.value = Feedback.Received(event.senderName, copied = false)
+                        return@collect
+                    }
                     // 先记账再写：write() 会挂起，轮询协程能在挂起点插进来读到刚写进去的内容。
                     // 那时 lastOwnWrite 还是上一次的，这份复制就会被当成用户新拷贝再广播一次；
                     // mid 带发送者设备号，重播算新条目，房间里人越多重复越多。

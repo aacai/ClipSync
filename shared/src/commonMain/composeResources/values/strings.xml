@@ -169,6 +169,7 @@
     <string name="reason_insecure">请通过 https 或 localhost 打开页面</string>
     <string name="fb_sent">已同步 %1$d 字</string>
     <string name="fb_received">收到 %1$s 的文本，已进剪贴板</string>
+    <string name="fb_received_saved">收到 %1$s 的文本，已存进列表</string>
     <string name="fb_received_blocked">收到 %1$s 的文本（剪贴板写入被拒：%2$s）</string>
     <string name="fb_copied_text">已复制</string>
     <string name="fb_copied_file">已把文件放进剪贴板，可直接粘贴</string>
@@ -245,6 +246,8 @@
     <string name="setting_watch_images_hint">复制图片或截图后自动存进列表；在房间里同时发给同伴。超过上限的大图会被跳过</string>
     <string name="setting_watch_files">记录文件</string>
     <string name="setting_watch_files_hint">复制文件后自动存进列表；在房间里同时发给同伴。超过上限的文件会被跳过</string>
+    <string name="setting_auto_copy">收到即进剪贴板</string>
+    <string name="setting_auto_copy_hint">关掉后，同伴发来的文本只存进本机列表，不碰你的剪贴板；要点条目里的复制才会写入</string>
     <string name="setting_delete_expired">删除过期条目</string>
     <string name="setting_delete_expired_hint">开启后，超过保留时长的条目连同本机缓存一起清掉；置顶的条目不参与</string>
     <string name="setting_retention">保留时长</string>

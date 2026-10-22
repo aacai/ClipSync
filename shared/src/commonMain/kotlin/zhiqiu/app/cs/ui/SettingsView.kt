@@ -89,6 +89,7 @@ internal fun SettingsView(
     val watchClipboard by settings.watchClipboard.collectAsState()
     val watchImages by settings.watchImages.collectAsState()
     val watchFiles by settings.watchFiles.collectAsState()
+    val autoCopyIncoming by settings.autoCopyIncoming.collectAsState()
     val deleteExpired by settings.deleteExpired.collectAsState()
     val retentionDays by settings.retentionDays.collectAsState()
     val residentSync by model.residentSync.collectAsState()
@@ -253,6 +254,13 @@ internal fun SettingsView(
                                                 settings::setWatchFiles,
                                         )
                                     }
+                                    RowDivider()
+                                    SwitchRow(
+                                            Res.string.setting_auto_copy,
+                                            Res.string.setting_auto_copy_hint,
+                                            autoCopyIncoming,
+                                            settings::setAutoCopyIncoming,
+                                    )
                                 }
                             }
                         }

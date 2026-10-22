@@ -22,14 +22,15 @@ internal fun feedbackText(feedback: Feedback): String =
                 stringResource(Res.string.fb_write_blocked, clipboardReason(feedback.code, feedback.detail))
             is Feedback.Sent -> stringResource(Res.string.fb_sent, feedback.chars)
             is Feedback.Received ->
-                if (feedback.code == null && feedback.detail == null) {
-                    stringResource(Res.string.fb_received, feedback.sender)
-                } else {
-                    stringResource(
-                            Res.string.fb_received_blocked,
-                            feedback.sender,
-                            clipboardReason(feedback.code, feedback.detail),
-                    )
+                when {
+                    feedback.code != null || feedback.detail != null ->
+                        stringResource(
+                                Res.string.fb_received_blocked,
+                                feedback.sender,
+                                clipboardReason(feedback.code, feedback.detail),
+                        )
+                    !feedback.copied -> stringResource(Res.string.fb_received_saved, feedback.sender)
+                    else -> stringResource(Res.string.fb_received, feedback.sender)
                 }
             is Feedback.Copied ->
                 when (feedback.what) {

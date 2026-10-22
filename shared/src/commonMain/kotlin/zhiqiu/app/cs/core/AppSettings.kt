@@ -84,6 +84,14 @@ class AppSettings(
         store.putBoolean(KEY_LAUNCH_AT_LOGIN, enabled)
     }
 
+    private val _autoCopyIncoming = MutableStateFlow(store.getBoolean(KEY_AUTO_COPY, true))
+    val autoCopyIncoming: StateFlow<Boolean> = _autoCopyIncoming.asStateFlow()
+
+    fun setAutoCopyIncoming(enabled: Boolean) {
+        _autoCopyIncoming.value = enabled
+        store.putBoolean(KEY_AUTO_COPY, enabled)
+    }
+
     private val _watchImages = MutableStateFlow(store.getBoolean(KEY_WATCH_IMAGES, true))
     val watchImages: StateFlow<Boolean> = _watchImages.asStateFlow()
 
@@ -164,6 +172,7 @@ class AppSettings(
         private const val KEY_LANGUAGE = "ui.language"
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
+        private const val KEY_AUTO_COPY = "clipboard.autoCopy"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
         private const val KEY_WATCH_FILES = "clipboard.watchFiles"
         private const val KEY_DELETE_EXPIRED = "history.deleteExpired"
