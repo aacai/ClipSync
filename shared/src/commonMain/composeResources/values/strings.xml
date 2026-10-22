@@ -188,7 +188,7 @@
     <string name="fb_local_read_failed">读取失败：%1$s（%2$s）</string>
     <string name="fb_autostart_failed">没能改到系统的登录项里</string>
     <string name="fb_screenshot_taken">已截屏：图片进了剪贴板，也存进了列表</string>
-    <string name="fb_screenshot_permission">缺少屏幕录制权限：系统设置 → 隐私与安全性 → 屏幕与系统音频录制，勾上 ClipSync</string>
+    <string name="fb_screenshot_permission">缺少屏幕录制权限：在刚弹出的系统提示里允许，或到系统设置 → 隐私与安全性 → 屏幕与系统音频录制勾上 ClipSync，然后重启 ClipSync</string>
     <string name="fb_screenshot_too_large">整屏超过 %1$dMB，这次没有截</string>
     <string name="fb_screenshot_failed">截屏失败：%1$s</string>
     <string name="fb_screenshot_empty">这次没能截到画面，再按一次试试</string>

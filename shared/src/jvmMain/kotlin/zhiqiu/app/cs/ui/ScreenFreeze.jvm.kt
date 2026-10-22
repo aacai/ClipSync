@@ -36,7 +36,7 @@ internal object ScreenFreeze {
      * 没给屏幕录制权限时 macOS 不报错、只把壁纸给你，所以先探一次再决定要不要按下去。
      */
     fun grab(): Freeze {
-        if (Mac.isMacOs && !Mac.screenCaptureAllowed()) throw ScreenCapturePermissionMissing()
+        if (Mac.isMacOs && !Mac.requestScreenCapture()) throw ScreenCapturePermissionMissing()
         val bounds = displayBounds()
         val shown = Window.getWindows().filter { it.isDisplayable && it.isVisible }
         onEdt { shown.forEach { window -> window.isVisible = false } }

@@ -187,7 +187,7 @@
     <string name="fb_local_read_failed">Could not read %1$s (%2$s)</string>
     <string name="fb_autostart_failed">Could not change the system login item</string>
     <string name="fb_screenshot_taken">Screenshot captured: it is on your clipboard and in the list</string>
-    <string name="fb_screenshot_permission">Screen Recording permission is missing: System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then enable ClipSync</string>
+    <string name="fb_screenshot_permission">Screen Recording permission is missing: allow it in the prompt just shown, or enable ClipSync in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then restart ClipSync</string>
     <string name="fb_screenshot_too_large">The whole screen is over %1$d MB, so nothing was captured</string>
     <string name="fb_screenshot_failed">Screenshot failed: %1$s</string>
     <string name="fb_screenshot_empty">Nothing came back from the screen, try the shortcut again</string>

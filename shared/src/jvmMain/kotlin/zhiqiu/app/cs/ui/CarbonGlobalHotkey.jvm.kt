@@ -126,6 +126,7 @@ internal interface CarbonLibrary : Library {
 
 private interface CoreGraphicsLibrary : Library {
     fun CGPreflightScreenCaptureAccess(): Boolean
+    fun CGRequestScreenCaptureAccess(): Boolean
 }
 
 /** Carbon 那一层的常量、键码表和加载，全放这里，出问题时一眼能看完。 */
@@ -152,8 +153,18 @@ internal object Mac {
         runCatching { Native.load("CoreGraphics", CoreGraphicsLibrary::class.java) }.getOrNull()
     }
 
-    /** 没有屏幕录制权限时 macOS 不报错，只会把桌面壁纸给你，所以得先探一下。 */
-    fun screenCaptureAllowed(): Boolean = coreGraphics?.CGPreflightScreenCaptureAccess() ?: true
+    /**
+     * 没有屏幕录制权限时 macOS 不报错，只会把桌面壁纸给你，所以抓之前先问一次。
+     *
+     * 光用 preflight 查是不够的：它不弹窗、也不会把 app 登记进「系统设置 → 录屏」的列表，
+     * 用户连去哪儿勾选都找不到。所以没权限时真去申请一次，把系统的授权弹窗拉起来。
+     * 返回「现在到底能不能抓」；刚批下来的权限要重启进程才生效，那一下仍然是不能。
+     */
+    fun requestScreenCapture(): Boolean {
+        val cg = coreGraphics ?: return true
+        if (cg.CGPreflightScreenCaptureAccess()) return true
+        return runCatching { cg.CGRequestScreenCaptureAccess() }.getOrDefault(false)
+    }
 
     fun applicationEventTarget(): Pointer? =
         runCatching { carbon?.GetApplicationEventTarget() }.getOrNull()
