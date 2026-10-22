@@ -364,7 +364,8 @@ class AppModel internal constructor(
             _failure.value = Feedback.RoomCodeRequired
             return
         }
-        if (status.value is ClipSyncEngine.Status.Online || _connecting.value) return
+        if (_connecting.value) return
+        if (status.value is ClipSyncEngine.Status.Online && wantedRoom == room) return
         connectWith(room, savedKeyFor(room))
     }
 
@@ -380,6 +381,8 @@ class AppModel internal constructor(
 
     private fun connectWith(room: String, savedKey: ByteArray?) {
         connectJob?.cancel()
+        // 换房间：旧那间的记账先清掉，engine.start() 自己会把旧链路停掉
+        if (_joinedRoom.value != null && _joinedRoom.value != room) leaveRoom()
         wantedRoom = room
         connectJob =
                 scope.launch {
@@ -450,11 +453,16 @@ class AppModel internal constructor(
 
     private fun disconnect() {
         connectJob?.cancel()
+        leaveRoom()
+        scope.launch { engine.stop() }
+    }
+
+    /** 离开房间只是本机记账：链路要停，存的钥匙和常驻同步也跟着清掉。 */
+    private fun leaveRoom() {
         wantedRoom = null
         _joinedRoom.value = null
         settings.forgetRoomKey()
         if (settings.residentSync.value) settings.setResidentSync(false)
-        scope.launch { engine.stop() }
     }
 
     fun setResidentSync(enabled: Boolean) {

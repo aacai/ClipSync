@@ -106,13 +106,21 @@ internal fun SettingsView(
     var pickingLanguage by remember { mutableStateOf(false) }
     var pickingRetention by remember { mutableStateOf(false) }
     var editingNickname by remember { mutableStateOf(false) }
+    var editingRoom by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
+
+    LaunchedEffect(roomCode) { if (roomCode != null) editingRoom = false }
 
     DisposableEffect(Unit) {
         val removeChords =
                 installKeyChords { name, _, _ ->
-                        if (name == "Escape" && !pickingTheme && !pickingLanguage && !pickingRetention && !editingNickname) {
+                        if (name == "Escape" &&
+                                        !pickingTheme &&
+                                        !pickingLanguage &&
+                                        !pickingRetention &&
+                                        !editingNickname &&
+                                        !editingRoom) {
                                 onBack()
                                 true
                         } else {
@@ -134,6 +142,7 @@ internal fun SettingsView(
                                             !pickingLanguage &&
                                             !pickingRetention &&
                                             !editingNickname &&
+                                            !editingRoom &&
                                             run {
                                                     onBack()
                                                     true
@@ -178,6 +187,7 @@ internal fun SettingsView(
                                         detail = roomCode?.let { stringResource(statusLabel(status)) },
                                         monospace = roomCode != null,
                                         valueColor = roomColor(status, roomCode),
+                                        onClick = { editingRoom = true },
                                 )
                                 if (roomCode != null) {
                                     RowDivider()
@@ -360,6 +370,9 @@ internal fun SettingsView(
                 },
         )
     }
+    if (editingRoom) {
+        ShareDialog(model, onDismiss = { editingRoom = false })
+    }
     if (editingNickname) {
         TextEntryDialog(
                 title = Res.string.setting_nickname,
@@ -536,9 +549,10 @@ private fun ValueRow(
         detail: String? = null,
         monospace: Boolean = false,
         valueColor: Color? = null,
+        onClick: (() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    RowScaffold(onClick = null) {
+    RowScaffold(onClick = onClick) {
         Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(12.dp))
         if (detail != null) {
@@ -554,6 +568,10 @@ private fun ValueRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 200.dp),
         )
+        if (onClick != null) {
+            Spacer(Modifier.width(2.dp))
+            Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
