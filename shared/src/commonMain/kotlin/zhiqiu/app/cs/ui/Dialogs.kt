@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -44,18 +45,21 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipProtocol
 import zhiqiu.app.cs.core.ClipSyncEngine
@@ -834,6 +838,78 @@ internal fun HelpDialog(onDismiss: () -> Unit) {
             },
             shape = MaterialTheme.shapes.large,
     )
+}
+
+private const val REPO_URL = "https://github.com/aacai/ClipSync"
+
+@Composable
+internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
+    val room by model.joinedRoom.collectAsState()
+    val localCount by model.localCount.collectAsState()
+    val uriHandler = LocalUriHandler.current
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.about_title), fontSize = 17.sp) },
+            text = {
+                Column(
+                        modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    AboutRow(Res.string.setting_version, model.appVersion)
+                    AboutRow(Res.string.setting_os, model.deviceOs)
+                    AboutRow(Res.string.about_device_id, model.deviceId, monospace = true)
+                    AboutRow(
+                            Res.string.local_history,
+                            pluralStringResource(Res.plurals.setting_item_count, localCount, localCount),
+                    )
+                    AboutRow(
+                            Res.string.about_room,
+                            room ?: stringResource(Res.string.about_room_none),
+                            monospace = room != null,
+                    )
+                    AboutRow(Res.string.about_hosting, stringResource(Res.string.about_hosting_value))
+                    Text(
+                            stringResource(Res.string.about_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                            REPO_URL.removePrefix("https://"),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { uriHandler.openUri(REPO_URL) },
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = onDismiss, shape = MaterialTheme.shapes.small) {
+                    Text(stringResource(Res.string.safety_close), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
+private fun AboutRow(title: StringResource, value: String, monospace: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+                stringResource(title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontFamily = if (monospace) FontFamily.Monospace else null,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(max = 200.dp),
+        )
+    }
 }
 
 @Composable

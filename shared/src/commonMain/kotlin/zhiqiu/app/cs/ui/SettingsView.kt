@@ -107,6 +107,7 @@ internal fun SettingsView(
     var pickingRetention by remember { mutableStateOf(false) }
     var editingNickname by remember { mutableStateOf(false) }
     var editingRoom by remember { mutableStateOf(false) }
+    var aboutOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
 
@@ -120,7 +121,8 @@ internal fun SettingsView(
                                         !pickingLanguage &&
                                         !pickingRetention &&
                                         !editingNickname &&
-                                        !editingRoom) {
+                                        !editingRoom &&
+                                        !aboutOpen) {
                                 onBack()
                                 true
                         } else {
@@ -143,6 +145,7 @@ internal fun SettingsView(
                                             !pickingRetention &&
                                             !editingNickname &&
                                             !editingRoom &&
+                                            !aboutOpen &&
                                             run {
                                                     onBack()
                                                     true
@@ -294,6 +297,12 @@ internal fun SettingsView(
                                 )
                                 RowDivider()
                                 ValueRow(title = Res.string.setting_os, value = model.deviceOs)
+                                RowDivider()
+                                NavRow(
+                                        title = Res.string.setting_about,
+                                        value = stringResource(Res.string.setting_about_hint),
+                                        onClick = { aboutOpen = true },
+                                )
                                 if (onQuit != null) {
                                     RowDivider()
                                     ActionRow(Res.string.app_quit, onQuit)
@@ -372,6 +381,9 @@ internal fun SettingsView(
     }
     if (editingRoom) {
         ShareDialog(model, onDismiss = { editingRoom = false })
+    }
+    if (aboutOpen) {
+        AboutDialog(model, onDismiss = { aboutOpen = false })
     }
     if (editingNickname) {
         TextEntryDialog(

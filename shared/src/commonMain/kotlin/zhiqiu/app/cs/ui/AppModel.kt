@@ -124,6 +124,9 @@ class AppModel internal constructor(
 
     val deviceOs: String = platform.deviceOs
 
+    /** 本机设备号，房间里每个条目都带着它；关于面板用来核对是哪台机器。 */
+    val deviceId: String = platform.installId
+
     val appVersion: String = APP_VERSION
     val supportsUpdate: Boolean = platformSupportsSelfUpdate && platform.downloads.isAvailable
 

@@ -257,6 +257,15 @@
     <string name="setting_nickname">昵称</string>
     <string name="setting_os">所属系统</string>
     <string name="setting_version">版本</string>
+    <string name="setting_about">关于</string>
+    <string name="setting_about_hint">项目信息</string>
+    <string name="about_title">关于 ClipSync</string>
+    <string name="about_device_id">设备号</string>
+    <string name="about_room">房间</string>
+    <string name="about_room_none">未共享</string>
+    <string name="about_hosting">文件托管</string>
+    <string name="about_hosting_value">uguu.se，拒收时退回 x0.at</string>
+    <string name="about_note">房间码连同密码在本机派生密钥，托管方只会收到密文。</string>
     <string name="setting_update">检查更新</string>
     <string name="update_hint">安装包放进系统下载目录，装好重启就是新版本</string>
     <string name="update_idle">还没检查过</string>
