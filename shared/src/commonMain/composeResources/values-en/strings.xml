@@ -29,6 +29,9 @@
     <string name="peers_in_room">%1$d in room: %2$s</string>
     <string name="cd_copy_safety">Copy safety number</string>
     <string name="cd_devices">Devices in room</string>
+    <string name="devices_title">Devices in room</string>
+    <string name="devices_this">This device</string>
+    <string name="devices_empty">You are the only device in this room right now</string>
     <string name="cd_leave">Leave room</string>
     <string name="cd_safety_detail">What the safety number means</string>
     <string name="safety_title">Safety number</string>

@@ -53,6 +53,7 @@ import javax.imageio.ImageIO
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
 
 /** 除了用户瞄准的那块，其余都压这么黑，和 Rust 端的 128/255 一致。 */
@@ -76,6 +77,9 @@ object ScreenshotOverlay : PlatformScreenshotOverlay {
 
     private var pending by mutableStateOf<OverlayRequest?>(null)
 
+    /** 跟 pending 拆开：先藏窗口再清请求，避免中间闪一帧空窗。 */
+    private var overlayShown by mutableStateOf(false)
+
     /** 弹遮罩层等用户框选：切好了返回 PNG 字节，按取消返回 null。 */
     override suspend fun crop(): ByteArray? {
         // 遮罩层已经开着的时候再按快捷键就当没听见，别在一层底下又冻一帧、又叠一层。
@@ -83,10 +87,23 @@ object ScreenshotOverlay : PlatformScreenshotOverlay {
         val freeze = withContext(Dispatchers.IO) { ScreenFreeze.grab() }
         val request = OverlayRequest(freeze)
         pending = request
+        overlayShown = true
         return try {
-            request.done.await()
+            val outcome = request.done.await()
+            // 先收遮罩：自家窗口还藏着，不会在压暗画面后突然蹦出主窗口。
+            overlayShown = false
+            yield()
+            when (outcome) {
+                is Outcome.Crop ->
+                        withContext(Dispatchers.IO) {
+                            encode(freeze.image, freeze.screen, outcome.rect)
+                        }
+                Outcome.Cancel, null -> null
+            }
         } finally {
+            overlayShown = false
             pending = null
+            freeze.restore()
         }
     }
 
@@ -103,7 +120,7 @@ object ScreenshotOverlay : PlatformScreenshotOverlay {
             state = state,
             // Esc 之外没有焦点所有者也照样收得到：窗口级的按键过滤在焦点系统之前。
             onPreviewKeyEvent = ::onKeyEvent,
-            visible = pending != null,
+            visible = overlayShown,
             undecorated = true,
             resizable = false,
             title = OVERLAY_TITLE,
@@ -143,7 +160,7 @@ internal const val OVERLAY_TITLE: String = "ClipSync 截图"
 private class OverlayRequest(val freeze: Freeze) {
 
     val session = ScreenshotSession(freeze.screen)
-    val done = CompletableDeferred<ByteArray?>()
+    val done = CompletableDeferred<Outcome?>()
 
     /** 状态机自己不带可观察状态，每接一个事件加一笔，画面才知道要重画。 */
     val revision = mutableIntStateOf(0)
@@ -151,15 +168,10 @@ private class OverlayRequest(val freeze: Freeze) {
     /** 指针下面该是什么光标，跟着每一笔移动走。 */
     val cursor = mutableStateOf<CursorShape>(CursorShape.Crosshair)
 
-    /** 收尾：切这块成 PNG，取消或还没定下来就不动。 */
+    /** 收尾：只交结果，切 PNG 放到遮罩收起之后，别卡在黑屏上晃眼。 */
     fun settle(outcome: Outcome?) {
         if (outcome == null || done.isCompleted) return
-        done.complete(
-            when (outcome) {
-                is Outcome.Crop -> encode(freeze.image, freeze.screen, outcome.rect)
-                Outcome.Cancel -> null
-            },
-        )
+        done.complete(outcome)
     }
 }
 

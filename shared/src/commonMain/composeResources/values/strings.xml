@@ -29,6 +29,9 @@
     <string name="peers_in_room">同屋 %1$d 台：%2$s</string>
     <string name="cd_copy_safety">复制安全码</string>
     <string name="cd_devices">同屋设备</string>
+    <string name="devices_title">同屋设备</string>
+    <string name="devices_this">本机</string>
+    <string name="devices_empty">房间里暂时只有你这一台</string>
     <string name="cd_leave">离开房间</string>
     <string name="cd_safety_detail">查看安全码说明</string>
     <string name="safety_title">安全码</string>

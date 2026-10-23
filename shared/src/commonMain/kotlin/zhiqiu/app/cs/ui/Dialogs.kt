@@ -674,6 +674,71 @@ internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () 
 }
 
 @Composable
+internal fun DevicesDialog(
+        devices: List<String>,
+        onDismiss: () -> Unit,
+) {
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.devices_title), fontSize = 17.sp) },
+            text = {
+                if (devices.isEmpty()) {
+                    Text(
+                            stringResource(Res.string.devices_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Column(
+                            modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        devices.forEachIndexed { index, name ->
+                            Row(
+                                    modifier =
+                                            Modifier.fillMaxWidth()
+                                                    .background(
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                                            MaterialTheme.shapes.small,
+                                                    )
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                        AppIcons.Devices,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                        name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                )
+                                // 列表第一项是本机（进房后拼在 peers 前面）
+                                if (index == 0) {
+                                    Text(
+                                            stringResource(Res.string.devices_this),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.safety_close)) }
+            },
+            shape = MaterialTheme.shapes.large,
+    )
+}
+
+@Composable
 internal fun SafetyDialog(
         safety: String,
         peers: List<DevicePresence>,

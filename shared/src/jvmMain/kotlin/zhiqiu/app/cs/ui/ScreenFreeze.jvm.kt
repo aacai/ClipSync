@@ -15,8 +15,14 @@ import java.awt.image.BufferedImage
  *
  * 像素走 AWT 的 [Robot]，窗口列表只有 CoreGraphics 给得出来（微信那种「点一下就选中那个窗口」靠它）。
  * 抓之前先把自家窗口收起来，否则冻住的画面里会有一块自己的窗口。
+ *
+ * [restore] 要把藏起来的窗口还回去。遮罩层关掉之前不要调，否则勾选确认时主窗口会突然蹦出来闪一下。
  */
-internal class Freeze(val image: BufferedImage, val screen: FrozenScreen)
+internal class Freeze(
+    val image: BufferedImage,
+    val screen: FrozenScreen,
+    val restore: () -> Unit,
+)
 
 /** 整屏（含菜单栏）在 AWT 里是主显示器的设备边界，不是去掉菜单栏的可视区。 */
 internal fun displayBounds(): Rectangle =
@@ -34,19 +40,31 @@ internal object ScreenFreeze {
      * 抓一帧，会阻塞 [HIDE_SETTLE_MS]，所以只能在 IO 线程上调用。
      *
      * 没给屏幕录制权限时 macOS 不报错、只把壁纸给你，所以先探一次再决定要不要按下去。
+     * 抓完不自动恢复窗口：调用方在遮罩层结束后再 [Freeze.restore]。
      */
     fun grab(): Freeze {
         if (Mac.isMacOs && !Mac.requestScreenCapture()) throw ScreenCapturePermissionMissing()
         val bounds = displayBounds()
         val shown = Window.getWindows().filter { it.isDisplayable && it.isVisible }
         onEdt { shown.forEach { window -> window.isVisible = false } }
-        try {
+        var restored = false
+        fun restore() {
+            if (restored) return
+            restored = true
+            onEdt { shown.forEach { window -> window.isVisible = true } }
+        }
+        return try {
             Thread.sleep(HIDE_SETTLE_MS)
             val image = Robot().createScreenCapture(bounds)
             val scale = if (bounds.width == 0) 1f else image.width.toFloat() / bounds.width
-            return Freeze(image, FrozenScreen(image.width, image.height, scale, MacWindowList.onScreen(bounds)))
-        } finally {
-            onEdt { shown.forEach { window -> window.isVisible = true } }
+            Freeze(
+                image,
+                FrozenScreen(image.width, image.height, scale, MacWindowList.onScreen(bounds)),
+                restore = ::restore,
+            )
+        } catch (error: Throwable) {
+            restore()
+            throw error
         }
     }
 

@@ -130,6 +130,7 @@ internal fun MainView(
     var zooming by remember { mutableStateOf<ClipItem?>(null) }
     var moving by remember { mutableStateOf<ClipItem?>(null) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
+    var devicesOpen by remember { mutableStateOf(false) }
     var shareOpen by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
     var sharePrompted by rememberSaveable { mutableStateOf(false) }
@@ -316,12 +317,13 @@ internal fun MainView(
                     handleChord(event.key, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
 
     fun hasOverlay() =
-            composingNew || confirmClear || safetyNumber != null || shareOpen || helpOpen ||
+            composingNew || confirmClear || safetyNumber != null || devicesOpen || shareOpen || helpOpen ||
                     editing != null || noting != null || transforming != null || translating != null ||
                     inspecting != null || zooming != null || moving != null
 
     fun closeOverlay() {
         when {
+            devicesOpen -> devicesOpen = false
             safetyNumber != null -> safetyNumber = null
             shareOpen -> shareOpen = false
             helpOpen -> helpOpen = false
@@ -460,6 +462,7 @@ internal fun MainView(
                                 onShare = { shareOpen = true },
                                 onSettings = onOpenSettings,
                                 onSafety = { safetyNumber = it },
+                                onDevices = { devicesOpen = true },
                                 onHelp = { helpOpen = true },
                                 onCopyRoom = { roomCode?.let(model::copyToClipboard) },
                         )
@@ -590,6 +593,9 @@ internal fun MainView(
     if (helpOpen) {
         HelpDialog(onDismiss = { helpOpen = false })
     }
+    if (devicesOpen) {
+        DevicesDialog(devices = inRoom, onDismiss = { devicesOpen = false })
+    }
     safetyNumber?.let { number ->
         SafetyDialog(
                 safety = number,
@@ -693,6 +699,7 @@ private fun Header(
         onShare: () -> Unit,
         onSettings: () -> Unit,
         onSafety: (String) -> Unit,
+        onDevices: () -> Unit,
         onHelp: () -> Unit,
         onCopyRoom: () -> Unit,
 ) {
@@ -780,30 +787,23 @@ private fun Header(
                 )
             }
             val safety = (status as? ClipSyncEngine.Status.Online)?.safetyNumber
-            val detail = listOfNotNull(
-                safety?.let { stringResource(Res.string.safety_number, it) },
-                deviceNames.takeIf { it.isNotEmpty() }?.let {
-                    stringResource(Res.string.peers_in_room, it.size, it.joinToString(" · ").take(72))
-                },
-            ).joinToString(" · ")
-            if (detail.isNotEmpty()) {
+            // 设备名单改由右侧设备图标点开；这里只留安全码入口
+            if (safety != null) {
                 Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier =
-                                Modifier.clickable(enabled = safety != null) { safety?.let(onSafety) }
+                                Modifier.clickable { onSafety(safety) }
                                         .padding(top = 3.dp, bottom = 3.dp, end = 8.dp),
                 ) {
-                    if (safety != null) {
-                        Icon(
-                                AppIcons.Shield,
-                                contentDescription = stringResource(Res.string.cd_safety_detail),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(13.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                    }
+                    Icon(
+                            AppIcons.Shield,
+                            contentDescription = stringResource(Res.string.cd_safety_detail),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
-                            detail,
+                            stringResource(Res.string.safety_number, safety),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -813,7 +813,12 @@ private fun Header(
         }
         if (online) {
             Tip(stringResource(Res.string.cd_devices)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier =
+                                Modifier.clickable(onClick = onDevices)
+                                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                ) {
                     Icon(
                             AppIcons.Devices,
                             contentDescription = stringResource(Res.string.cd_devices),
