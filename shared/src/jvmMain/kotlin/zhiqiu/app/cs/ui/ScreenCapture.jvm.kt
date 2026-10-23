@@ -15,6 +15,8 @@ internal object RobotScreenCapture : PlatformScreenCapture {
     override val isAvailable: Boolean
         get() = !GraphicsEnvironment.isHeadless()
 
+    override fun ensurePermission(): Boolean = !Mac.isMacOs || Mac.requestScreenCapture()
+
     /** 权限没给的时候 macOS 不报错，只把壁纸给你，所以先申请一次再决定要不要按下去。 */
     override suspend fun capture(): ByteArray =
         withContext(Dispatchers.IO) {

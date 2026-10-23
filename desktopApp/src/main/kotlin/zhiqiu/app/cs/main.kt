@@ -21,6 +21,7 @@ import java.util.prefs.Preferences
 import kotlin.concurrent.thread
 import zhiqiu.app.cs.ui.AppTray
 import zhiqiu.app.cs.ui.LAUNCH_HIDDEN_ARGUMENT
+import zhiqiu.app.cs.ui.MacChrome
 import zhiqiu.app.cs.ui.ScreenshotOverlay
 import zhiqiu.app.cs.ui.showFromTray
 
@@ -73,7 +74,10 @@ fun main(args: Array<String>) {
             visible = windowVisible,
             title = "ClipSync",
         ) {
-            LaunchedEffect(Unit) { hostWindow = window }
+            LaunchedEffect(Unit) {
+                hostWindow = window
+                MacChrome.hideSystemTitleBar(window)
+            }
             App(onQuit = ::exitApplication)
         }
     }

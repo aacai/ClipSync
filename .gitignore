@@ -1,7 +1,6 @@
 # ---- IDE / editor ----
 .idea/
 *.iml
-.vscode/
 *.swp
 
 # ---- Kotlin / Gradle ----

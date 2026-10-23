@@ -193,6 +193,9 @@ class AppModel internal constructor(
         }
         // 截屏快捷键得排在别的 app 前面，只能装成全局热键；装不上的平台整组设置都是空的
         if (supportsScreenshot) {
+            // 授权要趁 app 还在前台时问：macOS 只有真申请过才把程序登进「系统设置 → 录屏」列表，
+            // 等用户按下快捷键再问，弹窗已经拉不起来了。
+            scope.launch { withContext(Dispatchers.Default) { platform.capture.ensurePermission() } }
             platform.hotkeys.start(::takeScreenshot)
             if (!registerHotkey(settings.screenshotHotkey.value)) {
                 _failure.value = Feedback.HotkeyFailed(settings.screenshotHotkey.value)

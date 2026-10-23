@@ -121,6 +121,14 @@ class PlatformUi(
 interface PlatformScreenCapture {
     val isAvailable: Boolean get() = false
 
+    /**
+     * 启动时申请一次抓取权限。
+     *
+     * macOS 上光查不弹也不登记：只有真申请过，app 才会出现在「系统设置 → 录屏」列表里，
+     * 用户才有地方可勾。已经给过的、或者没有这个概念的平台直接返回 true。
+     */
+    fun ensurePermission(): Boolean = true
+
     suspend fun capture(): ByteArray
 }
 

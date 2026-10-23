@@ -26,7 +26,12 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
     private var registered: ScreenshotHotkey? = null
     private var onTrigger: (() -> Unit)? = null
 
-    /** JNA 不会替你留住回调对象，一旦没人引用它，Carbon 拿到的就是一个悬空指针。 */
+    /**
+     * JNA 只弱引用回调对象，一旦没人强引用它，Carbon 拿到的就是一个悬空指针。
+     *
+     * 所以这个字段必须「被读」：Release 的 ProGuard 会把只写不读的字段当无用存储删掉，
+     * 监听装完就被回收，热键注册照样返回 0、事件却再也进不来（实测踩过）。
+     */
     private var callback: HotkeyCallback? = null
 
     override fun start(onTrigger: () -> Unit) {
@@ -37,12 +42,13 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
         if (!isAvailable) return false
         val carbon = Mac.carbon ?: return false
         val code = Mac.keyCode(hotkey.key) ?: return false
-        val target = Mac.applicationEventTarget() ?: return false
-        synchronized(lock) {
-            if (registered == hotkey && hotKeyRef != null) return true
-            val mask = Mac.modifierMask(hotkey.modifiers)
-            val out = arrayOfNulls<Pointer>(1)
-            val status = runCatching {
+        val mask = Mac.modifierMask(hotkey.modifiers)
+        if (synchronized(lock) { registered == hotkey && hotKeyRef != null }) return true
+        val out = arrayOfNulls<Pointer>(1)
+        // 锁要留在主队列外面拿着：回调本身就在主队列上跑、也要拿这把锁，套在一起会互等。
+        val status = MacMainQueue.ask {
+            val target = Mac.applicationEventTarget() ?: return@ask -1
+            runCatching {
                 carbon.RegisterEventHotKey(
                     code,
                     mask,
@@ -52,43 +58,49 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
                     out,
                 )
             }.getOrDefault(-1)
-            if (status != Mac.NO_ERROR) return false
+        } ?: return false
+        if (status != Mac.NO_ERROR) return false
+        synchronized(lock) {
             // 新键已经在了才放掉旧键：反过来做的话，注册失败会让用户一个快捷键都不剩
             val previous = hotKeyRef
             hotKeyRef = out[0]
             registered = hotkey
-            if (previous != null) runCatching { carbon.UnregisterEventHotKey(previous) }
+            if (previous != null) {
+                MacMainQueue.post { runCatching { carbon.UnregisterEventHotKey(previous) } }
+            }
             return true
         }
     }
 
     private fun ensureInstalled(): Boolean {
-        synchronized(lock) {
-            if (handlerRef != null) return true
-            val carbon = Mac.carbon ?: return false
-            val target = Mac.applicationEventTarget() ?: return false
-            val listener =
-                object : HotkeyCallback {
-                    override fun invoke(
-                        callRef: Pointer?,
-                        eventRef: Pointer?,
-                        userData: Pointer?,
-                    ): Int {
-                        // 回调跑在 AppKit 主线程上，异常绝不能顺着 C 栈退出去
-                        val trigger = synchronized(lock) { onTrigger }
-                        runCatching { trigger?.invoke() }
-                        return Mac.NO_ERROR
-                    }
+        if (synchronized(lock) { callback != null && handlerRef != null }) return true
+        val carbon = Mac.carbon ?: return false
+        val listener =
+            object : HotkeyCallback {
+                override fun invoke(
+                    callRef: Pointer?,
+                    eventRef: Pointer?,
+                    userData: Pointer?,
+                ): Int {
+                    // 回调跑在 AppKit 主线程上，异常绝不能顺着 C 栈退出去
+                    val trigger = synchronized(lock) { onTrigger }
+                    runCatching { trigger?.invoke() }
+                    return Mac.NO_ERROR
                 }
-            val spec = Mac.EventTypeSpec(Mac.EVENT_CLASS_KEYBOARD, Mac.EVENT_HOT_KEY_PRESSED)
-            val out = arrayOfNulls<Pointer>(1)
-            val status = runCatching {
+            }
+        val spec = Mac.EventTypeSpec(Mac.EVENT_CLASS_KEYBOARD, Mac.EVENT_HOT_KEY_PRESSED)
+        val out = arrayOfNulls<Pointer>(1)
+        val status = MacMainQueue.ask {
+            val target = Mac.applicationEventTarget() ?: return@ask -1
+            runCatching {
                 carbon.InstallEventHandler(target, listener, 1L, spec, null, out)
             }.getOrDefault(-1)
-            if (status != Mac.NO_ERROR) return false
+        } ?: return false
+        if (status != Mac.NO_ERROR) return false
+        return synchronized(lock) {
             callback = listener
             handlerRef = out[0]
-            return true
+            true
         }
     }
 }

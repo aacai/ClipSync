@@ -75,6 +75,7 @@ import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.ThemeMode
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.appLanguageSupport
+import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.files.humanSize
 import zhiqiu.app.cs.resources.*
 
@@ -353,7 +354,12 @@ internal fun SettingsView(
                     Row(
                             modifier =
                                     Modifier.fillMaxWidth()
-                                            .padding(start = 8.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
+                                            .padding(
+                                                    start = if (platformOs() == "macOS") 72.dp else 8.dp,
+                                                    end = 16.dp,
+                                                    top = 9.dp,
+                                                    bottom = 9.dp,
+                                            ),
                             verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RowAction(AppIcons.ArrowBack, stringResource(Res.string.cd_back), onClick = onBack)

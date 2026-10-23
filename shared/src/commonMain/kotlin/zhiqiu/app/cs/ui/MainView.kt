@@ -80,6 +80,7 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipSyncEngine
+import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.resources.*
@@ -708,7 +709,15 @@ private fun Header(
             )
 
     Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 11.dp, bottom = 5.dp),
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .padding(
+                                    // macOS 藏标题栏后红绿灯还浮在左上角，顶栏要让开
+                                    start = if (platformOs() == "macOS") 72.dp else 16.dp,
+                                    end = 8.dp,
+                                    top = 11.dp,
+                                    bottom = 5.dp,
+                            ),
             verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(8.dp).background(dotColor, RoundedCornerShape(percent = 50)))

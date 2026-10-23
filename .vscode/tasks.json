@@ -1,0 +1,238 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}",
+    "env": {
+      "JAVA_TOOL_OPTIONS": "-Dfile.encoding=UTF-8"
+    }
+  },
+  "tasks": [
+    {
+      "label": "desktop: run",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":desktopApp:run"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "desktop: compile",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":desktopApp:compileKotlin"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "desktop: package",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":desktopApp:packageReleaseDistributionForCurrentOS"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "android: assemble debug",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":androidApp:assembleDebug"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "android: install debug",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":androidApp:installDebug"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "android: assemble release",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":androidApp:assembleRelease"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gradle"]
+    },
+
+    {
+      "label": "ios: build (simulator)",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-project",
+        "iosApp/iosApp.xcodeproj",
+        "-scheme",
+        "iosApp",
+        "-configuration",
+        "Debug",
+        "-sdk",
+        "iphonesimulator",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "build"
+      ],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gcc"],
+      "windows": {
+        "command": "echo",
+        "args": ["iOS build requires macOS + Xcode"]
+      }
+    },
+    {
+      "label": "ios: shared framework (arm64)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":shared:linkDebugFrameworkIosArm64"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "ios: shared framework (simulator arm64)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":shared:linkDebugFrameworkIosSimulatorArm64"],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gradle"]
+    },
+
+    {
+      "label": "web: run",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":webApp:wasmJsBrowserDevelopmentRun"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "web: compile",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":webApp:compileKotlinWasmJs"],
+      "group": "build",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "web: package",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":webApp:wasmJsBrowserDistribution"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "shared: compile all",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":shared:compileKotlinJvm", ":shared:compileAndroidMain"],
+      "group": "build",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "test: shared jvm",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": [":shared:jvmTest"],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "test: all",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["test"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": ["$gradle"]
+    },
+    {
+      "label": "clean",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["clean"],
+      "group": "none",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
