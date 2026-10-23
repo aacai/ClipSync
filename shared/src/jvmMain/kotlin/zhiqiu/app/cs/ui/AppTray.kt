@@ -19,6 +19,7 @@ import androidx.compose.ui.window.WindowState
 import java.awt.Desktop
 import java.awt.SystemTray
 import java.awt.TrayIcon
+import java.awt.desktop.AppReopenedListener
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.Window as AwtWindow
@@ -43,6 +44,8 @@ private fun requestAppForeground() {
 @Composable
 fun ApplicationScope.AppTray(onShowWindow: () -> Unit, onQuit: () -> Unit) {
     val icon = rememberVectorPainter(clipSyncIcon(if (isSystemInDarkTheme()) Color.White else Color.Black))
+    // 关窗后窗口只是藏起来：点 Dock 会走 App Reopen，跟点菜单栏托盘同一条显示路径。
+    InstallDockReopen(onShowWindow)
     if (platformOs() == "macOS") {
         MacTray(icon, onShowWindow)
     } else {
@@ -55,6 +58,23 @@ fun ApplicationScope.AppTray(onShowWindow: () -> Unit, onQuit: () -> Unit) {
                 Item(stringResource(Res.string.app_quit), onClick = onQuit)
             },
         )
+    }
+}
+
+/**
+ * 用户点 Dock / 任务栏图标时，系统会发「重新打开应用」。
+ * 窗口若已用 visible=false 藏进托盘，不接这个事件就只会把进程激活，窗口还是不出来。
+ */
+@Composable
+private fun InstallDockReopen(onShowWindow: () -> Unit) {
+    val currentOnShow by rememberUpdatedState(onShowWindow)
+    DisposableEffect(Unit) {
+        if (!Desktop.isDesktopSupported()) return@DisposableEffect onDispose {}
+        val desktop = Desktop.getDesktop()
+        if (!desktop.isSupported(Desktop.Action.APP_EVENT_REOPENED)) return@DisposableEffect onDispose {}
+        val listener = AppReopenedListener { currentOnShow() }
+        desktop.addAppEventListener(listener)
+        onDispose { desktop.removeAppEventListener(listener) }
     }
 }
 
