@@ -2,6 +2,8 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.Flow
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ScreenshotHotkey
@@ -259,3 +261,20 @@ internal expect fun installKeyChords(onChord: (key: String, mod: Boolean, shift:
 
 @Composable
 internal expect fun rememberAppModel(platform: PlatformUi, settings: AppSettings): AppModel
+
+/**
+ * macOS 藏系统标题栏后，红绿灯还浮在左上角。
+ * 顶栏 / 内容要用这里的边距让开；其它平台全是 0。
+ */
+internal object MacChromeInset {
+    private val active: Boolean
+        get() = platformOs() == "macOS"
+
+    /** 标题栏高度方向：整块顶栏下移，别顶到红绿灯。 */
+    val top: Dp
+        get() = if (active) 28.dp else 0.dp
+
+    /** 红绿灯横向占位：只加在最上一行内容的 start。 */
+    val start: Dp
+        get() = if (active) 68.dp else 0.dp
+}

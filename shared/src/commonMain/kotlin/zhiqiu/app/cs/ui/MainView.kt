@@ -80,7 +80,6 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipSyncEngine
-import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.resources.*
@@ -368,7 +367,12 @@ internal fun MainView(
                                 .focusable()
                                 .onPreviewKeyEvent { handleKey(it) },
         ) {
-            Box(modifier = Modifier.widthIn(max = 940.dp).fillMaxSize().padding(horizontal = 6.dp)) {
+            Box(
+                    modifier =
+                            Modifier.widthIn(max = 940.dp)
+                                    .fillMaxSize()
+                                    .padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top),
+            ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
                             targetState = items.isEmpty(),
@@ -712,8 +716,7 @@ private fun Header(
             modifier =
                     Modifier.fillMaxWidth()
                             .padding(
-                                    // macOS 藏标题栏后红绿灯还浮在左上角，顶栏要让开
-                                    start = if (platformOs() == "macOS") 72.dp else 16.dp,
+                                    start = 16.dp + MacChromeInset.start,
                                     end = 8.dp,
                                     top = 11.dp,
                                     bottom = 5.dp,

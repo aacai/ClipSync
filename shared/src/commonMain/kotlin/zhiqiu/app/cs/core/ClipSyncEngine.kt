@@ -137,14 +137,14 @@ internal class ClipSyncEngine(
         } catch (e: Exception) {
             // 房间本身没打开（密钥坏了之类），重连也救不回来，直接报错
             stop()
-            _status.value = Status.Offline(e.message ?: e::class.simpleName)
+            _status.value = Status.Offline(e.userFacingDetail().orEmpty())
             throw e
         }
         try {
             openLink()
         } catch (e: Exception) {
             closeLink()
-            _status.value = Status.Offline(e.message ?: e::class.simpleName)
+            _status.value = Status.Offline(e.userFacingDetail().orEmpty())
             armRecovery()
             throw e
         }
@@ -405,7 +405,7 @@ internal class ClipSyncEngine(
                 backoffMs = (backoffMs * 2).coerceAtMost(RECOVERY_MAX_MS)
                 closeLink()
                 runCatching { openLink() }.onFailure {
-                    _status.value = Status.Offline(it.message ?: it::class.simpleName)
+                    _status.value = Status.Offline(it.userFacingDetail().orEmpty())
                 }
             }
         }

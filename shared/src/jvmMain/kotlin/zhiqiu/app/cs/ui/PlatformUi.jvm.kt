@@ -6,6 +6,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.core.userFacingDetail
 import zhiqiu.app.cs.files.JvmClipStore
 import zhiqiu.app.cs.files.mimeForName
 import zhiqiu.app.cs.files.numberedName
@@ -108,7 +109,7 @@ private object AwtClipboard : PlatformClipboard {
     override suspend fun write(text: String) {
         val selection = StringSelection(text)
         runCatching { clipboard.setContents(selection, selection) }
-            .onFailure { throw ClipboardUnavailable(detail = it.message ?: it::class.simpleName) }
+            .onFailure { throw ClipboardUnavailable(code = "unavailable", detail = it.userFacingDetail()) }
     }
 
     override suspend fun writeFiles(paths: List<String>) {
@@ -125,7 +126,7 @@ private object AwtClipboard : PlatformClipboard {
 
     private fun setContentsSafely(transferable: MultiTransferable) {
         runCatching { clipboard.setContents(transferable, transferable) }
-            .onFailure { throw ClipboardUnavailable(detail = it.message ?: it::class.simpleName) }
+            .onFailure { throw ClipboardUnavailable(code = "unavailable", detail = it.userFacingDetail()) }
     }
 
     private fun encodePng(image: Image): ByteArray? {

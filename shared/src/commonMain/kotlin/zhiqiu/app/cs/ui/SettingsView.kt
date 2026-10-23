@@ -75,7 +75,7 @@ import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.ThemeMode
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.appLanguageSupport
-import zhiqiu.app.cs.core.platformOs
+import zhiqiu.app.cs.core.looksLikeTypeName
 import zhiqiu.app.cs.files.humanSize
 import zhiqiu.app.cs.resources.*
 
@@ -164,7 +164,12 @@ internal fun SettingsView(
                                             }
                             },
     ) {
-        Box(modifier = Modifier.widthIn(max = 640.dp).fillMaxSize().padding(horizontal = 10.dp)) {
+        Box(
+                modifier =
+                        Modifier.widthIn(max = 640.dp)
+                                .fillMaxSize()
+                                .padding(start = 10.dp, end = 10.dp, top = MacChromeInset.top),
+        ) {
             Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -355,7 +360,7 @@ internal fun SettingsView(
                             modifier =
                                     Modifier.fillMaxWidth()
                                             .padding(
-                                                    start = if (platformOs() == "macOS") 72.dp else 8.dp,
+                                                    start = 8.dp + MacChromeInset.start,
                                                     end = 16.dp,
                                                     top = 9.dp,
                                                     bottom = 9.dp,
@@ -499,7 +504,12 @@ private fun updateLabel(state: UpdateState): String =
                             humanSize(state.asset.size),
                     )
             is UpdateState.Downloaded -> stringResource(Res.string.update_downloaded, state.name)
-            is UpdateState.Failed -> stringResource(Res.string.update_failed, state.message)
+            is UpdateState.Failed ->
+                    if (state.message.isBlank() || looksLikeTypeName(state.message)) {
+                        stringResource(Res.string.fb_generic_failed)
+                    } else {
+                        stringResource(Res.string.update_failed, state.message)
+                    }
         }
 
 @Composable

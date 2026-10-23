@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 import zhiqiu.app.cs.core.APP_VERSION
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.core.ClipSyncEngine
+import zhiqiu.app.cs.core.hasCause
+import zhiqiu.app.cs.core.userFacingDetail
 import zhiqiu.app.cs.core.DefaultMqttLinks
 import zhiqiu.app.cs.core.DefaultReleaseSource
 import zhiqiu.app.cs.core.DevicePresence
@@ -245,7 +247,7 @@ class AppModel internal constructor(
         if (status.value is ClipSyncEngine.Status.Online) {
             runCatching { engine.publishText(text) }
                 .onSuccess { outbound.remember(text) }
-                .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
+                .onFailure { _failure.value = Feedback.SendFailed(it.userFacingDetail().orEmpty()) }
         } else {
             recordLocal(text)
         }
@@ -308,8 +310,11 @@ class AppModel internal constructor(
             if (captured.isFailure) {
                 val cause = captured.exceptionOrNull()
                 _failure.value =
-                    if (cause is ScreenCapturePermissionMissing) Feedback.ScreenshotPermission
-                    else Feedback.ScreenshotFailed(cause?.message.orEmpty())
+                    when {
+                        cause != null && cause.hasCause<ScreenCapturePermissionMissing>() ->
+                                Feedback.ScreenshotPermission
+                        else -> Feedback.ScreenshotFailed(cause?.userFacingDetail().orEmpty())
+                    }
                 return@launch
             }
             // 用户在遮罩层上按了取消：这不是失败，什么都不记、什么都不提示。
@@ -508,7 +513,8 @@ class AppModel internal constructor(
                             )
                         }
                         .exceptionOrNull()
-                        ?.let { it.message ?: it::class.simpleName.orEmpty() }
+                        ?.userFacingDetail()
+                        .orEmpty()
 
     private fun persistRoomSession() {
         val room = _joinedRoom.value ?: return
@@ -604,12 +610,15 @@ class AppModel internal constructor(
                         continue
                     }
                     val bytes = runCatching { withContext(Dispatchers.Default) { src.open() } }.getOrElse { e ->
-                        _failure.value = Feedback.LocalFileReadFailed(src.name, e.message.orEmpty())
+                        _failure.value =
+                                Feedback.LocalFileReadFailed(src.name, e.userFacingDetail().orEmpty())
                         continue
                     }
                     runCatching { engine.publishFile(src.name, src.mime, bytes) }
                         .onSuccess { item -> if (item != null) _info.value = Feedback.FileSent(src.name) }
-                        .onFailure { e -> _failure.value = Feedback.SendFailed(e.message.orEmpty()) }
+                        .onFailure { e ->
+                            _failure.value = Feedback.SendFailed(e.userFacingDetail().orEmpty())
+                        }
                 }
             }
         }
@@ -650,7 +659,7 @@ class AppModel internal constructor(
     private fun copyImage(file: FileClip) {
         scope.launch {
             val bytes = runCatching { engine.fetchFile(file) }.getOrElse { e ->
-                _failure.value = Feedback.DownloadFailed(e.message.orEmpty())
+                _failure.value = Feedback.DownloadFailed(e.userFacingDetail().orEmpty())
                 return@launch
             }
             if (bytes == null) {
@@ -841,7 +850,7 @@ class AppModel internal constructor(
             val name = file?.name?.takeIf { it.isNotBlank() } ?: "text-${newId().take(8)}.txt"
             runCatching { platform.downloads.save(name, bytes) }
                     .onSuccess { _info.value = Feedback.SavedTo(it) }
-                    .onFailure { _failure.value = Feedback.DownloadFailed(it.message.orEmpty()) }
+                    .onFailure { _failure.value = Feedback.DownloadFailed(it.userFacingDetail().orEmpty()) }
         }
     }
 
@@ -858,7 +867,9 @@ class AppModel internal constructor(
                                     UpdateState.UpToDate(release.version)
                                 }
                     }
-                    .onFailure { _update.value = UpdateState.Failed(it.message.orEmpty()) }
+                    .onFailure {
+                        _update.value = UpdateState.Failed(it.userFacingDetail().orEmpty())
+                    }
         }
     }
 
@@ -873,7 +884,9 @@ class AppModel internal constructor(
                 }
                 platform.downloads.save(asset.name, bytes)
             }.onSuccess { _update.value = UpdateState.Downloaded(it) }
-                    .onFailure { _update.value = UpdateState.Failed(it.message.orEmpty()) }
+                    .onFailure {
+                        _update.value = UpdateState.Failed(it.userFacingDetail().orEmpty())
+                    }
         }
     }
 
@@ -891,7 +904,7 @@ class AppModel internal constructor(
             }
             runCatching { engine.resend(file, bytes) }
                     .onSuccess { if (it) _info.value = Feedback.FileSent(file.name) }
-                    .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
+                    .onFailure { _failure.value = Feedback.SendFailed(it.userFacingDetail().orEmpty()) }
         }
     }
 
@@ -917,7 +930,9 @@ class AppModel internal constructor(
                         then?.invoke()
                     }
                 }
-                .onFailure { e -> _failure.value = Feedback.DownloadFailed(e.message.orEmpty()) }
+                .onFailure { e ->
+                    _failure.value = Feedback.DownloadFailed(e.userFacingDetail().orEmpty())
+                }
         }
     }
 
@@ -938,15 +953,21 @@ class AppModel internal constructor(
         scope.launch {
             runCatching { engine.publishText(text) }
                 .onSuccess { outbound.remember(text); _info.value = Feedback.Sent(text.length) }
-                .onFailure { _failure.value = Feedback.SendFailed(it.message.orEmpty()) }
+                .onFailure { _failure.value = Feedback.SendFailed(it.userFacingDetail().orEmpty()) }
         }
     }
 
     private fun readBlocked(e: Throwable) =
-        Feedback.ClipboardReadBlocked(e.clipboardCode(), e.message)
+        Feedback.ClipboardReadBlocked(
+                e.clipboardCode() ?: "unavailable",
+                e.userFacingDetail(),
+        )
 
     private fun writeBlocked(e: Throwable) =
-        Feedback.ClipboardWriteBlocked(e.clipboardCode(), e.message)
+        Feedback.ClipboardWriteBlocked(
+                e.clipboardCode() ?: "unavailable",
+                e.userFacingDetail(),
+        )
 
     private fun startSync() {
         if (receiveJob?.isActive != true) {
@@ -972,7 +993,11 @@ class AppModel internal constructor(
                         Feedback.Received(event.senderName)
                     } else {
                         val e = outcome.exceptionOrNull()
-                        Feedback.Received(event.senderName, e?.clipboardCode(), e?.message)
+                        Feedback.Received(
+                                event.senderName,
+                                e?.clipboardCode() ?: "unavailable",
+                                e?.userFacingDetail(),
+                        )
                     }
                 }
             }

@@ -6,6 +6,7 @@ import kotlin.time.ExperimentalTime
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.FileIssue
+import zhiqiu.app.cs.core.looksLikeTypeName
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FileRejectReason
 import zhiqiu.app.cs.translate.TranslateFailure
@@ -41,7 +42,12 @@ internal fun feedbackText(feedback: Feedback): String =
             is Feedback.FileSent -> stringResource(Res.string.fb_file_sent, feedback.name)
             is Feedback.Downloaded -> stringResource(Res.string.fb_downloaded, feedback.name)
             is Feedback.SavedTo -> stringResource(Res.string.fb_saved, feedback.name)
-            is Feedback.DownloadFailed -> stringResource(Res.string.fb_download_failed, feedback.reason)
+            is Feedback.DownloadFailed ->
+                if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
+                    stringResource(Res.string.fb_generic_failed)
+                } else {
+                    stringResource(Res.string.fb_download_failed, feedback.reason)
+                }
             is Feedback.Deleted -> pluralStringResource(Res.plurals.fb_deleted, feedback.count, feedback.count)
             is Feedback.Pruned -> pluralStringResource(Res.plurals.fb_pruned, feedback.count, feedback.count)
             is Feedback.Undeleted -> pluralStringResource(Res.plurals.fb_undeleted, feedback.count, feedback.count)
@@ -64,18 +70,37 @@ internal fun feedbackText(feedback: Feedback): String =
                         if (feedback.pinned) Res.string.fb_pinned else Res.string.fb_unpinned,
                         feedback.count,
                 )
-            is Feedback.SendFailed -> stringResource(Res.string.fb_send_failed, feedback.reason)
+            is Feedback.SendFailed ->
+                if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
+                    stringResource(Res.string.fb_generic_failed)
+                } else {
+                    stringResource(Res.string.fb_send_failed, feedback.reason)
+                }
             Feedback.RoomCodeRequired -> stringResource(Res.string.fb_room_required)
-            is Feedback.ConnectFailed -> stringResource(Res.string.fb_connect_failed, feedback.reason)
+            is Feedback.ConnectFailed ->
+                if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
+                    stringResource(Res.string.fb_generic_failed)
+                } else {
+                    stringResource(Res.string.fb_connect_failed, feedback.reason)
+                }
             is Feedback.LocalFileReadFailed ->
-                stringResource(Res.string.fb_local_read_failed, feedback.name, feedback.reason)
+                stringResource(
+                        Res.string.fb_local_read_failed,
+                        feedback.name,
+                        feedback.reason.takeUnless { it.isBlank() || looksLikeTypeName(it) }
+                                ?: stringResource(Res.string.fb_generic_failed),
+                )
             Feedback.AutostartFailed -> stringResource(Res.string.fb_autostart_failed)
             Feedback.ScreenshotTaken -> stringResource(Res.string.fb_screenshot_taken)
             Feedback.ScreenshotPermission -> stringResource(Res.string.fb_screenshot_permission)
             is Feedback.ScreenshotTooLarge ->
                 stringResource(Res.string.fb_screenshot_too_large, feedback.mb)
             is Feedback.ScreenshotFailed ->
-                stringResource(Res.string.fb_screenshot_failed, feedback.reason)
+                if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
+                    stringResource(Res.string.fb_screenshot_failed_generic)
+                } else {
+                    stringResource(Res.string.fb_screenshot_failed, feedback.reason)
+                }
             Feedback.ScreenshotEmpty -> stringResource(Res.string.fb_screenshot_empty)
             is Feedback.HotkeySaved -> stringResource(Res.string.fb_hotkey_saved, feedback.spec)
             is Feedback.HotkeyFailed -> stringResource(Res.string.fb_hotkey_failed, feedback.spec)
@@ -100,7 +125,9 @@ internal fun clipboardReason(code: String?, detail: String?): String =
         when (code) {
             "denied" -> stringResource(Res.string.reason_denied)
             "insecure" -> stringResource(Res.string.reason_insecure)
-            else -> detail ?: code ?: ""
+            "unavailable" -> detail ?: stringResource(Res.string.reason_unavailable)
+            else -> detail ?: code?.takeUnless { looksLikeTypeName(it) }
+                            ?: stringResource(Res.string.reason_unavailable)
         }
 
 @Composable

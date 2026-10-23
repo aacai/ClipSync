@@ -166,6 +166,7 @@
     <string name="fb_write_blocked">Could not write the clipboard: %1$s</string>
     <string name="reason_denied">The browser denied clipboard permission, allow it in the address bar and retry</string>
     <string name="reason_insecure">Open this page over https or localhost</string>
+    <string name="reason_unavailable">The system blocked clipboard access for a moment, try again</string>
     <string name="fb_sent">Synced %1$d characters</string>
     <string name="fb_received">Text from %1$s is now in the clipboard</string>
     <string name="fb_received_saved">Saved the text from %1$s to the list</string>
@@ -190,7 +191,9 @@
     <string name="fb_screenshot_permission">Screen Recording permission is missing: allow it in the prompt just shown, or enable ClipSync in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then restart ClipSync</string>
     <string name="fb_screenshot_too_large">The whole screen is over %1$d MB, so nothing was captured</string>
     <string name="fb_screenshot_failed">Screenshot failed: %1$s</string>
+    <string name="fb_screenshot_failed_generic">Screenshot failed; try again. If you just allowed Screen Recording, quit ClipSync fully and reopen it</string>
     <string name="fb_screenshot_empty">Nothing came back from the screen, try the shortcut again</string>
+    <string name="fb_generic_failed">Something went wrong, try again</string>
     <string name="fb_hotkey_saved">Screenshot hotkey is now %1$s</string>
     <string name="fb_hotkey_failed">Could not register %1$s, try another chord</string>
     <plurals name="fb_deleted">
