@@ -10,4 +10,4 @@ plugins {
     alias(libs.plugins.kotlinSerialization) apply false
 }
 
-extra["appVersion"] = "0.0.7"
+extra["appVersion"] = "0.0.8"
