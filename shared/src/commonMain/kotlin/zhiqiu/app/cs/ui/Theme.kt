@@ -125,6 +125,9 @@ internal fun isAppDarkTheme(): Boolean =
 internal fun glassBorder(): Color =
         if (isAppDarkTheme()) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
 
+/** 对话框圆角，跟顶栏 GlassCard 同一档。 */
+internal val GlassDialogShape = RoundedCornerShape(22.dp)
+
 private fun Typography.tuned(): Typography =
         copy(
                 titleSmall = titleSmall.copy(fontWeight = FontWeight.SemiBold),

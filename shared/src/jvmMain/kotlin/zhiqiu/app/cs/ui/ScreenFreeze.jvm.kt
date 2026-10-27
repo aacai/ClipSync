@@ -41,20 +41,29 @@ internal object ScreenFreeze {
      *
      * 没给屏幕录制权限时 macOS 不报错、只把壁纸给你，所以先探一次再决定要不要按下去。
      * 抓完不自动恢复窗口：调用方在遮罩层结束后再 [Freeze.restore]。
+     *
+     * [hideOwnWindows] 为 false 时不藏本进程窗口，冻屏里会带上 ClipSync 自己的框。
      */
-    fun grab(): Freeze {
+    fun grab(hideOwnWindows: Boolean = true): Freeze {
         if (Mac.isMacOs && !Mac.requestScreenCapture()) throw ScreenCapturePermissionMissing()
         val bounds = displayBounds()
-        val shown = Window.getWindows().filter { it.isDisplayable && it.isVisible }
-        onEdt { shown.forEach { window -> window.isVisible = false } }
+        val shown =
+                if (hideOwnWindows) {
+                    Window.getWindows().filter { it.isDisplayable && it.isVisible }
+                } else {
+                    emptyList()
+                }
+        if (shown.isNotEmpty()) {
+            onEdt { shown.forEach { window -> window.isVisible = false } }
+        }
         var restored = false
         fun restore() {
-            if (restored) return
+            if (restored || shown.isEmpty()) return
             restored = true
             onEdt { shown.forEach { window -> window.isVisible = true } }
         }
         return try {
-            Thread.sleep(HIDE_SETTLE_MS)
+            if (shown.isNotEmpty()) Thread.sleep(HIDE_SETTLE_MS)
             val image = Robot().createScreenCapture(bounds)
             val scale = if (bounds.width == 0) 1f else image.width.toFloat() / bounds.width
             Freeze(

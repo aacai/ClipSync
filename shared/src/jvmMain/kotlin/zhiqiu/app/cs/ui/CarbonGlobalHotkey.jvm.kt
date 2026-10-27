@@ -2,6 +2,7 @@ package zhiqiu.app.cs.ui
 
 import com.sun.jna.Callback
 import com.sun.jna.Library
+import com.sun.jna.Memory
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
@@ -23,8 +24,11 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
 
     private var handlerRef: Pointer? = null
     private var hotKeyRef: Pointer? = null
+    private var recordRef: Pointer? = null
     private var registered: ScreenshotHotkey? = null
+    private var recordRegistered: ScreenshotHotkey? = null
     private var onTrigger: (() -> Unit)? = null
+    private var onRecord: (() -> Unit)? = null
 
     /**
      * JNA 只弱引用回调对象，一旦没人强引用它，Carbon 拿到的就是一个悬空指针。
@@ -38,13 +42,24 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
         synchronized(lock) { this.onTrigger = onTrigger }
     }
 
-    override fun update(hotkey: ScreenshotHotkey): Boolean {
+    override fun startRecording(onTrigger: () -> Unit) {
+        synchronized(lock) { onRecord = onTrigger }
+    }
+
+    override fun update(hotkey: ScreenshotHotkey): Boolean = register(hotkey, record = false)
+
+    override fun updateRecording(hotkey: ScreenshotHotkey): Boolean = register(hotkey, record = true)
+
+    private fun register(hotkey: ScreenshotHotkey, record: Boolean): Boolean {
         if (!isAvailable) return false
         val carbon = Mac.carbon ?: return false
         val code = Mac.keyCode(hotkey.key) ?: return false
         val mask = Mac.modifierMask(hotkey.modifiers)
-        if (synchronized(lock) { registered == hotkey && hotKeyRef != null }) return true
+        val current = synchronized(lock) { if (record) recordRegistered else registered }
+        val currentRef = synchronized(lock) { if (record) recordRef else hotKeyRef }
+        if (current == hotkey && currentRef != null) return true
         val out = arrayOfNulls<Pointer>(1)
+        val signature = if (record) Mac.RECORD_SIGNATURE else Mac.SIGNATURE
         // 锁要留在主队列外面拿着：回调本身就在主队列上跑、也要拿这把锁，套在一起会互等。
         val status = MacMainQueue.ask {
             val target = Mac.applicationEventTarget() ?: return@ask -1
@@ -52,7 +67,7 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
                 carbon.RegisterEventHotKey(
                     code,
                     mask,
-                    Mac.HotKeyId(Mac.SIGNATURE, (mask shl 16) or code),
+                    Mac.HotKeyId(signature, (mask shl 16) or code),
                     target,
                     0,
                     out,
@@ -61,10 +76,14 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
         } ?: return false
         if (status != Mac.NO_ERROR) return false
         synchronized(lock) {
-            // 新键已经在了才放掉旧键：反过来做的话，注册失败会让用户一个快捷键都不剩
-            val previous = hotKeyRef
-            hotKeyRef = out[0]
-            registered = hotkey
+            val previous = if (record) recordRef else hotKeyRef
+            if (record) {
+                recordRef = out[0]
+                recordRegistered = hotkey
+            } else {
+                hotKeyRef = out[0]
+                registered = hotkey
+            }
             if (previous != null) {
                 MacMainQueue.post { runCatching { carbon.UnregisterEventHotKey(previous) } }
             }
@@ -83,7 +102,8 @@ internal object CarbonGlobalHotkey : PlatformGlobalHotkey {
                     userData: Pointer?,
                 ): Int {
                     // 回调跑在 AppKit 主线程上，异常绝不能顺着 C 栈退出去
-                    val trigger = synchronized(lock) { onTrigger }
+                    val recordKey = Mac.readHotKeySignature(eventRef) == Mac.RECORD_SIGNATURE
+                    val trigger = synchronized(lock) { if (recordKey) onRecord else onTrigger }
                     runCatching { trigger?.invoke() }
                     return Mac.NO_ERROR
                 }
@@ -134,6 +154,16 @@ internal interface CarbonLibrary : Library {
     ): Int
 
     fun UnregisterEventHotKey(hotKeyRef: Pointer?): Int
+
+    fun GetEventParameter(
+        event: Pointer?,
+        name: Int,
+        desiredType: Int,
+        actualType: Pointer?,
+        size: Int,
+        actualSize: Pointer?,
+        data: Pointer?,
+    ): Int
 }
 
 private interface CoreGraphicsLibrary : Library {
@@ -151,6 +181,7 @@ internal object Mac {
     const val EVENT_CLASS_KEYBOARD = 0x6B657962 // 'keyb'
     const val EVENT_HOT_KEY_PRESSED = 5
     const val SIGNATURE = 0x636C7073 // 'clps'
+    const val RECORD_SIGNATURE = 0x636C7072 // 'clpr'
 
     private const val COMMAND_MASK = 0x0100
     private const val SHIFT_MASK = 0x0200
@@ -180,6 +211,17 @@ internal object Mac {
 
     fun applicationEventTarget(): Pointer? =
         runCatching { carbon?.GetApplicationEventTarget() }.getOrNull()
+
+    /** 读 Carbon 热键事件上的 signature，用来区分截屏和录屏。读不到就当截屏。 */
+    fun readHotKeySignature(event: Pointer?): Int {
+        val carbon = carbon ?: return SIGNATURE
+        val mem = Memory(8)
+        val status = runCatching {
+            carbon.GetEventParameter(event, 0x2D2D2D2D, 0x686B6964, null, 8, null, mem)
+        }.getOrDefault(-1)
+        if (status != NO_ERROR) return SIGNATURE
+        return mem.getInt(0)
+    }
 
     fun modifierMask(modifiers: Set<HotkeyModifier>): Int =
         modifiers.fold(0) { mask, modifier ->

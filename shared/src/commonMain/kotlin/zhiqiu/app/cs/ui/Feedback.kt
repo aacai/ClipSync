@@ -115,6 +115,16 @@ sealed class Feedback {
         override val level get() = Level.Error
     }
 
+    /** 拖文件进来但还没进房间：和工具栏「发送文件」禁用语义一致，只是给得出文案。 */
+    data object DropNeedsRoom : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    /** 拖进来的是文件夹：本轮不递归，跳过并点名。 */
+    data class DropSkippedDirectory(val name: String) : Feedback() {
+        override val level get() = Level.Warn
+    }
+
     data object AutostartFailed : Feedback() {
         override val level get() = Level.Error
     }
@@ -147,6 +157,63 @@ sealed class Feedback {
 
     data class HotkeySaved(val spec: String) : Feedback() {
         override val level get() = Level.Info
+    }
+
+    data class RecordHotkeySaved(val spec: String) : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    /** 开录成功要说一声，顺带把怎么停止写清楚：药丸小，看不见的人只会以为没开始。 */
+    data class RecordStarted(val hotkey: String) : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingBusy : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingAutoStopped : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingTruncated : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data object RecordingSaved : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingLocal : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data class RecordingLocalOnly(val mb: Int) : Feedback() {
+        override val level get() = Level.Warn
+    }
+
+    data class RecordingFailed(val reason: String) : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data object RecordingCopied : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingCopyFailed : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data class RecordingDownloaded(val name: String) : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object RecordingDownloadFailed : Feedback() {
+        override val level get() = Level.Error
+    }
+
+    data object RecordingEmpty : Feedback() {
+        override val level get() = Level.Error
     }
 
     data class HotkeyFailed(val spec: String) : Feedback() {

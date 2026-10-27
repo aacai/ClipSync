@@ -48,6 +48,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     capture = RobotScreenCapture,
     hotkeys = CarbonGlobalHotkey,
     overlay = ScreenshotOverlay,
+    window = MainWindowVisibility,
     hoverRevealsActions = true,
 )
 

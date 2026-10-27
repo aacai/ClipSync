@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Size
@@ -33,6 +34,49 @@ fun showFromTray(state: WindowState, window: AwtWindow?) {
     requestAppForeground()
     window?.toFront()
     window?.requestFocus()
+}
+
+/**
+ * 主窗口显隐的唯一来源：托盘、关窗、录屏都改这里，`main.kt` 的 `Window(visible=…)` 跟着它走。
+ *
+ * 录屏时先把窗口收起来，录完按录之前的样子还回去——从托盘里按的快捷键，录完不该突然蹦出窗口。
+ */
+object MainWindowVisibility : PlatformWindow {
+    override val isAvailable: Boolean = true
+
+    private val visibility = mutableStateOf(true)
+
+    /** 主窗口当前是否该露着；Compose 读它来决定 `Window(visible=…)`。 */
+    val visible: Boolean
+        get() = visibility.value
+
+    /** 录屏开始前窗口是露着的吗；null 表示这次不是为录屏藏的。 */
+    private var beforeRecording: Boolean? = null
+
+    /** 进程启动时定初始状态：登录项拉起应用时窗口不能先闪一下再藏。 */
+    fun setInitialVisible(value: Boolean) {
+        visibility.value = value
+        beforeRecording = null
+    }
+
+    fun show() {
+        visibility.value = true
+    }
+
+    fun hide() {
+        visibility.value = false
+    }
+
+    override fun hideForRecording() {
+        if (beforeRecording == null) beforeRecording = visible
+        visibility.value = false
+    }
+
+    override fun restoreAfterRecording() {
+        val target = beforeRecording ?: return
+        beforeRecording = null
+        visibility.value = target
+    }
 }
 
 private fun requestAppForeground() {

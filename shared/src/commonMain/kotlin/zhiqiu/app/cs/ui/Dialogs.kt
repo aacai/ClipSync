@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -61,7 +60,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
-import zhiqiu.app.cs.core.ClipProtocol
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.files.ClipItem
@@ -93,7 +91,7 @@ internal fun TextEntryDialog(
     var text by remember { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(title), fontSize = 17.sp) },
             text = {
@@ -125,7 +123,6 @@ internal fun TextEntryDialog(
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -170,7 +167,7 @@ internal fun NoteDialog(item: ClipItem, onDismiss: () -> Unit, onSave: (String) 
 
 @Composable
 internal fun TransformDialog(text: String, onDismiss: () -> Unit, onApply: (TextOp) -> Unit) {
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.transform_title), fontSize = 17.sp) },
             text = {
@@ -205,7 +202,6 @@ internal fun TransformDialog(text: String, onDismiss: () -> Unit, onApply: (Text
             },
             confirmButton = {},
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -274,7 +270,7 @@ internal fun TranslateDialog(
         }
     }
 
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.translate_title), fontSize = 17.sp) },
             text = {
@@ -372,7 +368,6 @@ internal fun TranslateDialog(
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -426,7 +421,7 @@ internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmi
     val outOfRange = target != null && target !in info.from..info.to
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.move_to_title), fontSize = 17.sp) },
             text = {
@@ -465,7 +460,6 @@ internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmi
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -482,7 +476,7 @@ internal fun DetailDialog(
     val file = item.file
     val path = file?.localPath?.takeIf { isImage(file.mime) }
     val thumb = rememberImageBitmap(path, THUMB_MAX_SIDE) { model.cachedBytes(item) }
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.detail_title), fontSize = 17.sp) },
             text = {
@@ -560,7 +554,6 @@ internal fun DetailDialog(
                 TextButton(onClick = onCopy) { Text(stringResource(Res.string.cd_copy_text)) }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -625,7 +618,7 @@ internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> U
 
 @Composable
 internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.clear_all_title), fontSize = 17.sp) },
             text = { Text(stringResource(Res.string.clear_all_body), style = MaterialTheme.typography.bodySmall) },
@@ -644,13 +637,12 @@ internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
 @Composable
 internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.leave_room_title), fontSize = 17.sp) },
             text = {
@@ -669,7 +661,6 @@ internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () 
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -678,7 +669,7 @@ internal fun DevicesDialog(
         devices: List<String>,
         onDismiss: () -> Unit,
 ) {
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.devices_title), fontSize = 17.sp) },
             text = {
@@ -734,7 +725,6 @@ internal fun DevicesDialog(
             confirmButton = {
                 TextButton(onClick = onDismiss) { Text(stringResource(Res.string.safety_close)) }
             },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -742,11 +732,11 @@ internal fun DevicesDialog(
 internal fun SafetyDialog(
         safety: String,
         peers: List<DevicePresence>,
+        mismatch: List<String>,
         onDismiss: () -> Unit,
         onCopy: () -> Unit,
 ) {
-    val mine = ClipProtocol.safetyPrefix(safety)
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.safety_title), fontSize = 17.sp) },
             text = {
@@ -778,33 +768,15 @@ internal fun SafetyDialog(
                     SafetyPoint(2, Res.string.safety_point_verify)
                     SafetyPoint(3, Res.string.safety_point_mismatch)
 
-                    if (peers.isNotEmpty()) {
+                    if (peers.isNotEmpty() || mismatch.isNotEmpty()) {
                         SectionLabel(Res.string.safety_peers)
                         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             peers.forEach { peer ->
-                                val known = peer.safety.isNotEmpty()
-                                val match = known && peer.safety == mine
-                                val label =
-                                        when {
-                                            !known -> Res.string.safety_unknown
-                                            match -> Res.string.safety_match
-                                            else -> Res.string.safety_diff
-                                        }
-                                val tint =
-                                        when {
-                                            !known -> MaterialTheme.colorScheme.onSurfaceVariant
-                                            match -> MaterialTheme.colorScheme.primary
-                                            else -> MaterialTheme.colorScheme.error
-                                        }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
-                                            when {
-                                                match -> AppIcons.Check
-                                                known -> AppIcons.Warning
-                                                else -> AppIcons.Info
-                                            },
-                                            contentDescription = stringResource(label),
-                                            tint = tint,
+                                            AppIcons.Check,
+                                            contentDescription = stringResource(Res.string.safety_match),
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(14.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
@@ -815,16 +787,31 @@ internal fun SafetyDialog(
                                             modifier = Modifier.weight(1f),
                                     )
                                     Text(
-                                            peer.safety.ifEmpty { "—" },
+                                            stringResource(Res.string.safety_match),
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = tint,
+                                            color = MaterialTheme.colorScheme.primary,
                                     )
-                                    Spacer(Modifier.width(7.dp))
+                                }
+                            }
+                            mismatch.forEach { label ->
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                            AppIcons.Warning,
+                                            contentDescription = stringResource(Res.string.safety_diff),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
                                     Text(
-                                            stringResource(label),
+                                            label,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            maxLines = 1,
+                                            modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                            stringResource(Res.string.safety_diff),
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = MaterialTheme.colorScheme.error,
                                     )
                                 }
                             }
@@ -834,7 +821,6 @@ internal fun SafetyDialog(
             },
             confirmButton = { TextButton(onClick = onCopy) { Text(stringResource(Res.string.cd_copy_safety)) } },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.safety_close)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -869,7 +855,7 @@ internal fun HelpDialog(onDismiss: () -> Unit) {
                     Res.string.help_step5,
                     Res.string.help_step6,
             )
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.help_title), fontSize = 17.sp) },
             text = {
@@ -901,7 +887,6 @@ internal fun HelpDialog(onDismiss: () -> Unit) {
                     Text(stringResource(Res.string.safety_close), fontWeight = FontWeight.SemiBold)
                 }
             },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -912,7 +897,7 @@ internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
     val room by model.joinedRoom.collectAsState()
     val localCount by model.localCount.collectAsState()
     val uriHandler = LocalUriHandler.current
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.about_title), fontSize = 17.sp) },
             text = {
@@ -951,7 +936,6 @@ internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
                     Text(stringResource(Res.string.safety_close), fontWeight = FontWeight.SemiBold)
                 }
             },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
@@ -990,7 +974,7 @@ internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
     val failureText = failure?.let { feedbackText(it) }
             ?: (status as? ClipSyncEngine.Status.Offline)?.reason
 
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.share_title), fontSize = 17.sp) },
             text = {
@@ -1072,6 +1056,5 @@ internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
                 }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
-            shape = MaterialTheme.shapes.large,
     )
 }

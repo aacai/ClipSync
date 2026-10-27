@@ -21,6 +21,7 @@ data class ScreenshotHotkey(val modifiers: Set<HotkeyModifier>, val key: String)
 
     companion object {
         const val DEFAULT_SPEC: String = "Alt+A"
+        const val RECORD_DEFAULT_SPEC: String = "Alt+Shift+A"
 
         /** 平台侧注册表（macOS 虚拟键码）能覆盖的键；不在这里的一律当不能做快捷键。 */
         val keys: Set<String> = buildSet {

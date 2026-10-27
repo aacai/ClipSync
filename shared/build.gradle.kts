@@ -107,6 +107,21 @@ kotlin {
             implementation(libs.mqtt.client.transport.tcp)
             implementation(libs.ktor.client.java)
             implementation(libs.jna)
+            // 预览窗口里的播放器：Compose Desktop 没有视频控件，JavaFX 的 MediaView 是
+            // 唯一不用额外装 VLC 就能放 H.264 MP4 的方案。
+            val javafx = "21.0.5"
+            val javafxClassifier =
+                when {
+                    System.getProperty("os.name").startsWith("Mac", ignoreCase = true) &&
+                        System.getProperty("os.arch") == "aarch64" -> "mac-aarch64"
+                    System.getProperty("os.name").startsWith("Mac", ignoreCase = true) -> "mac"
+                    System.getProperty("os.name").startsWith("Windows", ignoreCase = true) -> "win"
+                    else -> "linux"
+                }
+            implementation("org.openjfx:javafx-base:$javafx:$javafxClassifier")
+            implementation("org.openjfx:javafx-graphics:$javafx:$javafxClassifier")
+            implementation("org.openjfx:javafx-media:$javafx:$javafxClassifier")
+            implementation("org.openjfx:javafx-swing:$javafx:$javafxClassifier")
         }
         androidMain.dependencies {
             implementation(libs.mqtt.client.transport.tcp)

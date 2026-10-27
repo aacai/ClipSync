@@ -44,7 +44,7 @@ internal fun feedbackText(feedback: Feedback): String =
             is Feedback.SavedTo -> stringResource(Res.string.fb_saved, feedback.name)
             is Feedback.DownloadFailed ->
                 if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
-                    stringResource(Res.string.fb_generic_failed)
+                    stringResource(Res.string.fb_download_failed_generic)
                 } else {
                     stringResource(Res.string.fb_download_failed, feedback.reason)
                 }
@@ -72,14 +72,14 @@ internal fun feedbackText(feedback: Feedback): String =
                 )
             is Feedback.SendFailed ->
                 if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
-                    stringResource(Res.string.fb_generic_failed)
+                    stringResource(Res.string.fb_send_failed_generic)
                 } else {
                     stringResource(Res.string.fb_send_failed, feedback.reason)
                 }
             Feedback.RoomCodeRequired -> stringResource(Res.string.fb_room_required)
             is Feedback.ConnectFailed ->
                 if (feedback.reason.isBlank() || looksLikeTypeName(feedback.reason)) {
-                    stringResource(Res.string.fb_generic_failed)
+                    stringResource(Res.string.fb_connect_failed_generic)
                 } else {
                     stringResource(Res.string.fb_connect_failed, feedback.reason)
                 }
@@ -90,6 +90,9 @@ internal fun feedbackText(feedback: Feedback): String =
                         feedback.reason.takeUnless { it.isBlank() || looksLikeTypeName(it) }
                                 ?: stringResource(Res.string.fb_generic_failed),
                 )
+            Feedback.DropNeedsRoom -> stringResource(Res.string.fb_drop_needs_room)
+            is Feedback.DropSkippedDirectory ->
+                    stringResource(Res.string.fb_drop_skipped_directory, feedback.name)
             Feedback.AutostartFailed -> stringResource(Res.string.fb_autostart_failed)
             Feedback.ScreenshotTaken -> stringResource(Res.string.fb_screenshot_taken)
             Feedback.ScreenshotPermission -> stringResource(Res.string.fb_screenshot_permission)
@@ -103,6 +106,20 @@ internal fun feedbackText(feedback: Feedback): String =
                 }
             Feedback.ScreenshotEmpty -> stringResource(Res.string.fb_screenshot_empty)
             is Feedback.HotkeySaved -> stringResource(Res.string.fb_hotkey_saved, feedback.spec)
+            is Feedback.RecordHotkeySaved -> stringResource(Res.string.fb_record_hotkey_saved, feedback.spec)
+            is Feedback.RecordStarted -> stringResource(Res.string.fb_record_started, feedback.hotkey)
+            Feedback.RecordingBusy -> stringResource(Res.string.fb_record_busy)
+            Feedback.RecordingAutoStopped -> stringResource(Res.string.fb_record_auto_stopped)
+            Feedback.RecordingTruncated -> stringResource(Res.string.fb_record_truncated)
+            Feedback.RecordingSaved -> stringResource(Res.string.fb_record_saved)
+            Feedback.RecordingLocal -> stringResource(Res.string.fb_record_local)
+            is Feedback.RecordingLocalOnly -> stringResource(Res.string.fb_record_local_only, feedback.mb)
+            is Feedback.RecordingFailed -> stringResource(Res.string.fb_record_failed, feedback.reason)
+            Feedback.RecordingEmpty -> stringResource(Res.string.fb_record_empty)
+            Feedback.RecordingCopied -> stringResource(Res.string.fb_record_copied)
+            Feedback.RecordingCopyFailed -> stringResource(Res.string.fb_record_copy_failed)
+            is Feedback.RecordingDownloaded -> stringResource(Res.string.fb_record_downloaded, feedback.name)
+            Feedback.RecordingDownloadFailed -> stringResource(Res.string.fb_record_download_failed)
             is Feedback.HotkeyFailed -> stringResource(Res.string.fb_hotkey_failed, feedback.spec)
             is Feedback.FileProblem -> fileIssueText(feedback.issue)
         }

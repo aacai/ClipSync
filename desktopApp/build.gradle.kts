@@ -23,6 +23,34 @@ dependencies {
 val appVersion: String by rootProject.extra
 val jpackageVersion = "1." + appVersion.substringAfter('.')
 
+val recordLib = layout.buildDirectory.file("native/libclipsyncrecord.dylib")
+
+val buildRecordLib = tasks.register<Exec>("buildRecordLib") {
+    onlyIf { System.getProperty("os.name").contains("Mac", ignoreCase = true) }
+    val out = recordLib.get().asFile
+    inputs.file("native/record.m")
+    outputs.file(out)
+    doFirst { out.parentFile.mkdirs() }
+    commandLine(
+        "clang",
+        "-fobjc-arc",
+        "-dynamiclib",
+        "-framework", "ScreenCaptureKit",
+        "-framework", "AVFoundation",
+        "-framework", "CoreMedia",
+        "-framework", "CoreGraphics",
+        "-framework", "Foundation",
+        "-framework", "AppKit",
+        "native/record.m",
+        "-o", out.absolutePath,
+    )
+}
+
+tasks.withType<JavaExec>().configureEach {
+    dependsOn(buildRecordLib)
+    systemProperty("clipsync.record.lib", recordLib.get().asFile.absolutePath)
+}
+
 compose.desktop {
     application {
         mainClass = "zhiqiu.app.cs.MainKt"
@@ -61,6 +89,7 @@ compose.desktop {
 tasks.matching { it.name == "createDistributable" || it.name == "createReleaseDistributable" }.configureEach {
     // 两条任务链各出一份 app 镜像，后处理对两边做同一件事，所以直接扫整个 binaries 目录
     val binariesDir = layout.buildDirectory.dir("compose/binaries").get().asFile
+    val recordDylib = recordLib.get().asFile
     val outward = appVersion
     val packed = jpackageVersion
     doLast {
@@ -105,6 +134,17 @@ tasks.matching { it.name == "createDistributable" || it.name == "createReleaseDi
                 val plist = File(app, "Contents/Info.plist").path
                 for (key in listOf("CFBundleShortVersionString", "CFBundleVersion")) {
                     runTool("plutil", "-replace", key, "-string", outward, plist)
+                }
+                runTool(
+                    "plutil", "-replace", "NSMicrophoneUsageDescription", "-string",
+                    "ClipSync 录屏时把麦克风混进录像",
+                    plist,
+                )
+                val dylib = recordDylib
+                if (dylib.isFile) {
+                    val frameworks = File(app, "Contents/Frameworks")
+                    frameworks.mkdirs()
+                    dylib.copyTo(File(frameworks, dylib.name), overwrite = true)
                 }
                 val cfg = File(app, "Contents/app/${app.nameWithoutExtension}.cfg")
                 if (cfg.isFile) {

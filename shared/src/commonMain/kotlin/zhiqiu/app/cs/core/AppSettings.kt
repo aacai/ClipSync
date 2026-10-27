@@ -121,8 +121,90 @@ class AppSettings(
         store.putString(KEY_SCREENSHOT_HOTKEY, value)
     }
 
+    /**
+     * 截图时是否保留本机窗口。
+     * 默认开：冻屏里还能看见 ClipSync；关掉则抓屏前先藏起自家窗口（旧行为）。
+     */
+    private val _screenshotKeepWindow = MutableStateFlow(store.getBoolean(KEY_SCREENSHOT_KEEP_WINDOW, true))
+    val screenshotKeepWindow: StateFlow<Boolean> = _screenshotKeepWindow.asStateFlow()
+
+    fun setScreenshotKeepWindow(enabled: Boolean) {
+        _screenshotKeepWindow.value = enabled
+        store.putBoolean(KEY_SCREENSHOT_KEEP_WINDOW, enabled)
+    }
+
+    private val _recordHotkey =
+        MutableStateFlow(
+            normalizeRecordHotkey(store.getString(KEY_RECORD_HOTKEY, ScreenshotHotkey.RECORD_DEFAULT_SPEC))
+        )
+    val recordHotkey: StateFlow<String> = _recordHotkey.asStateFlow()
+
+    fun setRecordHotkey(spec: String) {
+        val value = normalizeRecordHotkey(spec)
+        _recordHotkey.value = value
+        store.putString(KEY_RECORD_HOTKEY, value)
+    }
+
+    /** 区域框选还是整屏。坏值按区域处理。 */
+    private val _recordMode =
+        MutableStateFlow(recordModeOf(store.getStringOrNull(KEY_RECORD_MODE)))
+    val recordMode: StateFlow<RecordMode> = _recordMode.asStateFlow()
+
+    fun setRecordMode(mode: RecordMode) {
+        _recordMode.value = mode
+        store.putString(KEY_RECORD_MODE, mode.name)
+    }
+
+    private val _recordMic = MutableStateFlow(store.getBoolean(KEY_RECORD_MIC, true))
+    val recordMic: StateFlow<Boolean> = _recordMic.asStateFlow()
+
+    fun setRecordMic(enabled: Boolean) {
+        _recordMic.value = enabled
+        store.putBoolean(KEY_RECORD_MIC, enabled)
+    }
+
+    /** 录屏用的麦克风设备（AVCaptureDevice.uniqueID）；空串表示系统默认输入。 */
+    private val _recordMicDevice = MutableStateFlow(store.getString(KEY_RECORD_MIC_DEVICE, ""))
+    val recordMicDevice: StateFlow<String> = _recordMicDevice.asStateFlow()
+
+    fun setRecordMicDevice(id: String) {
+        val value = id.trim()
+        _recordMicDevice.value = value
+        store.putString(KEY_RECORD_MIC_DEVICE, value)
+    }
+
+    private val _recordSystemAudio = MutableStateFlow(store.getBoolean(KEY_RECORD_SYSTEM, true))
+    val recordSystemAudio: StateFlow<Boolean> = _recordSystemAudio.asStateFlow()
+
+    fun setRecordSystemAudio(enabled: Boolean) {
+        _recordSystemAudio.value = enabled
+        store.putBoolean(KEY_RECORD_SYSTEM, enabled)
+    }
+
+    /** 长边像素。0 是屏幕原始大小，1920 / 1280 会按比例缩小。 */
+    private val _recordLongEdge = MutableStateFlow(recordEdgeOf(store.getInt(KEY_RECORD_EDGE, 0)))
+    val recordLongEdge: StateFlow<Int> = _recordLongEdge.asStateFlow()
+
+    fun setRecordLongEdge(edge: Int) {
+        val value = recordEdgeOf(edge)
+        _recordLongEdge.value = value
+        store.putInt(KEY_RECORD_EDGE, value)
+    }
+
+    private val _recordFps = MutableStateFlow(recordFpsOf(store.getInt(KEY_RECORD_FPS, 30)))
+    val recordFps: StateFlow<Int> = _recordFps.asStateFlow()
+
+    fun setRecordFps(fps: Int) {
+        val value = recordFpsOf(fps)
+        _recordFps.value = value
+        store.putInt(KEY_RECORD_FPS, value)
+    }
+
     private fun normalizeHotkey(spec: String): String =
         ScreenshotHotkey.parse(spec)?.toString() ?: ScreenshotHotkey.DEFAULT_SPEC
+
+    private fun normalizeRecordHotkey(spec: String): String =
+        ScreenshotHotkey.parse(spec)?.toString() ?: ScreenshotHotkey.RECORD_DEFAULT_SPEC
 
     private val _residentSync = MutableStateFlow(store.getBoolean(KEY_RESIDENT_SYNC, false))
     val residentSync: StateFlow<Boolean> = _residentSync.asStateFlow()
@@ -192,6 +274,14 @@ class AppSettings(
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
         private const val KEY_WATCH_FILES = "clipboard.watchFiles"
         private const val KEY_SCREENSHOT_HOTKEY = "screenshot.hotkey"
+        private const val KEY_SCREENSHOT_KEEP_WINDOW = "screenshot.keepWindow"
+        private const val KEY_RECORD_HOTKEY = "record.hotkey"
+        private const val KEY_RECORD_MODE = "record.mode"
+        private const val KEY_RECORD_MIC = "record.mic"
+        private const val KEY_RECORD_MIC_DEVICE = "record.micDevice"
+        private const val KEY_RECORD_SYSTEM = "record.systemAudio"
+        private const val KEY_RECORD_EDGE = "record.longEdge"
+        private const val KEY_RECORD_FPS = "record.fps"
         private const val KEY_DELETE_EXPIRED = "history.deleteExpired"
         private const val KEY_RETENTION_DAYS = "history.retentionDays"
         val RETENTION_CHOICES = listOf(7, 30, 90, 365)
@@ -214,5 +304,15 @@ class AppSettings(
 
         private fun languageOf(name: String?): AppLanguage =
             AppLanguage.entries.firstOrNull { it.name == name } ?: AppLanguage.System
+
+        private fun recordModeOf(name: String?): RecordMode =
+            RecordMode.entries.firstOrNull { it.name == name } ?: RecordMode.Region
+
+        private fun recordEdgeOf(edge: Int): Int = if (edge == 1280 || edge == 1920) edge else 0
+
+        private fun recordFpsOf(fps: Int): Int = if (fps == 15 || fps == 60) fps else 30
     }
 }
+
+/** 录屏范围：先框一块，或直接录主屏。 */
+enum class RecordMode { Region, Screen }

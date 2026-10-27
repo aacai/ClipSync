@@ -26,6 +26,7 @@ import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
+import zhiqiu.app.cs.core.RecordMode
 import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.assetFor
@@ -52,6 +53,14 @@ import zhiqiu.app.cs.translate.TranslateTarget
 import zhiqiu.app.cs.translate.TranslationException
 import zhiqiu.app.cs.translate.createTranslateClient
 import kotlin.time.Clock
+
+/** 一条刚录完、可以预览的录像。 */
+class RecordPreview(
+    val path: String,
+    val name: String,
+    /** 已经进了列表的那条记录的 id；没进列表就是 null。 */
+    val clipId: String?,
+)
 
 class AppModel internal constructor(
     private val scope: CoroutineScope,
@@ -122,6 +131,36 @@ class AppModel internal constructor(
         get() = platform.capture.isAvailable && platform.hotkeys.isAvailable
 
     val screenshotHotkey: StateFlow<String> = settings.screenshotHotkey
+
+    /** 能截屏并且本机装了录屏组件时才露出录屏设置。 */
+    val supportsRecording: Boolean
+        get() = supportsScreenshot && recordingAvailable
+
+    private val _recording = MutableStateFlow(false)
+    val recording: StateFlow<Boolean> = _recording.asStateFlow()
+
+    /** 按下停止到录像真正写完之间还在收尾，这段时间界面得说「正在保存」。 */
+    private val _recordSaving = MutableStateFlow(false)
+    val recordSaving: StateFlow<Boolean> = _recordSaving.asStateFlow()
+
+    private val _recordElapsed = MutableStateFlow(0)
+    val recordElapsed: StateFlow<Int> = _recordElapsed.asStateFlow()
+
+    /** 录完自动弹出的预览窗口；null 表示没开。 */
+    private val _recordPreview = MutableStateFlow<RecordPreview?>(null)
+    val recordPreview: StateFlow<RecordPreview?> = _recordPreview.asStateFlow()
+
+    private var recordPhase = RecordPhase.Idle
+    private var recordJob: Job? = null
+    private var recordPath: String? = null
+
+    /** 开录和收尾都要等原生组件回话，这期间再按快捷键不能当成「再来一次」。 */
+    private enum class RecordPhase {
+        Idle,
+        Preparing,
+        Recording,
+        Stopping,
+    }
 
     /** 有指针悬浮的平台上行内快捷操作默认收起（hover 才展开），触摸设备常驻显示。 */
     val hoverRevealsActions: Boolean = platform.hoverRevealsActions
@@ -201,6 +240,12 @@ class AppModel internal constructor(
             platform.hotkeys.start(::takeScreenshot)
             if (!registerHotkey(settings.screenshotHotkey.value)) {
                 _failure.value = Feedback.HotkeyFailed(settings.screenshotHotkey.value)
+            }
+            if (supportsRecording) {
+                platform.hotkeys.startRecording(::onRecordHotkey)
+                if (!registerRecordHotkey(settings.recordHotkey.value)) {
+                    _failure.value = Feedback.HotkeyFailed(settings.recordHotkey.value)
+                }
             }
         }
     }
@@ -365,7 +410,176 @@ class AppModel internal constructor(
         return true
     }
 
-    private suspend fun recordLocalFile(name: String, mime: String, bytes: ByteArray, hash: String) {
+    fun setRecordHotkey(spec: String): Boolean {
+        if (!registerRecordHotkey(spec)) return false
+        settings.setRecordHotkey(spec)
+        _info.value = Feedback.RecordHotkeySaved(spec)
+        return true
+    }
+
+    private fun registerRecordHotkey(spec: String): Boolean {
+        val hotkey = ScreenshotHotkey.parse(spec) ?: return false
+        return platform.hotkeys.updateRecording(hotkey)
+    }
+
+    fun onRecordHotkey() {
+        when (recordPhase) {
+            RecordPhase.Idle -> scope.launch { beginRecording() }
+            RecordPhase.Recording -> scope.launch { finishRecording() }
+            RecordPhase.Preparing,
+            RecordPhase.Stopping,
+            -> _info.value = Feedback.RecordingBusy
+        }
+    }
+
+    /** 停止条上的按钮：收尾没跑完之前重复点无效。 */
+    fun stopRecording() {
+        if (recordPhase != RecordPhase.Recording) return
+        scope.launch { finishRecording() }
+    }
+
+    private suspend fun beginRecording() {
+        if (recordPhase != RecordPhase.Idle || recordingActive()) return
+        val pick =
+                if (settings.recordMode.value == RecordMode.Region) {
+                    if (!platform.overlay.isAvailable) return
+                    // 框选遮罩自己会先把主窗口藏起来；确认后一直藏着，录完再还回去。
+                    platform.overlay.selectRegion() ?: return
+                } else {
+                    // 整屏录制没有遮罩层，开录前先把主窗口收起来，别把 ClipSync 录进第一帧。
+                    platform.window.hideForRecording()
+                    null
+                }
+        // 工具条上选的这一次优先；整屏录制没有工具条，就用设置页里的值。
+        val fps = pick?.quality?.fps ?: settings.recordFps.value
+        val longEdge = pick?.quality?.longEdge ?: settings.recordLongEdge.value
+        val mic = pick?.mic ?: settings.recordMic.value
+        val systemAudio = pick?.systemAudio ?: settings.recordSystemAudio.value
+        val micDevice = pick?.micDevice ?: settings.recordMicDevice.value
+        if (pick != null) {
+            // 工具条选过的值回写设置，下次打开还是这一套。
+            settings.setRecordLongEdge(pick.quality.longEdge)
+            settings.setRecordFps(pick.quality.fps)
+            settings.setRecordMic(pick.mic)
+            settings.setRecordSystemAudio(pick.systemAudio)
+            settings.setRecordMicDevice(pick.micDevice)
+        }
+        val path = recordingFile(newId())
+        if (path.isEmpty()) {
+            platform.window.restoreAfterRecording()
+            return
+        }
+        recordPhase = RecordPhase.Preparing
+        try {
+            val error =
+                    try {
+                        withContext(Dispatchers.Default) {
+                            recordingStart(
+                                    pick?.region,
+                                    mic,
+                                    systemAudio,
+                                    fps,
+                                    longEdge,
+                                    micDevice,
+                                    path,
+                            )
+                        }
+                    } catch (e: Throwable) {
+                        platform.window.restoreAfterRecording()
+                        throw e
+                    }
+            if (error != null) {
+                platform.window.restoreAfterRecording()
+                _failure.value = Feedback.RecordingFailed(error)
+                return
+            }
+            recordPath = path
+            recordPhase = RecordPhase.Recording
+            _recording.value = true
+            _recordElapsed.value = 0
+            _info.value = Feedback.RecordStarted(settings.recordHotkey.value)
+            val started = kotlin.time.TimeSource.Monotonic.markNow()
+            recordJob?.cancel()
+            recordJob =
+                    scope.launch {
+                        while (isActive && recordPhase == RecordPhase.Recording) {
+                            delay(200)
+                            val secs = started.elapsedNow().inWholeSeconds.toInt()
+                            _recordElapsed.value = secs
+                            if (secs >= RECORD_LIMIT_SEC) {
+                                // 收尾不能跑在自己的 ticker 里：finishRecording 会 cancel 掉这条协程，
+                                // 录像就永远停在「正在保存」之前。
+                                recordJob = null
+                                _info.value = Feedback.RecordingAutoStopped
+                                scope.launch { finishRecording() }
+                                break
+                            }
+                        }
+                    }
+        } finally {
+            if (recordPhase == RecordPhase.Preparing) recordPhase = RecordPhase.Idle
+        }
+    }
+
+    private suspend fun finishRecording() {
+        if (recordPhase != RecordPhase.Recording) return
+        recordPhase = RecordPhase.Stopping
+        _recordSaving.value = true
+        recordJob?.cancel()
+        recordJob = null
+        val path = recordPath
+        recordPath = null
+        // 停止要等原生回调写完 moov，读文件也在同一条线程：主线程一挡，「正在保存」就画不出来。
+        val (error, bytes) =
+                withContext(Dispatchers.Default) {
+                    val stopError = recordingStop()
+                    stopError to path?.let { readAllBytes(it) }
+                }
+        _recordSaving.value = false
+        _recording.value = false
+        recordPhase = RecordPhase.Idle
+        // 录制已经停了，主窗口按开录前的样子还回去：原本在托盘里就继续藏着。
+        platform.window.restoreAfterRecording()
+        if (path == null || bytes == null || bytes.isEmpty()) {
+            _failure.value =
+                    when {
+                        !error.isNullOrBlank() -> Feedback.RecordingFailed(error)
+                        else -> Feedback.RecordingEmpty
+                    }
+            return
+        }
+        // 没收尾的 mp4 没有 moov，播放器打不开；宁可丢掉也不能当成功写进列表。
+        if (!recordingFinished(bytes)) {
+            _failure.value =
+                    if (error.isNullOrBlank()) Feedback.RecordingTruncated
+                    else Feedback.RecordingFailed("$error，文件不完整，已丢弃")
+            return
+        }
+        runCatching { platform.clipboard.writeFiles(listOf(path)) }
+        val name = path.substringAfterLast('/').ifBlank { "recording.mp4" }
+        val hash = sha256Hex(bytes)
+        var clipId: String? = null
+        if (bytes.size.toLong() > FileLimits.MAX_FILE_BYTES) {
+            clipId = recordLocalFile(name, "video/mp4", bytes, hash)
+            _info.value = Feedback.RecordingLocalOnly(FileLimits.maxMb)
+        } else if (status.value is ClipSyncEngine.Status.Online) {
+            val item = runCatching { engine.publishFile(name, "video/mp4", bytes) }.getOrNull()
+            if (item != null) {
+                cacheLocally(item.id, name, bytes)
+                clipId = item.id
+            } else {
+                clipId = recordLocalFile(name, "video/mp4", bytes, hash)
+            }
+            _info.value = if (item != null) Feedback.RecordingSaved else Feedback.RecordingLocal
+        } else {
+            clipId = recordLocalFile(name, "video/mp4", bytes, hash)
+            _info.value = Feedback.RecordingLocal
+        }
+        // 保存收尾之后才开预览：这时候文件已经有 moov，播放器打得开。
+        _recordPreview.value = RecordPreview(path, name, clipId)
+    }
+
+    private suspend fun recordLocalFile(name: String, mime: String, bytes: ByteArray, hash: String): String {
         val now = Clock.System.now().toEpochMilliseconds()
         val id = newId()
         val path = platform.store.writeCache(id, name, bytes)
@@ -394,6 +608,44 @@ class AppModel internal constructor(
                                 ),
                 ),
         )
+        return id
+    }
+
+    /** 预览窗口右上角的叉：只关窗，文件还在。 */
+    fun dismissRecordPreview() {
+        _recordPreview.value = null
+    }
+
+    /** 预览窗口的「分享」：把录像文件重新放进剪贴板。 */
+    fun shareRecordPreview() {
+        val preview = _recordPreview.value ?: return
+        scope.launch {
+            val copied = runCatching { platform.clipboard.writeFiles(listOf(preview.path)) }.isSuccess
+            _info.value = if (copied) Feedback.RecordingCopied else Feedback.RecordingCopyFailed
+        }
+    }
+
+    /** 预览窗口的「下载」：另存到用户选的目录。 */
+    fun downloadRecordPreview() {
+        val preview = _recordPreview.value ?: return
+        if (!platform.downloads.isAvailable) return
+        scope.launch {
+            val bytes = withContext(Dispatchers.Default) { readAllBytes(preview.path) } ?: return@launch
+            val saved = runCatching { platform.downloads.save(preview.name, bytes) }.getOrNull()
+            _info.value =
+                if (saved != null) Feedback.RecordingDownloaded(saved)
+                else Feedback.RecordingDownloadFailed
+        }
+    }
+
+    /** 预览窗口的「删除」：删本地录像和这次列表记录，已经同步出去的副本不动。 */
+    fun deleteRecordPreview() {
+        val preview = _recordPreview.value ?: return
+        _recordPreview.value = null
+        scope.launch {
+            withContext(Dispatchers.Default) { deleteRecording(preview.path) }
+            preview.clipId?.let { repository.remove(it) }
+        }
     }
 
     /** 发出去的那张图本机也留一份字节，回头点「作为图片复制」不用再从链接下载。 */
@@ -498,23 +750,27 @@ class AppModel internal constructor(
         startSync()
     }
 
-    private suspend fun tryConnect(room: String, savedKey: ByteArray?): String? =
-            runCatching {
-                            engine.start(
-                                    ClipSyncEngine.Config(
-                                            roomId = room,
-                                            password = _password.value,
-                                            roomKey = savedKey,
-                                            deviceId = platform.installId,
-                                            deviceName = senderName(),
-                                            deviceOs = platform.deviceOs,
-                                            repository = repository,
-                                    ),
-                            )
-                        }
-                        .exceptionOrNull()
-                        ?.userFacingDetail()
-                        .orEmpty()
+    private suspend fun tryConnect(room: String, savedKey: ByteArray?): String? {
+        // 取消不算连接失败：换房 / 退出时会 cancel 掉上一次，别弹「出了点问题」。
+        return try {
+            engine.start(
+                    ClipSyncEngine.Config(
+                            roomId = room,
+                            password = _password.value,
+                            roomKey = savedKey,
+                            deviceId = platform.installId,
+                            deviceName = senderName(),
+                            deviceOs = platform.deviceOs,
+                            repository = repository,
+                    ),
+            )
+            null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            e.userFacingDetail().orEmpty()
+        }
+    }
 
     private fun persistRoomSession() {
         val room = _joinedRoom.value ?: return
@@ -601,25 +857,49 @@ class AppModel internal constructor(
     fun pickFiles() {
         platform.picker.pick { sources ->
             if (sources.isEmpty()) return@pick
-            scope.launch {
-                for (src in sources) {
-                    if (src.sizeHint > FileLimits.MAX_FILE_BYTES) {
-                        _failure.value = Feedback.FileProblem(
-                            FileIssue.Rejected(FileRejectReason.TooLarge, src.name),
-                        )
-                        continue
-                    }
-                    val bytes = runCatching { withContext(Dispatchers.Default) { src.open() } }.getOrElse { e ->
-                        _failure.value =
-                                Feedback.LocalFileReadFailed(src.name, e.userFacingDetail().orEmpty())
-                        continue
-                    }
-                    runCatching { engine.publishFile(src.name, src.mime, bytes) }
+            ingestPickedSources(sources)
+        }
+    }
+
+    /**
+     * 窗口拖入文件：与点「发送文件」同一条路上传。未进房明确报错，不偷偷只存本机。
+     * [paths] 为本机绝对路径或 file URI；目录不递归，只提示跳过。
+     */
+    fun ingestDroppedPaths(paths: List<String>) {
+        val dropped = resolveDroppedPaths(paths)
+        for (name in dropped.directories) {
+            _failure.value = Feedback.DropSkippedDirectory(name)
+        }
+        if (status.value !is ClipSyncEngine.Status.Online) {
+            _failure.value = Feedback.DropNeedsRoom
+            return
+        }
+        if (dropped.files.isNotEmpty()) ingestPickedSources(dropped.files)
+    }
+
+    /** 选择器与拖入共用：逐个校验、读盘、publishFile。 */
+    private fun ingestPickedSources(sources: List<PickedSource>) {
+        if (sources.isEmpty()) return
+        scope.launch {
+            for (src in sources) {
+                if (src.sizeHint > FileLimits.MAX_FILE_BYTES) {
+                    _failure.value =
+                            Feedback.FileProblem(
+                                    FileIssue.Rejected(FileRejectReason.TooLarge, src.name),
+                            )
+                    continue
+                }
+                val bytes =
+                        runCatching { withContext(Dispatchers.Default) { src.open() } }.getOrElse { e ->
+                            _failure.value =
+                                    Feedback.LocalFileReadFailed(src.name, e.userFacingDetail().orEmpty())
+                            continue
+                        }
+                runCatching { engine.publishFile(src.name, src.mime, bytes) }
                         .onSuccess { item -> if (item != null) _info.value = Feedback.FileSent(src.name) }
                         .onFailure { e ->
                             _failure.value = Feedback.SendFailed(e.userFacingDetail().orEmpty())
                         }
-                }
             }
         }
     }
@@ -834,6 +1114,28 @@ class AppModel internal constructor(
     suspend fun cachedBytes(item: ClipItem): ByteArray? =
             item.file?.localPath?.let { path -> runCatching { repository.readCache(path) }.getOrNull() }
 
+    /**
+     * 拖出到访达/桌面：已缓存文件用本机路径；文本写成随机名 .txt 临时文件。
+     * 未下载的文件跳过（不偷偷拉网）。可一次多条。
+     */
+    fun prepareDragOutPaths(items: List<ClipItem>): List<String> {
+        if (items.isEmpty()) return emptyList()
+        val paths = ArrayList<String>(items.size)
+        for (item in items) {
+            val file = item.file
+            val local = file?.localPath
+            when {
+                local != null -> paths.add(local)
+                file != null -> Unit // 未落盘，跳过
+                else -> {
+                    val name = "clip-${newId().take(8)}.txt"
+                    writeDragOutTemp(name, item.text.encodeToByteArray())?.let { paths.add(it) }
+                }
+            }
+        }
+        return paths
+    }
+
     /** 存到系统下载目录：本机有缓存就用缓存，同伴的条目先取回来；文本现写成随机名字的 .txt。 */
     fun saveToDownloads(item: ClipItem) {
         val file = item.file
@@ -984,8 +1286,7 @@ class AppModel internal constructor(
                     // 用户的剪贴板这时候多半已经换成新的一份了，写下去就是把新的盖掉。
                     if (isEcho(event.text)) return@collect
                     // 先记账再写：write() 会挂起，轮询协程能在挂起点插进来读到刚写进去的内容。
-                    // 那时 lastOwnWrite 还是上一次的，这份复制就会被当成用户新拷贝再广播一次；
-                    // mid 带发送者设备号，重播算新条目，房间里人越多重复越多。
+                    // 那时 lastOwnWrite 还是上一次的，这份复制就会被当成用户新拷贝再广播一次。
                     lastOwnWrite = event.text
                     lastCaptured = event.text
                     val outcome = runCatching { platform.clipboard.write(event.text) }
@@ -1005,6 +1306,9 @@ class AppModel internal constructor(
     }
 
     companion object {
+        /** 和工具条上的 120:00 一致：录满两小时自动停。 */
+        const val RECORD_LIMIT_SEC: Int = 120 * 60
+
         private const val MILLIS_PER_DAY = 24 * 60 * 60 * 1000L
         private const val SCREENSHOT_MIME = "image/png"
         const val MAX_ROOM_CODE = 24

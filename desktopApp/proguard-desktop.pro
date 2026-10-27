@@ -9,6 +9,9 @@
 # 会把返回类型收窄成实现类，字节码校验当场 VerifyError。整包留着最省事，也就几百 K。
 -keep class okio.** { *; }
 
+# JNA 按接口方法名去找 dylib 符号，混淆后就对不上。
+-keep interface zhiqiu.app.cs.ui.RecordNative { *; }
+
 # 库对着别的 skiko / 可选依赖编出来的引用，ProGuard 一律当错误拦下来，运行时走不到就没影响。
 # backdrop 是对着旧版 skiko 编的（ColorMatrix、ColorFilter.makeMatrix、RuntimeShaderBuilder.makeShader 签名都动过）；
 # cryptography-provider-jdk 里的 BouncyCastleBridge 是可选适配，本工程没引 BC。

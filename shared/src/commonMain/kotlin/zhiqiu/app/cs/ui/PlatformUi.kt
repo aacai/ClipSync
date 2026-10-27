@@ -112,6 +112,7 @@ class PlatformUi(
     val capture: PlatformScreenCapture = UnavailableScreenCapture,
     val hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     val overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
+    val window: PlatformWindow = UnavailableWindow,
     /**
      * 有指针悬浮的平台（桌面、网页）：列表行快捷操作默认收起，hover 才展开，减少视觉噪音；
      * 触摸设备（手机）没有 hover 事件，常驻显示，操作效率不打折。
@@ -145,6 +146,9 @@ interface PlatformScreenshotOverlay {
 
     /** 弹遮罩层等用户框选：切好了返回 PNG 字节，按取消返回 null，抓不到就抛。 */
     suspend fun crop(): ByteArray?
+
+    /** 同一套框选，确认后返回区域和这次工具条上选的录屏选项。取消返回 null。 */
+    suspend fun selectRegion(): RecordSelection? = null
 }
 
 /**
@@ -160,6 +164,37 @@ interface PlatformGlobalHotkey {
 
     /** 换键：新键注册成功才放掉旧键，失败就保持原样并返回 false。 */
     fun update(hotkey: ScreenshotHotkey): Boolean
+
+    /** 录屏快捷键。没有全局热键的平台保持空实现。 */
+    fun startRecording(onTrigger: () -> Unit) = Unit
+
+    fun updateRecording(hotkey: ScreenshotHotkey): Boolean = false
+}
+
+/** 主屏上的一块区域，单位是点，原点在该屏左上角。 */
+data class RecordRegion(val x: Float, val y: Float, val width: Float, val height: Float)
+
+/** 录屏工具条确认后的结果：区域 + 这一次选的画质和声音来源。 */
+class RecordSelection(
+    val region: RecordRegion,
+    val quality: RecordQuality,
+    val systemAudio: Boolean,
+    val mic: Boolean,
+    val micDevice: String,
+)
+
+/**
+ * 主窗口显隐。录屏时把自家窗口收起来，录完再按原来的样子还回去：
+ * 用户是从托盘里按快捷键的，录完也不该突然蹦出一个窗口。
+ */
+interface PlatformWindow {
+    val isAvailable: Boolean get() = false
+
+    /** 记下当前显隐再藏起来；重复调用不覆盖第一次记下的状态。 */
+    fun hideForRecording() = Unit
+
+    /** 把 [hideForRecording] 藏起来的窗口还原；本来就没藏过就什么都不做。 */
+    fun restoreAfterRecording() = Unit
 }
 
 /** 「存到下载目录」：桌面和 Android 写用户自己的 Downloads，浏览器交给它自己的下载行为。 */
@@ -206,6 +241,9 @@ internal object UnavailableGlobalHotkey : PlatformGlobalHotkey {
     override fun update(hotkey: ScreenshotHotkey): Boolean = false
 }
 
+/** 没有「主窗口」概念的平台（手机、浏览器由系统管窗口）。 */
+internal object UnavailableWindow : PlatformWindow
+
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */
 internal object UnavailableFilePicker : PlatformFilePicker {
     override val isAvailable: Boolean = false
@@ -232,8 +270,9 @@ internal fun rememberPlatformUi(
     capture: PlatformScreenCapture = UnavailableScreenCapture,
     hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
+    window: PlatformWindow = UnavailableWindow,
     hoverRevealsActions: Boolean = false,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, overlay, hoverRevealsActions) {
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, overlay, window, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -244,6 +283,7 @@ internal fun rememberPlatformUi(
         capture = capture,
         hotkeys = hotkeys,
         overlay = overlay,
+        window = window,
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),
@@ -264,7 +304,7 @@ internal expect fun rememberAppModel(platform: PlatformUi, settings: AppSettings
 
 /**
  * macOS 藏系统标题栏后，红绿灯还浮在左上角。
- * 顶栏 / 内容要用这里的边距让开；其它平台全是 0。
+ * 内容整体下移躲开即可；再加左边距会把状态区顶歪。其它平台全是 0。
  */
 internal object MacChromeInset {
     private val active: Boolean
@@ -273,8 +313,4 @@ internal object MacChromeInset {
     /** 标题栏高度方向：整块顶栏下移，别顶到红绿灯。 */
     val top: Dp
         get() = if (active) 28.dp else 0.dp
-
-    /** 红绿灯横向占位：只加在最上一行内容的 start。 */
-    val start: Dp
-        get() = if (active) 68.dp else 0.dp
 }

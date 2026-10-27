@@ -14,6 +14,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +40,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -105,6 +107,7 @@ internal fun MainView(
     val connecting by model.connecting.collectAsState()
     val undoDepth by model.undoDepth.collectAsState()
     val moveInfos by model.moveInfos.collectAsState()
+    val unknownKeys by model.keyMismatch.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
     val inRoom = devices.map { deviceLabel(it.name, it.os) }
             .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
@@ -133,7 +136,29 @@ internal fun MainView(
     var devicesOpen by remember { mutableStateOf(false) }
     var shareOpen by remember { mutableStateOf(false) }
     var helpOpen by remember { mutableStateOf(false) }
+    var sendFileOpen by remember { mutableStateOf(false) }
     var sharePrompted by rememberSaveable { mutableStateOf(false) }
+    var dropHovering by remember { mutableStateOf(false) }
+    val recording by model.recording.collectAsState()
+    val recordElapsed by model.recordElapsed.collectAsState()
+    val recordSaving by model.recordSaving.collectAsState()
+    val recordPreview by model.recordPreview.collectAsState()
+    // 对话框/遮罩打开时不接拖入，避免松手进了看不见的底层。
+    val dropEnabled =
+            !composingNew &&
+                    !confirmClear &&
+                    editing == null &&
+                    noting == null &&
+                    transforming == null &&
+                    translating == null &&
+                    inspecting == null &&
+                    zooming == null &&
+                    moving == null &&
+                    safetyNumber == null &&
+                    !devicesOpen &&
+                    !shareOpen &&
+                    !helpOpen &&
+                    !sendFileOpen
 
     LaunchedEffect(Unit) {
         if (!sharePrompted) {
@@ -318,6 +343,7 @@ internal fun MainView(
 
     fun hasOverlay() =
             composingNew || confirmClear || safetyNumber != null || devicesOpen || shareOpen || helpOpen ||
+                    sendFileOpen ||
                     editing != null || noting != null || transforming != null || translating != null ||
                     inspecting != null || zooming != null || moving != null
 
@@ -327,6 +353,7 @@ internal fun MainView(
             safetyNumber != null -> safetyNumber = null
             shareOpen -> shareOpen = false
             helpOpen -> helpOpen = false
+            sendFileOpen -> sendFileOpen = false
             confirmClear -> confirmClear = false
             zooming != null -> zooming = null
             editing != null -> editing = null
@@ -367,11 +394,18 @@ internal fun MainView(
                         Modifier.fillMaxSize()
                                 .focusRequester(rootFocus)
                                 .focusable()
-                                .onPreviewKeyEvent { handleKey(it) },
+                                .onPreviewKeyEvent { handleKey(it) }
+                                .fileDropTarget(
+                                        enabled = dropEnabled,
+                                        onHovering = { dropHovering = it },
+                                        onPaths = model::ingestDroppedPaths,
+                                ),
         ) {
             Box(
                     modifier =
-                            Modifier.widthIn(max = 940.dp)
+                            Modifier.align(Alignment.TopCenter)
+                                    .fillMaxWidth()
+                                    .widthIn(max = 940.dp)
                                     .fillMaxSize()
                                     .padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top),
             ) {
@@ -472,6 +506,7 @@ internal fun MainView(
                                 regex = regex,
                                 caseSensitive = caseSensitive,
                                 online = online,
+                                total = items.size,
                                 canClear = items.isNotEmpty(),
                                 undoDepth = undoDepth,
                                 picking = picking,
@@ -482,6 +517,7 @@ internal fun MainView(
                                 },
                                 onNew = { composingNew = true },
                                 onClear = { confirmClear = true },
+                                onSendFile = { sendFileOpen = true },
                         )
                     }
                 }
@@ -515,8 +551,44 @@ internal fun MainView(
 
                 ToastHost(model, bottom = 22.dp + barLift, modifier = Modifier.align(Alignment.BottomCenter))
             }
+            if (dropHovering) {
+                FileDropOverlay()
+            }
+            if (sendFileOpen) {
+                SendFileDialog(
+                        onDismiss = { sendFileOpen = false },
+                        onBrowse = {
+                            sendFileOpen = false
+                            model.pickFiles()
+                        },
+                        onPaths = { paths ->
+                            sendFileOpen = false
+                            model.ingestDroppedPaths(paths)
+                        },
+                )
+            }
         }
     }
+
+    LaunchedEffect(dropEnabled) {
+        if (!dropEnabled) dropHovering = false
+    }
+
+    RecordStopHost(
+            recording = recording,
+            saving = recordSaving,
+            elapsedSec = recordElapsed,
+            limitSec = AppModel.RECORD_LIMIT_SEC,
+            onStop = model::stopRecording,
+    )
+
+    RecordPreviewHost(
+            preview = recordPreview,
+            onClose = model::dismissRecordPreview,
+            onShare = model::shareRecordPreview,
+            onDownload = model::downloadRecordPreview,
+            onDelete = model::deleteRecordPreview,
+    )
 
     if (composingNew) {
         NewEntryDialog(
@@ -600,6 +672,7 @@ internal fun MainView(
         SafetyDialog(
                 safety = number,
                 peers = devices,
+                mismatch = unknownKeys,
                 onDismiss = { safetyNumber = null },
                 onCopy = { model.copyToClipboard(number) },
         )
@@ -722,12 +795,7 @@ private fun Header(
     Row(
             modifier =
                     Modifier.fillMaxWidth()
-                            .padding(
-                                    start = 16.dp + MacChromeInset.start,
-                                    end = 8.dp,
-                                    top = 11.dp,
-                                    bottom = 5.dp,
-                            ),
+                            .padding(start = 16.dp, end = 8.dp, top = 11.dp, bottom = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(modifier = Modifier.size(8.dp).background(dotColor, RoundedCornerShape(percent = 50)))
@@ -842,6 +910,83 @@ private fun Header(
     }
 }
 
+/** 点「发送文件」后的框：只有拖进这块区域才上传，旁边仍可打开系统选择器。 */
+@Composable
+private fun SendFileDialog(
+        onDismiss: () -> Unit,
+        onBrowse: () -> Unit,
+        onPaths: (List<String>) -> Unit,
+) {
+    var hovering by remember { mutableStateOf(false) }
+    val scheme = MaterialTheme.colorScheme
+    val zone = RoundedCornerShape(14.dp)
+    Box(
+            modifier =
+                    Modifier.fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.28f))
+                            .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onDismiss,
+                            ),
+            contentAlignment = Alignment.Center,
+    ) {
+        GlassCard(
+                modifier =
+                        Modifier.widthIn(min = 280.dp, max = 420.dp)
+                                .padding(horizontal = 24.dp)
+                                .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {},
+                                ),
+                shape = GlassDialogShape,
+                surface = scheme.surface.copy(alpha = 0.92f),
+                blurRadius = 28.dp,
+        ) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+                Text(stringResource(Res.string.send_file), fontSize = 17.sp)
+                Spacer(Modifier.height(12.dp))
+                Box(
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .height(112.dp)
+                                        .fileDropTarget(
+                                                enabled = true,
+                                                onHovering = { hovering = it },
+                                                onPaths = onPaths,
+                                        )
+                                        .border(
+                                                width = if (hovering) 2.dp else 1.5.dp,
+                                                color = scheme.primary.copy(alpha = if (hovering) 0.9f else 0.45f),
+                                                shape = zone,
+                                        )
+                                        .background(
+                                                scheme.primary.copy(alpha = if (hovering) 0.12f else 0.05f),
+                                                zone,
+                                        )
+                                        .padding(16.dp),
+                        contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                            stringResource(Res.string.send_file_drop_hint),
+                            color = scheme.onSurface,
+                            fontSize = 14.sp,
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+                    Button(onClick = onBrowse) { Text(stringResource(Res.string.send_file_browse)) }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Toolbar(
         model: AppModel,
@@ -849,6 +994,7 @@ private fun Toolbar(
         regex: Boolean,
         caseSensitive: Boolean,
         online: Boolean,
+        total: Int,
         canClear: Boolean,
         undoDepth: Int,
         picking: Boolean,
@@ -857,6 +1003,7 @@ private fun Toolbar(
         onToggleSelect: () -> Unit,
         onNew: () -> Unit,
         onClear: () -> Unit,
+        onSendFile: () -> Unit,
 ) {
     OutlinedTextField(
             value = query,
@@ -899,7 +1046,7 @@ private fun Toolbar(
                 AppIcons.Attach,
                 stringResource(Res.string.send_file),
                 enabled = online && model.supportsFilePicker,
-        ) { model.pickFiles() }
+        ) { onSendFile() }
         RowAction(AppIcons.SelectAll, stringResource(Res.string.cd_select), active = picking, onClick = onToggleSelect)
         RowAction(AppIcons.Undo, stringResource(Res.string.cd_undo), enabled = undoDepth > 0) { model.undoDelete() }
         Spacer(Modifier.width(4.dp))
@@ -910,6 +1057,15 @@ private fun Toolbar(
                 tinted = MaterialTheme.colorScheme.error,
                 onClick = onClear,
         )
+        if (total > 0) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                    text = stringResource(Res.string.list_total, total),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(end = 8.dp),
+            )
+        }
     }
 }
 

@@ -50,15 +50,97 @@ enum class Handle {
 
 val HANDLES: List<Handle> = Handle.entries
 
-/** 一次框选的结局：切这块区域，或者用户不要了。 */
+/** 录屏画质预设：工具条上选一次，同时决定长边和帧率。 */
+enum class RecordQuality(val longEdge: Int, val fps: Int) {
+    Native(0, 60),
+    HD(1920, 30),
+    Smooth(1280, 15);
+
+    companion object {
+        fun of(longEdge: Int): RecordQuality =
+            when (longEdge) {
+                1280 -> Smooth
+                1920 -> HD
+                else -> Native
+            }
+    }
+}
+
+/** 录屏工具条这一次选的东西；开始录制时原样交给 AppModel。 */
+class RecordOptions(
+    var quality: RecordQuality = RecordQuality.Native,
+    var systemAudio: Boolean = true,
+    var mic: Boolean = true,
+    var micDevice: String = "",
+)
+
+/** 一次框选的结局：切这块区域、按这组选项开录，或者用户不要了。 */
 sealed interface Outcome {
     data class Crop(val rect: Rect) : Outcome
+
+    data class StartRecording(val rect: Rect, val options: RecordOptions) : Outcome
 
     data object Cancel : Outcome
 }
 
 /** 按钮条上的两个按钮。 */
 enum class PillButton { Cancel, Confirm }
+
+/** 截图工具栏上的工具。Select 只负责搬动/缩放选区。 */
+enum class ShotTool { Select, Box, Arrow, Pen, Text, Mosaic }
+
+/** 画在截图上的一个标注。坐标都是遮罩点坐标。 */
+sealed interface Mark {
+    data class Box(val rect: Rect) : Mark
+
+    data class Arrow(val from: Offset, val to: Offset) : Mark
+
+    data class Pen(val points: List<Offset>) : Mark
+
+    data class Text(val at: Offset, val text: String) : Mark
+
+    data class Mosaic(val rect: Rect) : Mark
+}
+
+/** 标注列表加上撤销栈；撤销过的还能重做，新画一笔就把重做栈清空。 */
+class MarkLayer {
+    private val items = mutableListOf<Mark>()
+    private val undone = mutableListOf<Mark>()
+
+    val marks: List<Mark>
+        get() = items
+
+    val canUndo: Boolean
+        get() = items.isNotEmpty()
+
+    val canRedo: Boolean
+        get() = undone.isNotEmpty()
+
+    fun add(mark: Mark) {
+        items += mark
+        undone.clear()
+    }
+
+    fun undo(): Boolean {
+        val last = items.removeLastOrNull() ?: return false
+        undone += last
+        return true
+    }
+
+    fun redo(): Boolean {
+        val mark = undone.removeLastOrNull() ?: return false
+        items += mark
+        return true
+    }
+
+    fun clear() {
+        items.clear()
+        undone.clear()
+    }
+}
+
+/** 正在输入的一段文字；还没落到 [MarkLayer] 里。 */
+class TextDraft(val at: Offset, var text: String = "")
 
 /**
  * 指针下面该是什么形状。
@@ -89,6 +171,9 @@ sealed interface Drag {
 
     /** 拖某一条边或一个角。 */
     data class Resize(val handle: Handle) : Drag
+
+    /** 在选区内画一笔标注。 */
+    data class Paint(val tool: ShotTool, val start: Offset) : Drag
 }
 
 /**
@@ -107,7 +192,13 @@ class FrozenScreen(
 }
 
 /** 一帧冻结画面加上用户正在调的那块区域。 */
-class ScreenshotSession(val screen: FrozenScreen) {
+class ScreenshotSession(
+    val screen: FrozenScreen,
+    /** 这次是框录屏区域（顶部工具条）还是截一张图（底部工具栏）。 */
+    val record: Boolean = false,
+    /** 录屏工具条这一次的选项；截屏模式下不用。 */
+    val options: RecordOptions = RecordOptions(),
+) {
 
     /** 遮罩自己的画面范围，遮罩本地坐标。 */
     val frame: Rect = Rect(Offset.Zero, screen.size)
@@ -125,38 +216,53 @@ class ScreenshotSession(val screen: FrozenScreen) {
     var outcome: Outcome? = null
         private set
 
+    /** 截图标注：已经画下的、正在画的那一笔、以及正在输入的文字。 */
+    val marks = MarkLayer()
+
+    var tool: ShotTool = ShotTool.Select
+        private set
+
+    var draft: TextDraft? = null
+        private set
+
+    var pending: Mark? = null
+        private set
+
+    /**
+     * 平台层量好的工具条范围（遮罩点坐标）。
+     *
+     * 工具条是平台控件，不归状态机画；把范围告诉它只是为了让「点工具条」不会被当成又开一块选区。
+     */
+    var bar: Rect? = null
+
     private var lastUp: Offset? = null
     private var lastUpAt: Long = 0L
     private var pillPress: Pair<PillButton, Rect>? = null
 
-    /** 按钮条该摆在哪；正在拖动时不出现，选区也没定下来时也没有。 */
+    /** 旧的两按钮条。新界面用完整工具条，这里只留给状态机单测和历史几何。 */
     val pill: Rect?
-        get() = selection?.let { if (drag == null) pillAt(it, frame) else null }
+        get() = if (record) null else selection?.let { if (drag == null) pillAt(it, frame) else null }
 
     /** 该亮起来的那块：定下来的选区，没有就还是指针下面预览的窗口。 */
     val hole: Rect?
         get() = selection ?: hover
 
-    /**
-     * 尺寸读数，单位是切出来那块的像素。
-     *
-     * 只在「还在调」的时候出现：定下来之后按钮条要占同一个位置，两个都画就叠一起了。
-     */
+    /** 尺寸读数，单位是切出来那块的像素；只要框还在就一直显示。 */
     val readout: String?
-        get() = hole
-            ?.takeIf { selection == null || drag != null }
-            ?.let { sizeLabel(it, screen.scale) }
+        get() = hole?.let { sizeLabel(it, screen.scale) }
 
-    /** 读数顶到屏幕下沿时翻到选区上面去，和按钮条用同一个判断。 */
+    /** 读数顶到屏幕下沿时翻到选区上面去。 */
     fun readoutFlips(rect: Rect): Boolean =
         rect.bottom + TOOLBAR_GAP + TOOLBAR_HEIGHT > frame.height
 
     /** 指针下面该换什么光标：正在拖就跟着拖的东西走，没拖就跟着「这一下按下去会拿到什么」走。 */
     fun cursor(at: Offset): CursorShape {
+        if (bar?.contains(at) == true) return CursorShape.Arrow
         when (val current = drag) {
             is Drag.Move -> return CursorShape.Move
             is Drag.Resize -> return CursorShape.Resize(current.handle)
             is Drag.Fresh -> return CursorShape.Crosshair
+            is Drag.Paint -> return CursorShape.Crosshair
             null -> Unit
         }
         if (pill?.contains(at) == true) return CursorShape.Arrow
@@ -164,23 +270,60 @@ class ScreenshotSession(val screen: FrozenScreen) {
         val handle = handleAt(selected, at, HANDLE_SLOP)
         return when {
             handle != null -> CursorShape.Resize(handle)
+            !record && tool != ShotTool.Select && selected.contains(at) -> CursorShape.Crosshair
             selected.contains(at) -> CursorShape.Move
             else -> CursorShape.Crosshair
         }
     }
 
+    fun chooseTool(tool: ShotTool) {
+        this.tool = tool
+        if (tool != ShotTool.Text) draft = null
+    }
+
+    fun undo(): Boolean = marks.undo()
+
+    fun redo(): Boolean = marks.redo()
+
+    fun commitText() {
+        val current = draft ?: return
+        val text = current.text.trim()
+        if (text.isNotEmpty()) marks.add(Mark.Text(current.at, text))
+        draft = null
+    }
+
+    fun cancelText() {
+        draft = null
+    }
+
     fun onRightClick() {
+        if (draft != null) {
+            cancelText()
+            return
+        }
         outcome = Outcome.Cancel
     }
 
     fun onEscape() {
+        if (draft != null) {
+            cancelText()
+            return
+        }
         outcome = Outcome.Cancel
     }
 
-    /** 回车：有选区就切，没有就什么都不做。 */
+    /** 回车：正在输入就先收下这段字；否则有选区就切/开录。 */
     fun onEnter() {
         if (outcome != null) return
-        selection?.let { outcome = Outcome.Crop(it) }
+        if (draft != null) {
+            commitText()
+            return
+        }
+        // 录屏不强迫先拖选区：没选就录整块屏幕，按钮从打开遮罩起就是可点的。
+        val selected = selection ?: if (record) frame else return
+        outcome =
+            if (record) Outcome.StartRecording(selected, options)
+            else Outcome.Crop(selected)
     }
 
     /** 指针移动（没按住）：预览点下去会拿到的窗口。 */
@@ -191,15 +334,21 @@ class ScreenshotSession(val screen: FrozenScreen) {
 
     fun onDown(at: Offset, nowMs: Long) {
         if (outcome != null) return
+        // 工具条上的按下由平台控件处理，别在这里又开一块选区。
+        if (bar?.contains(at) == true) return
+        if (draft != null) commitText()
         val selected = selection
         val previous = lastUp
         if (selected != null &&
+            tool == ShotTool.Select &&
             previous != null &&
             nowMs - lastUpAt <= DOUBLE_TAP_MS &&
             (at - previous).getDistance() <= DOUBLE_TAP_SLOP
         ) {
             // 第二下也是「按下」，得先在这里收尾，否则下面 beginDrag 会把选区擦掉重画。
-            outcome = Outcome.Crop(selected)
+            outcome =
+                if (record) Outcome.StartRecording(selected, options)
+                else Outcome.Crop(selected)
             return
         }
         beginDrag(at, pill)
@@ -220,13 +369,25 @@ class ScreenshotSession(val screen: FrozenScreen) {
             if (pressed.second.contains(at)) {
                 when (pressed.first) {
                     PillButton.Cancel -> outcome = Outcome.Cancel
-                    PillButton.Confirm -> selection?.let { outcome = Outcome.Crop(it) }
+                    PillButton.Confirm ->
+                        selection?.let {
+                            outcome =
+                                if (record) Outcome.StartRecording(it, options)
+                                else Outcome.Crop(it)
+                        }
                 }
             }
             return
         }
         lastUp = at
         lastUpAt = nowMs
+        if (drag is Drag.Paint) {
+            val mark = pending
+            drag = null
+            pending = null
+            if (mark != null && isMarkWorthKeeping(mark)) marks.add(mark)
+            return
+        }
         finishDrag(at, frame)
     }
 
@@ -235,6 +396,15 @@ class ScreenshotSession(val screen: FrozenScreen) {
         if (selected != null) {
             handleAt(selected, at, HANDLE_SLOP)?.let {
                 drag = Drag.Resize(it)
+                return
+            }
+            if (!record && tool != ShotTool.Select && selected.contains(at)) {
+                if (tool == ShotTool.Text) {
+                    draft = TextDraft(at)
+                    return
+                }
+                drag = Drag.Paint(tool, at)
+                pending = markOf(tool, at, at)
                 return
             }
             if (selected.contains(at)) {
@@ -251,6 +421,8 @@ class ScreenshotSession(val screen: FrozenScreen) {
         drag = Drag.Fresh(at)
         selection = null
         hover = null
+        // 重新框一块就是一张新截图，旧标注不能跟着跑到新区域里。
+        if (!record) marks.clear()
     }
 
     private fun applyDrag(drag: Drag, at: Offset, bounds: Rect) {
@@ -258,6 +430,19 @@ class ScreenshotSession(val screen: FrozenScreen) {
             is Drag.Fresh -> selection = clampRect(at, drag.anchor, bounds)
             is Drag.Move -> selection = selection?.let { translate(it, at - drag.grab, bounds) }
             is Drag.Resize -> selection = selection?.let { resize(it, drag.handle, at, bounds) }
+            is Drag.Paint -> {
+                pending =
+                    when (drag.tool) {
+                        ShotTool.Pen -> {
+                            val points = (pending as? Mark.Pen)?.points.orEmpty() + at
+                            Mark.Pen(points)
+                        }
+                        ShotTool.Box -> Mark.Box(between(drag.start, at))
+                        ShotTool.Mosaic -> Mark.Mosaic(between(drag.start, at))
+                        ShotTool.Arrow -> Mark.Arrow(drag.start, at)
+                        else -> pending
+                    }
+            }
         }
     }
 
@@ -265,11 +450,29 @@ class ScreenshotSession(val screen: FrozenScreen) {
         val current = drag
         drag = null
         if (current !is Drag.Fresh) return
-        // 拖出屏幕之外也要把区域留在屏幕里：按钮条和手柄都按这块摆，出界就点不到了。
+        // 拖出屏幕之外也要把区域留在屏幕里：工具条和手柄都按这块摆，出界就点不到了。
         val dragged = clampTo(between(at, current.anchor), bounds)
         selection = if (isRegion(dragged, bounds)) dragged else hitWindow(screen.windows, at, bounds)
         hover = null
     }
+
+    private fun markOf(tool: ShotTool, from: Offset, to: Offset): Mark? =
+        when (tool) {
+            ShotTool.Box -> Mark.Box(between(from, to))
+            ShotTool.Mosaic -> Mark.Mosaic(between(from, to))
+            ShotTool.Arrow -> Mark.Arrow(from, to)
+            ShotTool.Pen -> Mark.Pen(listOf(from, to))
+            else -> null
+        }
+
+    private fun isMarkWorthKeeping(mark: Mark): Boolean =
+        when (mark) {
+            is Mark.Box -> mark.rect.width >= MIN_SIZE && mark.rect.height >= MIN_SIZE
+            is Mark.Mosaic -> mark.rect.width >= MIN_SIZE && mark.rect.height >= MIN_SIZE
+            is Mark.Arrow -> (mark.to - mark.from).getDistance() >= MIN_SIZE
+            is Mark.Pen -> mark.points.size >= 2
+            is Mark.Text -> mark.text.isNotBlank()
+        }
 }
 
 /** 两个指针位置之间的矩形，不管往哪个方向拖。 */
@@ -288,7 +491,7 @@ fun hitWindow(windows: List<Rect>, at: Offset, frame: Rect): Rect =
 
 /** 读数写的就是切出来那块的像素，和 Rust 端 `paint_size` 同一个算法。 */
 fun sizeLabel(rect: Rect, scale: Float): String =
-    "${(rect.width * scale).roundToInt().coerceAtLeast(1)} × ${(rect.height * scale).roundToInt().coerceAtLeast(1)}"
+    "${(rect.width * scale).roundToInt().coerceAtLeast(1)} * ${(rect.height * scale).roundToInt().coerceAtLeast(1)}"
 
 /** 按钮条的位置：贴着选区右下角下面，顶到屏幕下沿时翻到选区上面去。 */
 fun pillAt(selection: Rect, frame: Rect): Rect {

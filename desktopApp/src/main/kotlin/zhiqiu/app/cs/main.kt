@@ -22,6 +22,7 @@ import kotlin.concurrent.thread
 import zhiqiu.app.cs.ui.AppTray
 import zhiqiu.app.cs.ui.LAUNCH_HIDDEN_ARGUMENT
 import zhiqiu.app.cs.ui.MacChrome
+import zhiqiu.app.cs.ui.MainWindowVisibility
 import zhiqiu.app.cs.ui.ScreenshotOverlay
 import zhiqiu.app.cs.ui.showFromTray
 
@@ -39,23 +40,24 @@ fun main(args: Array<String>) {
     startInstanceServer(showSignal)
     // 登录项拉起进程时带这个参数：进程照常守着剪贴板，但窗口先不出现
     val startHidden = LAUNCH_HIDDEN_ARGUMENT in args
+    // 显隐只有 MainWindowVisibility 一个来源：托盘、关窗、录屏都改它，窗口跟着它走
+    MainWindowVisibility.setInitialVisible(!startHidden)
     application {
         val windowState = rememberWindowState()
-        var windowVisible by remember { mutableStateOf(!startHidden) }
         var hostWindow by remember { mutableStateOf<AwtWindow?>(null) }
         val trayAvailable = remember { SystemTray.isSupported() }
 
         // 别的实例想打开窗口时，这里收到信号把窗口抬起来
         LaunchedEffect(Unit) {
             showSignal.consumeEach {
-                windowVisible = true
+                MainWindowVisibility.show()
                 showFromTray(windowState, hostWindow)
             }
         }
 
         AppTray(
             onShowWindow = {
-                windowVisible = true
+                MainWindowVisibility.show()
                 // 显示必须和 toFront 同一条同步路径，等 Compose 的 visible 会晚一个 AWT tick，抬不起窗口
                 showFromTray(windowState, hostWindow)
             },
@@ -68,10 +70,10 @@ fun main(args: Array<String>) {
         Window(
             // 关窗口只是收进托盘，进程要继续守着剪贴板；没有托盘的平台才真的退出。
             onCloseRequest = {
-                if (trayAvailable) windowVisible = false else exitApplication()
+                if (trayAvailable) MainWindowVisibility.hide() else exitApplication()
             },
             state = windowState,
-            visible = windowVisible,
+            visible = MainWindowVisibility.visible,
             title = "ClipSync",
         ) {
             LaunchedEffect(Unit) {

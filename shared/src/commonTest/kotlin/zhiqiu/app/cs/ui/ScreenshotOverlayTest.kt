@@ -5,7 +5,10 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -297,15 +300,15 @@ class ScreenshotOverlayTest {
     }
 
     @Test
-    fun `the readout follows the region only while it is still moving`() {
+    fun `the readout follows the region and stays after it settles`() {
         val shot = session()
         shot.onDown(Offset(100f, 100f), 0)
         shot.onDrag(Offset(300f, 200f))
-        assertEquals("200 × 100", shot.readout)
+        assertEquals("200 * 100", shot.readout)
         assertEquals(rect(100f, 100f, 300f, 200f), shot.hole)
         shot.onUp(Offset(300f, 200f), 20)
-        // 定下来之后按钮条要占同一个位置，两个都画就叠一起了。
-        assertEquals(null, shot.readout)
+        // 新界面把尺寸徽标放在选区左上角，定下来之后也一直显示。
+        assertEquals("200 * 100", shot.readout)
         assertEquals(rect(100f, 100f, 300f, 200f), shot.hole)
     }
 
@@ -315,7 +318,7 @@ class ScreenshotOverlayTest {
             FrozenScreen(2_000, 1_200, 2f, listOf(rect(100f, 100f, 400f, 400f))),
         )
         shot.onHover(Offset(200f, 200f))
-        assertEquals("600 × 600", shot.readout)
+        assertEquals("600 * 600", shot.readout)
         assertTrue(shot.readoutFlips(rect(0f, 0f, 500f, 590f)))
         assertTrue(!shot.readoutFlips(rect(0f, 0f, 500f, 200f)))
     }
@@ -343,5 +346,159 @@ class ScreenshotOverlayTest {
         shot.onDrag(Offset(320f, 220f))
         assertEquals(CursorShape.Resize(Handle.BottomRight), shot.cursor(Offset(320f, 220f)))
         shot.onUp(Offset(320f, 220f), 690)
+    }
+
+    @Test
+    fun `quality presets carry the long edge and frame rate`() {
+        assertEquals(0, RecordQuality.Native.longEdge)
+        assertEquals(60, RecordQuality.Native.fps)
+        assertEquals(1920, RecordQuality.HD.longEdge)
+        assertEquals(30, RecordQuality.HD.fps)
+        assertEquals(1280, RecordQuality.Smooth.longEdge)
+        assertEquals(15, RecordQuality.Smooth.fps)
+
+        // 设置页存的是长边，0 表示原画。
+        assertEquals(RecordQuality.Native, RecordQuality.of(0))
+        assertEquals(RecordQuality.HD, RecordQuality.of(1920))
+        assertEquals(RecordQuality.Smooth, RecordQuality.of(1280))
+        assertEquals(RecordQuality.Native, RecordQuality.of(2560))
+    }
+
+    @Test
+    fun `a record session starts with the toolbar options`() {
+        val options = RecordOptions(RecordQuality.HD, systemAudio = false, mic = true, micDevice = "mic-2")
+        val shot =
+            ScreenshotSession(
+                FrozenScreen(widthPx = 1000, heightPx = 600, scale = 1f),
+                record = true,
+                options = options,
+            )
+        shot.onDown(Offset(100f, 100f), 0)
+        shot.onDrag(Offset(300f, 200f))
+        shot.onUp(Offset(300f, 200f), 20)
+        // 录屏不再有旧的两按钮条，工具条固定在上面。
+        assertNull(shot.pill)
+
+        shot.onEnter()
+        val start = assertIs<Outcome.StartRecording>(shot.outcome)
+        assertEquals(rect(100f, 100f, 300f, 200f), start.rect)
+        assertEquals(RecordQuality.HD, start.options.quality)
+        assertFalse(start.options.systemAudio)
+        assertTrue(start.options.mic)
+        assertEquals("mic-2", start.options.micDevice)
+    }
+
+    @Test
+    fun `starting a recording without a selection takes the whole screen`() {
+        val shot =
+            ScreenshotSession(
+                FrozenScreen(widthPx = 1000, heightPx = 600, scale = 1f),
+                record = true,
+            )
+        shot.onEnter()
+        val start = assertIs<Outcome.StartRecording>(shot.outcome)
+        assertEquals(screen, start.rect)
+    }
+
+    @Test
+    fun `double clicking a record region also starts recording`() {
+        val shot =
+            ScreenshotSession(
+                FrozenScreen(widthPx = 1000, heightPx = 600, scale = 1f),
+                record = true,
+            )
+        shot.onDown(Offset(100f, 100f), 0)
+        shot.onDrag(Offset(300f, 200f))
+        shot.onUp(Offset(300f, 200f), 20)
+        // 第二下要落在上一次抬起的位置附近，才算双击。
+        shot.onDown(Offset(300f, 200f), 100)
+        assertIs<Outcome.StartRecording>(shot.outcome)
+    }
+
+    @Test
+    fun `the platform toolbar swallows clicks instead of opening a region`() {
+        val shot = session()
+        shot.bar = rect(100f, 20f, 600f, 80f)
+        shot.onDown(Offset(200f, 40f), 0)
+        assertNull(shot.drag)
+        assertNull(shot.selection)
+        assertEquals(CursorShape.Arrow, shot.cursor(Offset(200f, 40f)))
+    }
+
+    @Test
+    fun `drawing marks keeps undo and redo in step`() {
+        val shot = session()
+        shot.onDown(Offset(100f, 100f), 0)
+        shot.onDrag(Offset(400f, 300f))
+        shot.onUp(Offset(400f, 300f), 20)
+
+        shot.chooseTool(ShotTool.Box)
+        shot.onDown(Offset(120f, 120f), 100)
+        shot.onDrag(Offset(220f, 180f))
+        shot.onUp(Offset(220f, 180f), 140)
+        assertEquals(1, shot.marks.marks.size)
+        assertEquals(rect(120f, 120f, 220f, 180f), assertIs<Mark.Box>(shot.marks.marks.first()).rect)
+
+        shot.chooseTool(ShotTool.Arrow)
+        shot.onDown(Offset(240f, 140f), 200)
+        shot.onDrag(Offset(340f, 220f))
+        shot.onUp(Offset(340f, 220f), 240)
+        assertEquals(2, shot.marks.marks.size)
+        assertIs<Mark.Arrow>(shot.marks.marks.last())
+
+        assertTrue(shot.undo())
+        assertEquals(1, shot.marks.marks.size)
+        assertTrue(shot.marks.canRedo)
+        assertTrue(shot.redo())
+        assertEquals(2, shot.marks.marks.size)
+
+        // 撤销之后新画一笔：重做栈必须清空，不能把旧箭头又接回来。
+        shot.undo()
+        shot.chooseTool(ShotTool.Pen)
+        shot.onDown(Offset(150f, 200f), 300)
+        shot.onDrag(Offset(180f, 230f))
+        shot.onDrag(Offset(210f, 200f))
+        shot.onUp(Offset(210f, 200f), 340)
+        assertEquals(2, shot.marks.marks.size)
+        assertIs<Mark.Pen>(shot.marks.marks.last())
+        assertFalse(shot.marks.canRedo)
+    }
+
+    @Test
+    fun `text is only added after it is committed`() {
+        val shot = session()
+        shot.onDown(Offset(100f, 100f), 0)
+        shot.onDrag(Offset(400f, 300f))
+        shot.onUp(Offset(400f, 300f), 20)
+
+        shot.chooseTool(ShotTool.Text)
+        shot.onDown(Offset(160f, 160f), 100)
+        val draft = assertNotNull(shot.draft)
+        assertEquals(Offset(160f, 160f), draft.at)
+        draft.text = "  一段说明  "
+        assertEquals(0, shot.marks.marks.size)
+
+        shot.commitText()
+        assertNull(shot.draft)
+        assertEquals(1, shot.marks.marks.size)
+        assertEquals("一段说明", assertIs<Mark.Text>(shot.marks.marks.first()).text)
+    }
+
+    @Test
+    fun `a new region clears the marks of the previous crop`() {
+        val shot = session()
+        shot.onDown(Offset(100f, 100f), 0)
+        shot.onDrag(Offset(300f, 200f))
+        shot.onUp(Offset(300f, 200f), 20)
+        shot.chooseTool(ShotTool.Box)
+        shot.onDown(Offset(120f, 120f), 100)
+        shot.onDrag(Offset(180f, 160f))
+        shot.onUp(Offset(180f, 160f), 140)
+        assertEquals(1, shot.marks.marks.size)
+
+        shot.chooseTool(ShotTool.Select)
+        shot.onDown(Offset(600f, 400f), 200)
+        assertEquals(0, shot.marks.marks.size)
+        assertNull(shot.selection)
     }
 }
