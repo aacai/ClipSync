@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +69,7 @@ import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.AppLanguage
 import zhiqiu.app.cs.core.AppLanguageSupport
 import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.core.RecordMode
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.ThemeMode
@@ -104,6 +104,14 @@ internal fun SettingsView(
     val deviceName by model.deviceName.collectAsState()
     val nickname by settings.nickname.collectAsState()
     val screenshotHotkey by model.screenshotHotkey.collectAsState()
+    val screenshotKeepWindow by settings.screenshotKeepWindow.collectAsState()
+    val recordHotkey by settings.recordHotkey.collectAsState()
+    val recordMode by settings.recordMode.collectAsState()
+    val recordMic by settings.recordMic.collectAsState()
+    val recordSystemAudio by settings.recordSystemAudio.collectAsState()
+    val recordLongEdge by settings.recordLongEdge.collectAsState()
+    val recordFps by settings.recordFps.collectAsState()
+    val recordMicDevice by settings.recordMicDevice.collectAsState()
     val canWatch = model.supportsClipboardAutoSync
     val languageSupport = appLanguageSupport
     val showLanguage = languageSupport != AppLanguageSupport.Unsupported
@@ -118,8 +126,17 @@ internal fun SettingsView(
     var editingRoom by remember { mutableStateOf(false) }
     var aboutOpen by remember { mutableStateOf(false) }
     var recordingHotkey by remember { mutableStateOf(false) }
+    var recordingRecordHotkey by remember { mutableStateOf(false) }
+    var pickingRecordMode by remember { mutableStateOf(false) }
+    var pickingRecordSize by remember { mutableStateOf(false) }
+    var pickingRecordFps by remember { mutableStateOf(false) }
+    var pickingRecordMicDevice by remember { mutableStateOf(false) }
+    var recordInputs by remember { mutableStateOf<List<RecordInput>>(emptyList()) }
 
     LaunchedEffect(Unit) { rootFocus.requestFocus() }
+
+    // 进设置页就枚举一次：存着的设备名要能直接显示出来，不能等用户点开对话框才认。
+    LaunchedEffect(Unit) { recordInputs = recordingInputs() }
 
     LaunchedEffect(roomCode) { if (roomCode != null) editingRoom = false }
 
@@ -133,7 +150,12 @@ internal fun SettingsView(
                                         !editingNickname &&
                                         !editingRoom &&
                                         !aboutOpen &&
-                                        !recordingHotkey) {
+                                        !recordingHotkey &&
+                                        !recordingRecordHotkey &&
+                                        !pickingRecordMode &&
+                                        !pickingRecordSize &&
+                                        !pickingRecordFps &&
+                                        !pickingRecordMicDevice) {
                                 onBack()
                                 true
                         } else {
@@ -158,6 +180,11 @@ internal fun SettingsView(
                                             !editingRoom &&
                                             !aboutOpen &&
                                             !recordingHotkey &&
+                                            !recordingRecordHotkey &&
+                                            !pickingRecordMode &&
+                                            !pickingRecordSize &&
+                                            !pickingRecordFps &&
+                                            !pickingRecordMicDevice &&
                                             run {
                                                     onBack()
                                                     true
@@ -166,15 +193,17 @@ internal fun SettingsView(
     ) {
         Box(
                 modifier =
-                        Modifier.widthIn(max = 640.dp)
+                        Modifier.align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .widthIn(max = 640.dp)
                                 .fillMaxSize()
-                                .padding(start = 10.dp, end = 10.dp, top = MacChromeInset.top),
+                                .padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(top = barHeight + 14.dp, bottom = 30.dp),
-                            verticalArrangement = Arrangement.spacedBy(22.dp),
+                            contentPadding = PaddingValues(top = barHeight + 10.dp, bottom = 28.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         item(key = "appearance") {
                             SettingGroup(Res.string.settings_group_appearance) {
@@ -195,6 +224,93 @@ internal fun SettingsView(
                                             GroupFootnote(Res.string.language_restart_hint)
                                         }
                                     }
+                                }
+                            }
+                        }
+
+                        if (model.supportsRecording) {
+                            item(key = "record") {
+                                SettingGroup(Res.string.settings_group_record) {
+                                    NavRow(
+                                            title = Res.string.setting_record_hotkey,
+                                            value = recordHotkey,
+                                            onClick = { recordingRecordHotkey = true },
+                                    )
+                                    GroupFootnote(Res.string.setting_record_hint)
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_record_mode,
+                                            value =
+                                                    if (recordMode == RecordMode.Region) {
+                                                        stringResource(Res.string.record_mode_region)
+                                                    } else {
+                                                        stringResource(Res.string.record_mode_screen)
+                                                    },
+                                            onClick = { pickingRecordMode = true },
+                                    )
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_record_size,
+                                            value =
+                                                    when (recordLongEdge) {
+                                                        1920 -> stringResource(Res.string.record_size_1080)
+                                                        1280 -> stringResource(Res.string.record_size_720)
+                                                        else -> stringResource(Res.string.record_size_native)
+                                                    },
+                                            onClick = { pickingRecordSize = true },
+                                    )
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_record_fps,
+                                            value = "$recordFps fps",
+                                            onClick = { pickingRecordFps = true },
+                                    )
+                                    RowDivider()
+                                    SwitchRow(
+                                            Res.string.setting_record_mic,
+                                            Res.string.setting_record_mic_hint,
+                                            recordMic,
+                                            settings::setRecordMic,
+                                    )
+                                    if (recordMic) {
+                                        RowDivider()
+                                        NavRow(
+                                                title = Res.string.setting_record_mic_device,
+                                                value = recordMicLabel(recordMicDevice, recordInputs),
+                                                onClick = {
+                                                    // 每次打开都重新枚举：中途插上的麦克风不该等到重启才出现
+                                                    recordInputs = recordingInputs()
+                                                    pickingRecordMicDevice = true
+                                                },
+                                        )
+                                    }
+                                    RowDivider()
+                                    SwitchRow(
+                                            Res.string.setting_record_system,
+                                            Res.string.setting_record_system_hint,
+                                            recordSystemAudio,
+                                            settings::setRecordSystemAudio,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (model.supportsScreenshot) {
+                            item(key = "screenshot") {
+                                SettingGroup(Res.string.settings_group_screenshot) {
+                                    NavRow(
+                                            title = Res.string.setting_screenshot_hotkey,
+                                            value = screenshotHotkey,
+                                            onClick = { recordingHotkey = true },
+                                    )
+                                    GroupFootnote(Res.string.setting_screenshot_hint)
+                                    RowDivider()
+                                    SwitchRow(
+                                            Res.string.setting_screenshot_keep_window,
+                                            Res.string.setting_screenshot_keep_window_hint,
+                                            screenshotKeepWindow,
+                                            settings::setScreenshotKeepWindow,
+                                    )
                                 }
                             }
                         }
@@ -281,19 +397,6 @@ internal fun SettingsView(
                             }
                         }
 
-                        if (model.supportsScreenshot) {
-                            item(key = "screenshot") {
-                                SettingGroup(Res.string.settings_group_screenshot) {
-                                    NavRow(
-                                            title = Res.string.setting_screenshot_hotkey,
-                                            value = screenshotHotkey,
-                                            onClick = { recordingHotkey = true },
-                                    )
-                                    GroupFootnote(Res.string.setting_screenshot_hint)
-                                }
-                            }
-                        }
-
                         item(key = "about") {
                             SettingGroup(Res.string.settings_group_about) {
                                 ValueRow(title = Res.string.setting_version, value = model.appVersion)
@@ -354,17 +457,12 @@ internal fun SettingsView(
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = RoundedCornerShape(22.dp),
+                        shape = RoundedCornerShape(20.dp),
                 ) {
                     Row(
                             modifier =
                                     Modifier.fillMaxWidth()
-                                            .padding(
-                                                    start = 8.dp + MacChromeInset.start,
-                                                    end = 16.dp,
-                                                    top = 9.dp,
-                                                    bottom = 9.dp,
-                                            ),
+                                            .padding(start = 8.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RowAction(AppIcons.ArrowBack, stringResource(Res.string.cd_back), onClick = onBack)
@@ -429,9 +527,86 @@ internal fun SettingsView(
     }
     if (recordingHotkey) {
         HotkeyDialog(
+                title = Res.string.setting_screenshot_hotkey,
                 current = screenshotHotkey,
                 onDismiss = { recordingHotkey = false },
                 onPick = { spec -> model.setScreenshotHotkey(spec) },
+        )
+    }
+    if (recordingRecordHotkey) {
+        HotkeyDialog(
+                title = Res.string.setting_record_hotkey,
+                current = recordHotkey,
+                onDismiss = { recordingRecordHotkey = false },
+                onPick = { spec ->
+                    val saved = model.setRecordHotkey(spec)
+                    if (saved) recordingRecordHotkey = false
+                    saved
+                },
+        )
+    }
+    if (pickingRecordMode) {
+        ChoiceDialog(
+                title = Res.string.setting_record_mode,
+                options = RecordMode.entries,
+                labels =
+                        listOf(
+                                stringResource(Res.string.record_mode_region),
+                                stringResource(Res.string.record_mode_screen),
+                        ),
+                selected = recordMode,
+                onDismiss = { pickingRecordMode = false },
+                onSelect = {
+                    settings.setRecordMode(it)
+                    pickingRecordMode = false
+                },
+        )
+    }
+    if (pickingRecordSize) {
+        ChoiceDialog(
+                title = Res.string.setting_record_size,
+                options = listOf(0, 1920, 1280),
+                labels =
+                        listOf(
+                                stringResource(Res.string.record_size_native),
+                                stringResource(Res.string.record_size_1080),
+                                stringResource(Res.string.record_size_720),
+                        ),
+                selected = if (recordLongEdge == 1920 || recordLongEdge == 1280) recordLongEdge else 0,
+                onDismiss = { pickingRecordSize = false },
+                onSelect = {
+                    settings.setRecordLongEdge(it)
+                    pickingRecordSize = false
+                },
+        )
+    }
+    if (pickingRecordFps) {
+        ChoiceDialog(
+                title = Res.string.setting_record_fps,
+                options = listOf(60, 30, 15),
+                labels = listOf("60 fps", "30 fps", "15 fps"),
+                selected = if (recordFps == 60 || recordFps == 15) recordFps else 30,
+                onDismiss = { pickingRecordFps = false },
+                onSelect = {
+                    settings.setRecordFps(it)
+                    pickingRecordFps = false
+                },
+        )
+    }
+    if (pickingRecordMicDevice) {
+        val ids = listOf("") + recordInputs.map { it.id }
+        ChoiceDialog(
+                title = Res.string.setting_record_mic_device,
+                options = ids,
+                labels =
+                        listOf(stringResource(Res.string.record_mic_default)) +
+                                recordInputs.map { it.name },
+                selected = recordMicDevice.takeIf { it in ids } ?: "",
+                onDismiss = { pickingRecordMicDevice = false },
+                onSelect = {
+                    settings.setRecordMicDevice(it)
+                    pickingRecordMicDevice = false
+                },
         )
     }
     if (editingNickname) {
@@ -524,35 +699,27 @@ private fun updateColor(state: UpdateState): Color {
 }
 
 @Composable
-private fun SettingGroup(title: StringResource, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingGroup(title: StringResource, rows: @Composable ColumnScope.() -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    val shape = MaterialTheme.shapes.large
     Column(Modifier.fillMaxWidth()) {
         Text(
                 stringResource(title),
                 style = MaterialTheme.typography.labelMedium,
-                color = scheme.primary,
-                modifier = Modifier.padding(start = 18.dp, bottom = 7.dp),
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 14.dp, bottom = 6.dp),
         )
-        Column(
-                modifier =
-                        Modifier.fillMaxWidth()
-                                .background(
-                                        scheme.surface.copy(alpha = if (isAppDarkTheme()) 0.78f else 0.88f),
-                                        shape,
-                                )
-                                .border(1.dp, glassBorder().copy(alpha = 0.5f), shape),
-                content = content,
-        )
+        GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+            Column(Modifier.fillMaxWidth()) { rows() }
+        }
     }
 }
 
 @Composable
 private fun RowDivider() {
     HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = 14.dp),
             thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
     )
 }
 
@@ -562,11 +729,11 @@ private fun GroupFootnote(resource: StringResource) {
             stringResource(resource),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 11.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
     )
 }
 
-private val RowHeight = 54.dp
+private val RowHeight = 48.dp
 
 @Composable
 private fun RowScaffold(
@@ -577,9 +744,8 @@ private fun RowScaffold(
             modifier =
                     Modifier.fillMaxWidth()
                             .heightIn(min = RowHeight)
-                            .clip(MaterialTheme.shapes.small)
                             .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
     )
@@ -669,20 +835,28 @@ private fun SwitchRow(
             modifier =
                     Modifier.fillMaxWidth()
                             .heightIn(min = RowHeight)
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(12.dp))
             Switch(checked = checked, onCheckedChange = onCheckedChange)
         }
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
                 stringResource(summary),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
         )
     }
+}
+
+/** 当前录音设备名；存着的设备拔掉了就按系统默认显示，和原生层的回退一致。 */
+@Composable
+private fun recordMicLabel(device: String, inputs: List<RecordInput>): String {
+    if (device.isBlank()) return stringResource(Res.string.record_mic_default)
+    return inputs.firstOrNull { it.id == device }?.name
+            ?: stringResource(Res.string.record_mic_default)
 }
 
 @Composable
@@ -694,7 +868,7 @@ private fun <T> ChoiceDialog(
         onDismiss: () -> Unit,
         onSelect: (T) -> Unit,
 ) {
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(title), fontSize = 17.sp) },
             text = {
@@ -728,13 +902,13 @@ private fun <T> ChoiceDialog(
             dismissButton = {
                 TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
             },
-            shape = MaterialTheme.shapes.large,
     )
 }
 
 /** 录快捷键的弹窗：按下即生效，所以没有确认按钮，取消或 Escape 就退回原来的键。 */
 @Composable
 private fun HotkeyDialog(
+        title: StringResource,
         current: String,
         onDismiss: () -> Unit,
         onPick: (String) -> Boolean,
@@ -745,9 +919,9 @@ private fun HotkeyDialog(
 
     LaunchedEffect(Unit) { focus.requestFocus() }
 
-    AlertDialog(
+    GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.setting_screenshot_hotkey), fontSize = 17.sp) },
+            title = { Text(stringResource(title), fontSize = 17.sp) },
             text = {
                 Column(
                         modifier =
@@ -797,7 +971,6 @@ private fun HotkeyDialog(
             dismissButton = {
                 TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
             },
-            shape = MaterialTheme.shapes.large,
     )
 }
 

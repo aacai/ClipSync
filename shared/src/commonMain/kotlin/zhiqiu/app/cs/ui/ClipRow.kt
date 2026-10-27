@@ -136,7 +136,12 @@ internal fun ClipRow(
             color = background,
             border = BorderStroke(1.dp, edge),
             shape = MaterialTheme.shapes.medium,
-            modifier = modifier.fillMaxWidth().padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 4.dp),
+            modifier =
+                    modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 4.dp)
+                            // 拖到访达/桌面：文本→临时 txt，已缓存图片/文件→本机路径。
+                            .fileDragOutSource { model.prepareDragOutPaths(listOf(item)) },
     ) {
         Box {
             Box(
@@ -152,7 +157,7 @@ internal fun ClipRow(
                                             onClick = onActivate,
                                     )
                                     .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                    verticalAlignment = Alignment.Top,
+                    verticalAlignment = Alignment.CenterVertically,
             ) {
             AnimatedVisibility(
                     visible = selectionActive,
@@ -163,7 +168,7 @@ internal fun ClipRow(
                             fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
                                     shrinkHorizontally(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)),
             ) {
-                Row(modifier = Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     PickBox(picked = picked, onToggle = onTogglePick)
                     Spacer(Modifier.width(10.dp))
                 }
@@ -172,7 +177,7 @@ internal fun ClipRow(
             val thumbPath = file?.localPath?.takeIf { isImage(file.mime) }
             val thumb = rememberImageBitmap(thumbPath, THUMB_MAX_SIDE) { model.cachedBytes(item) }
             Box(
-                    modifier = Modifier.width(if (compact) 20.dp else NUMBER_WIDTH).padding(top = 7.dp),
+                    modifier = Modifier.width(if (compact) 20.dp else NUMBER_WIDTH),
                     contentAlignment = if (compact) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Text(
@@ -200,7 +205,7 @@ internal fun ClipRow(
                 }
             }
 
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp, top = 5.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(
                         text =
                                 when {
