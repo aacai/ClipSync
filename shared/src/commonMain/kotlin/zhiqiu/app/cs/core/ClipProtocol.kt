@@ -2,6 +2,7 @@ package zhiqiu.app.cs.core
 
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.SHA256
+import dev.whyoleg.cryptography.random.CryptographyRandom
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -25,14 +26,17 @@ data class ClipPayload(
 @Serializable
 data class PresenceEnvelope(
     val v: Int = ClipProtocol.PROTOCOL_VERSION,
+    val ct: String,
+)
+
+/** presence 的内容整条进密文：昵称、系统、在线状态都不再是明文的了。 */
+@Serializable
+data class PresencePayload(
     val dev: String,
     val name: String,
+    val os: String,
     val online: Boolean,
     val ts: Long,
-    /** 安全码前缀（密钥指纹），只用于发现「同屋但密钥不同」。 */
-    val sp: String,
-    /** 系统标签（macOS / Android / Web…）。 */
-    val os: String,
     /** true = 点名，收到的人回一条 presence */
     val answer: Boolean = false,
 )
@@ -40,7 +44,6 @@ data class PresenceEnvelope(
 data class DevicePresence(
     val id: String,
     val name: String,
-    val safety: String,
     val os: String,
     val seenAt: Long,
 )
@@ -54,6 +57,8 @@ data class RoomTopic(
 object ClipProtocol {
     const val PROTOCOL_VERSION = 1
     const val ROOT = "cs/v1"
+
+    private const val MID_BYTES = 8
 
     const val CH_CLIP = "clip"
     const val CH_PRESENCE = "presence"
@@ -78,7 +83,11 @@ object ClipProtocol {
 
     fun roomFilter(roomHash: String): String = "$ROOT/$roomHash/#"
 
-    fun safetyPrefix(safetyNumber: String): String = safetyNumber.takeWhile { it != ' ' }
+    /** mid 在信封里是明文：用内容算 id 等于让中转服务器拿一句猜测反查是谁发的。 */
+    fun randomMid(): String =
+        CryptographyRandom.Default.nextBytes(MID_BYTES).joinToString("") { b ->
+            ((b.toInt() and 0xFF) + 0x100).toString(16).substring(1)
+        }
 
     fun parseTopic(topic: String): RoomTopic? {
         val prefix = ROOT.split('/')

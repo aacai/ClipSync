@@ -109,6 +109,13 @@ class RoomCryptoTest {
     }
 
     @Test
+    fun message_ids_are_random_hex() {
+        val ids = (1..64).map { ClipProtocol.randomMid() }
+        assertTrue(ids.all { Regex("^[0-9a-f]{16}$").matches(it) })
+        assertEquals(64, ids.distinct().size)
+    }
+
+    @Test
     fun restored_key_interoperates_with_derived_key() = runTest {
         val alice = RoomCrypto.open(roomId, password = "hunter2")
         val material = alice.keyMaterial()
@@ -140,26 +147,44 @@ class RoomCryptoTest {
     }
 
     @Test
-    fun presence_carries_safety_and_os() = runTest {
-        val envelope = PresenceEnvelope(
+    fun presence_wire_hides_who_is_who() = runTest {
+        val crypto = RoomCrypto.open(roomId, password = "hunter2")
+        val topic = ClipProtocol.presenceTopic(expectedRoomHash, "d1")
+        val payload = PresencePayload(
             dev = "d1",
             name = "Pixel",
+            os = "Android",
             online = true,
             ts = 1700000000000,
-            sp = "482",
-            os = "Android",
         )
-        val decoded = ClipProtocol.decode<PresenceEnvelope>(ClipProtocol.encode(envelope))
-        assertEquals("482", decoded.sp)
-        assertEquals("Android", decoded.os)
+        val wire = ClipProtocol.encode(
+            PresenceEnvelope(
+                ct = crypto.encrypt(ClipProtocol.encode(payload).encodeToByteArray(), topic.encodeToByteArray()),
+            ),
+        )
+        assertTrue("Pixel" !in wire && "Android" !in wire && "1700000000000" !in wire)
+        val decoded = ClipProtocol.decode<PresencePayload>(
+            crypto.decrypt(ClipProtocol.decode<PresenceEnvelope>(wire).ct, topic.encodeToByteArray())
+                .decodeToString(),
+        )
+        assertEquals(payload, decoded)
+        crypto.wipe()
     }
 
     @Test
-    fun safety_prefix_is_the_first_group() = runTest {
-        val crypto = RoomCrypto.open(roomId, password = "hunter2")
-        val safety = crypto.safetyNumber()
-        assertEquals(safety.substringBefore(' '), ClipProtocol.safetyPrefix(safety))
-        assertEquals(3, ClipProtocol.safetyPrefix(safety).length)
-        crypto.wipe()
+    fun presence_json_is_byte_identical_to_rust() {
+        assertEquals("""{"v":1,"ct":"abc"}""", ClipProtocol.encode(PresenceEnvelope(ct = "abc")))
+        assertEquals(
+            """{"dev":"d1","name":"Pixel","os":"Android","online":true,"ts":1700000000000,"answer":false}""",
+            ClipProtocol.encode(
+                PresencePayload(
+                    dev = "d1",
+                    name = "Pixel",
+                    os = "Android",
+                    online = true,
+                    ts = 1700000000000,
+                ),
+            ),
+        )
     }
 }

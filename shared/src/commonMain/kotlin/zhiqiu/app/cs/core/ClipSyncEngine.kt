@@ -70,13 +70,18 @@ internal class ClipSyncEngine(
     private val _devices = MutableStateFlow<List<DevicePresence>>(emptyList())
     val devices: StateFlow<List<DevicePresence>> = _devices.asStateFlow()
 
-    /** 同屋里密钥指纹对不上的设备名：多半是某端房间密码打错，两边解不开彼此的密文。 */
+    /** 解不开对方东西的那些：显示昵称，认不出人时退回设备号前缀。多半是某端房间密码打错，钥匙不是同一把。 */
     private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
     val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
 
     private val roster = mutableMapOf<String, DevicePresence>()
 
     private val presenceTs = mutableMapOf<String, Long>()
+
+    /** 解不开的那批：署名先从 clip 信封的明文里补，补不到只剩设备号前缀。 */
+    private class Mismatch(val seenAt: Long, var label: String)
+
+    private val unknownKey = mutableMapOf<String, Mismatch>()
 
     data class TransferProgress(
         val direction: Direction,
@@ -103,7 +108,6 @@ internal class ClipSyncEngine(
     /** 用户想待在的房间：连接断了不改它，重连成功后照原样续上，退出房间才清空。 */
     private var desired: Config? = null
     private var roomHash: String = ""
-    private var safetyPrefix: String = ""
     private var safety: String = ""
     private var heartbeatJob: Job? = null
     private var connectionJob: Job? = null
@@ -130,10 +134,9 @@ internal class ClipSyncEngine(
             crypto = roomCrypto
             this.repository = config.repository
             transferClient = FileTransferClient(createSharedHttpClient())
-            fileCrypto = FileCrypto(roomCrypto)
+            fileCrypto = FileCrypto(roomCrypto, ClipProtocol.clipTopic(hash))
             config.repository?.load()
             safety = roomCrypto.safetyNumber()
-            safetyPrefix = ClipProtocol.safetyPrefix(safety)
         } catch (e: Exception) {
             // 房间本身没打开（密钥坏了之类），重连也救不回来，直接报错
             stop()
@@ -163,7 +166,7 @@ internal class ClipSyncEngine(
     /** 开一条新会话并把它接上：连上、订阅、报 presence，之后由 watchConnection 盯状态。 */
     private suspend fun openLink() {
         val cfg = desired ?: return
-        val mqtt = links.create(cfg, roomHash, safetyPrefix)
+        val mqtt = links.create(cfg, roomHash, willWire(cfg))
         link = mqtt
         mqtt.connect()
 
@@ -193,7 +196,7 @@ internal class ClipSyncEngine(
         val roomCrypto = crypto ?: error("engine not started")
         val payload = ClipProtocol.encode(ClipPayload(text = text, len = text.length))
         val envelope = ClipEnvelope(
-            mid = sha256Hex(payload.encodeToByteArray() + cfg.deviceId.encodeToByteArray()).take(16),
+            mid = ClipProtocol.randomMid(),
             ts = now(),
             dev = cfg.deviceId,
             name = cfg.deviceName,
@@ -221,9 +224,7 @@ internal class ClipSyncEngine(
     suspend fun publishFile(name: String, mime: String, bytes: ByteArray): ClipItem? {
         val cfg = desired ?: error("engine not started")
         val uploaded = upload(name, mime, bytes) ?: return null
-        val mid = sha256Hex(
-            uploaded.name.encodeToByteArray() + bytes.size.toString().encodeToByteArray() + cfg.deviceId.encodeToByteArray()
-        ).take(16)
+        val mid = ClipProtocol.randomMid()
         val file = FileClip(
             id = mid,
             name = uploaded.name,
@@ -372,7 +373,6 @@ internal class ClipSyncEngine(
         crypto?.wipe()
         crypto = null
         safety = ""
-        safetyPrefix = ""
         _status.value = Status.Idle
     }
 
@@ -415,7 +415,7 @@ internal class ClipSyncEngine(
         when (ClipProtocol.parseTopic(topic)?.channel) {
             ClipProtocol.CH_CLIP -> onClip(topic, payload)
             ClipProtocol.CH_PRESENCE -> onPresence(topic, payload)
-            ClipProtocol.CH_SYNC -> onRollCall(payload)
+            ClipProtocol.CH_SYNC -> onRollCall(topic, payload)
             else -> Unit
         }
     }
@@ -426,6 +426,12 @@ internal class ClipSyncEngine(
         if (envelope.v != ClipProtocol.PROTOCOL_VERSION) return
         val cfg = desired ?: return
         if (envelope.dev == cfg.deviceId) return
+        if (envelope.name.isNotBlank()) {
+            unknownKey[envelope.dev]?.let {
+                it.label = envelope.name
+                publishRoster()
+            }
+        }
         markActive(envelope.dev)
 
         if (envelope.kind == ClipRepository.KIND_FILE) {
@@ -490,48 +496,73 @@ internal class ClipSyncEngine(
 
     private suspend fun onPresence(topic: String, raw: String) {
         val cfg = desired ?: return
+        val roomCrypto = crypto ?: return
         val parsed = ClipProtocol.parseTopic(topic) ?: return
-        if (parsed.deviceId == cfg.deviceId) return
+        val deviceId = parsed.deviceId ?: return
+        if (deviceId == cfg.deviceId) return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
-        if (envelope.dev == cfg.deviceId) return
+        if (envelope.v != ClipProtocol.PROTOCOL_VERSION) return
+        val payload = presencePayload(envelope, roomCrypto, topic)
+        if (payload == null) {
+            // 像一条正经 presence 却解不开：同一间房、不同钥匙，报出来让人去对安全码
+            noteUnknownKey(deviceId)
+            return
+        }
+        if (payload.dev == cfg.deviceId) return
+        if (unknownKey.remove(deviceId) != null) publishRoster()
         // ts 只排先后：跨设备比时间是错的，过期只看本机收到那一刻
-        val last = presenceTs[envelope.dev]
-        if (last != null && envelope.ts < last) return
-        presenceTs[envelope.dev] = envelope.ts
-        val fresh = envelope.dev !in roster
-        if (envelope.online) {
-            roster[envelope.dev] = DevicePresence(
-                id = envelope.dev,
-                name = envelope.name,
-                safety = envelope.sp,
-                os = envelope.os,
+        val last = presenceTs[payload.dev]
+        if (last != null && payload.ts < last) return
+        presenceTs[payload.dev] = payload.ts
+        val fresh = payload.dev !in roster
+        if (payload.online) {
+            roster[payload.dev] = DevicePresence(
+                id = payload.dev,
+                name = payload.name,
+                os = payload.os,
                 seenAt = now(),
             )
         } else {
-            roster.remove(envelope.dev)
-            presenceTs.remove(envelope.dev)
+            roster.remove(payload.dev)
+            presenceTs.remove(payload.dev)
+            unknownKey.remove(payload.dev)
         }
         pruneRoster()
         publishRoster()
         // 头一回见到就自报一次：新来的这才刚订阅上，错过我们上次的心跳就看不见彼此。
         // 有了这条，心跳只当兜底，不用刷得很勤。
-        if (fresh && envelope.online) publishPresence(online = true)
+        if (fresh && payload.online) publishPresence(online = true)
     }
+
+    private suspend fun presencePayload(
+        envelope: PresenceEnvelope,
+        roomCrypto: RoomCrypto,
+        topic: String,
+    ): PresencePayload? =
+        runCatching {
+            ClipProtocol.decode<PresencePayload>(
+                roomCrypto.decrypt(envelope.ct, topic.encodeToByteArray()).decodeToString()
+            )
+        }.getOrNull()
 
     private fun clearRoster() {
         roster.clear()
         presenceTs.clear()
+        unknownKey.clear()
         publishRoster()
     }
 
     private fun pruneRoster() {
-        if (roster.isEmpty()) return
+        if (roster.isEmpty() && unknownKey.isEmpty()) return
         val cutoff = now() - PRESENCE_TTL_MS
         val gone = roster.filterValues { it.seenAt < cutoff }.keys.toList()
-        if (gone.isEmpty()) return
-        roster.keys.removeAll(gone.toSet())
-        presenceTs.keys.removeAll(gone.toSet())
-        publishRoster()
+        if (gone.isNotEmpty()) {
+            roster.keys.removeAll(gone.toSet())
+            presenceTs.keys.removeAll(gone.toSet())
+        }
+        val stale = unknownKey.filterValues { it.seenAt < cutoff }.keys.toList()
+        if (stale.isNotEmpty()) unknownKey.keys.removeAll(stale.toSet())
+        if (gone.isNotEmpty() || stale.isNotEmpty()) publishRoster()
     }
 
     private fun markActive(deviceId: String) {
@@ -539,47 +570,66 @@ internal class ClipSyncEngine(
         roster[deviceId] = seen.copy(seenAt = now())
     }
 
-    private fun publishRoster() {
-        val here = roster.values.sortedBy { it.name }
-        _devices.value = here.filter { it.safety == safetyPrefix }
-        _keyMismatch.value = here.filter { it.safety.isNotEmpty() && it.safety != safetyPrefix }.map { it.name }
+    /** 往我们频道灌一条像模像样却解不开的 presence，代价是把名单灌到上限为止。 */
+    private fun noteUnknownKey(deviceId: String) {
+        if (deviceId in unknownKey || unknownKey.size >= MAX_UNKNOWN_KEY_DEVICES) return
+        unknownKey[deviceId] = Mismatch(now(), deviceId.take(MISMATCH_ID_CHARS))
+        publishRoster()
     }
 
-    private fun presenceEnvelope(cfg: Config, online: Boolean): PresenceEnvelope = PresenceEnvelope(
-        dev = cfg.deviceId,
-        name = cfg.deviceName,
-        os = cfg.deviceOs,
-        online = online,
-        ts = now(),
-        sp = safetyPrefix,
-    )
+    private fun publishRoster() {
+        _devices.value = roster.values.sortedBy { it.name }
+        _keyMismatch.value = unknownKey.values.map { it.label }.sorted().take(MAX_UNKNOWN_KEY_DEVICES)
+    }
+
+    /** presence 整条进密文，AAD 用它落进的那条 topic：点名帧在 sync 频道，正常帧在各自的 presence 频道。 */
+    private suspend fun presenceWire(topic: String, cfg: Config, online: Boolean, answer: Boolean = false): String? {
+        val roomCrypto = crypto ?: return null
+        val payload = ClipProtocol.encode(
+            PresencePayload(
+                dev = cfg.deviceId,
+                name = cfg.deviceName,
+                os = cfg.deviceOs,
+                online = online,
+                ts = now(),
+                answer = answer,
+            ),
+        )
+        return runCatching {
+            ClipProtocol.encode(PresenceEnvelope(ct = roomCrypto.encrypt(payload.encodeToByteArray(), topic.encodeToByteArray())))
+        }.getOrNull()
+    }
+
+    /** 遗嘱在握手时就定死内容：断线后由 broker 原样发出去，所以这里得先加密好。 */
+    private suspend fun willWire(cfg: Config): String {
+        val topic = ClipProtocol.presenceTopic(roomHash, cfg.deviceId)
+        return presenceWire(topic, cfg, online = false).orEmpty()
+    }
 
     private suspend fun publishPresence(online: Boolean) {
         val cfg = desired ?: return
         val mqtt = link ?: return
-        runCatching {
-            mqtt.publish(
-                topic = ClipProtocol.presenceTopic(roomHash, cfg.deviceId),
-                payload = ClipProtocol.encode(presenceEnvelope(cfg, online)),
-            )
-        }
+        val topic = ClipProtocol.presenceTopic(roomHash, cfg.deviceId)
+        val wire = presenceWire(topic, cfg, online) ?: return
+        runCatching { mqtt.publish(topic = topic, payload = wire) }
     }
 
     private suspend fun rollCall() {
         val cfg = desired ?: return
         val mqtt = link ?: return
-        runCatching {
-            mqtt.publish(
-                topic = ClipProtocol.syncTopic(roomHash),
-                payload = ClipProtocol.encode(presenceEnvelope(cfg, online = true).copy(answer = true)),
-            )
-        }
+        val topic = ClipProtocol.syncTopic(roomHash)
+        val wire = presenceWire(topic, cfg, online = true, answer = true) ?: return
+        runCatching { mqtt.publish(topic = topic, payload = wire) }
     }
 
-    private suspend fun onRollCall(raw: String) {
+    private suspend fun onRollCall(topic: String, raw: String) {
         val cfg = desired ?: return
+        val roomCrypto = crypto ?: return
         val envelope = runCatching { ClipProtocol.decode<PresenceEnvelope>(raw) }.getOrNull() ?: return
-        if (envelope.dev == cfg.deviceId) return
+        if (envelope.v != ClipProtocol.PROTOCOL_VERSION) return
+        // sync 频道没有设备号，解不开就只当没听见；那台设备随后会在自己的 presence 频道报上来
+        val payload = presencePayload(envelope, roomCrypto, topic) ?: return
+        if (payload.dev == cfg.deviceId) return
         publishPresence(online = true)
     }
 
@@ -642,6 +692,10 @@ internal class ClipSyncEngine(
         private const val PRESENCE_TTL_MS = PRESENCE_INTERVAL_MS * 3
         private const val RECOVERY_BASE_MS = 5_000L
         private const val RECOVERY_MAX_MS = 60_000L
+
+        // 密钥不一致的名单是陌生人也能往我们频道灌帧喂出来的，给它一个上限
+        private const val MAX_UNKNOWN_KEY_DEVICES = 8
+        private const val MISMATCH_ID_CHARS = 8
     }
 }
 @OptIn(ExperimentalTime::class)

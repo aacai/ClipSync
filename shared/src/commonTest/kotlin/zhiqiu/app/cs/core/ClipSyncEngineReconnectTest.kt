@@ -351,11 +351,124 @@ class ClipSyncEngineReconnectTest {
         val link = links.created.single()
         runCurrent()
 
-        link.deliver(presenceMessage("dev-2", "Phone", online = true, sp = "999"))
+        link.deliver(presenceMessage("dev-2", "Phone", online = true, wrongKey = true))
         runCurrent()
 
         assertEquals(emptyList(), engine.devices.value)
-        assertEquals(listOf("Phone"), engine.keyMismatch.value)
+        assertEquals(listOf("dev-2"), engine.keyMismatch.value)
+        engine.stop()
+    }
+
+    /** 解不开的那台随后发了条剪贴板：信封署名是明文的，警告改口叫昵称。 */
+    @Test
+    fun `a mismatch is named from the clip envelope`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links) { currentTime }
+        engine.start(config())
+        val link = links.created.single()
+        runCurrent()
+
+        link.deliver(presenceMessage("dev-2", "Pixel", online = true, wrongKey = true))
+        runCurrent()
+        assertEquals(listOf("dev-2"), engine.keyMismatch.value)
+
+        link.deliver(clipMessage("hello", name = "Pixel", wrongKey = true))
+        runCurrent()
+
+        assertEquals(listOf("Pixel"), engine.keyMismatch.value)
+        assertEquals(emptyList(), engine.devices.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `junk that is not a presence frame gets ignored`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links) { currentTime }
+        engine.start(config())
+        val link = links.created.single()
+        runCurrent()
+
+        link.deliver(Incoming(ClipProtocol.presenceTopic(hash(), "dev-2"), "{\"whatever\":1}"))
+        runCurrent()
+
+        assertEquals(emptyList(), engine.devices.value)
+        assertEquals(emptyList(), engine.keyMismatch.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `the mismatch list stops growing at the cap`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links) { currentTime }
+        engine.start(config())
+        val link = links.created.single()
+        runCurrent()
+
+        repeat(12) { index ->
+            link.deliver(presenceMessage(peerId(index), "Phone", online = true, wrongKey = true))
+        }
+        runCurrent()
+
+        assertEquals(8, engine.keyMismatch.value.size)
+        assertEquals((0..7).map { peerId(it) }, engine.keyMismatch.value)
+        engine.stop()
+    }
+
+    @Test
+    fun `a roll-call from a foreign key is not answered`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links) { currentTime }
+        engine.start(config())
+        val link = links.created.single()
+        val presence = ClipProtocol.presenceTopic(hash(), "dev-1")
+        val announced = { link.published.count { it.first == presence } }
+        runCurrent()
+        assertEquals(1, announced())
+
+        link.deliver(rollCall("dev-9", wrongKey = true))
+        runCurrent()
+
+        assertEquals(1, announced())
+        assertEquals(emptyList(), engine.devices.value)
+        engine.stop()
+    }
+
+    /** 密码打错那台修好了：同名设备再来一条能解开的，警告要跟着撤。 */
+    @Test
+    fun `a mismatch clears once the peer decrypts`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links) { currentTime }
+        engine.start(config())
+        val link = links.created.single()
+        runCurrent()
+
+        link.deliver(presenceMessage("dev-2", "Phone", online = true, wrongKey = true))
+        runCurrent()
+        assertEquals(listOf("dev-2"), engine.keyMismatch.value)
+
+        link.deliver(presenceMessage("dev-2", "Phone", online = true, ts = 1_700_000_000_500))
+        runCurrent()
+
+        assertEquals(emptyList(), engine.keyMismatch.value)
+        assertEquals(1, engine.devices.value.size)
+        engine.stop()
+    }
+
+    /** 遗嘱是握手时加密好的：broker 只原样转发，不会再帮我们算。 */
+    @Test
+    fun `the presence will is already encrypted`() = runTest {
+        val links = FakeLinks(clock = { currentTime })
+        val engine = ClipSyncEngine(this, links)
+        engine.start(config())
+
+        val topic = ClipProtocol.presenceTopic(hash(), "dev-1")
+        val envelope = ClipProtocol.decode<PresenceEnvelope>(links.created.single().willPayload)
+        val payload = ClipProtocol.decode<PresencePayload>(
+            RoomCrypto.restore(ByteArray(RoomCrypto.KEY_SIZE) { 7 })
+                .decrypt(envelope.ct, topic.encodeToByteArray()).decodeToString()
+        )
+        assertEquals("dev-1", payload.dev)
+        assertEquals(false, payload.online)
         engine.stop()
     }
 
@@ -469,54 +582,65 @@ class ClipSyncEngineReconnectTest {
     private suspend fun hash(): String = ClipProtocol.roomHash(room)
 
     /** 同伴那侧的一条真实密文：同一把房间密钥加密，AAD 是 clip 主题。 */
-    private suspend fun clipMessage(text: String, from: String = "dev-2"): Incoming {
+    private suspend fun clipMessage(
+        text: String,
+        from: String = "dev-2",
+        name: String = "Phone",
+        wrongKey: Boolean = false,
+    ): Incoming {
         val topic = ClipProtocol.clipTopic(hash())
         val payload = ClipProtocol.encode(ClipPayload(text = text, len = text.length))
-        val ct = RoomCrypto.restore(ByteArray(RoomCrypto.KEY_SIZE) { 7 })
+        val key = if (wrongKey) ByteArray(RoomCrypto.KEY_SIZE) { 9 } else ByteArray(RoomCrypto.KEY_SIZE) { 7 }
+        val ct = RoomCrypto.restore(key)
             .encrypt(payload.encodeToByteArray(), topic.encodeToByteArray())
         val envelope = ClipEnvelope(
-            mid = sha256Hex(payload.encodeToByteArray() + from.encodeToByteArray()).take(16),
+            mid = ClipProtocol.randomMid(),
             ts = 1_700_000_000_000,
             dev = from,
-            name = "Phone",
+            name = name,
             kind = ClipRepository.KIND_TEXT,
             ct = ct,
         )
         return Incoming(topic, ClipProtocol.encode(envelope))
     }
 
-    /** sp 留空 = 同一把钥匙 */
+    /** 整条 presence 进密文，AAD 是它落进的那条 topic；wrongKey 模拟房间密码打错的同伴。 */
     private suspend fun presenceMessage(
         from: String,
         name: String,
         online: Boolean,
-        sp: String = "",
         ts: Long = 1_700_000_000_000,
+        wrongKey: Boolean = false,
+        answer: Boolean = false,
+        topic: String? = null,
     ): Incoming {
-        val hash = hash()
-        val envelope = PresenceEnvelope(
-            dev = from,
-            name = name,
-            os = "Android",
-            online = online,
-            ts = ts,
-            sp = sp.ifEmpty { ClipProtocol.safetyPrefix(engineSafety()) },
+        val target = topic ?: ClipProtocol.presenceTopic(hash(), from)
+        val payload = ClipProtocol.encode(
+            PresencePayload(
+                dev = from,
+                name = name,
+                os = "Android",
+                online = online,
+                ts = ts,
+                answer = answer,
+            ),
         )
-        return Incoming(ClipProtocol.presenceTopic(hash, from), ClipProtocol.encode(envelope))
+        val key = if (wrongKey) ByteArray(RoomCrypto.KEY_SIZE) { 9 } else ByteArray(RoomCrypto.KEY_SIZE) { 7 }
+        val ct = RoomCrypto.restore(key).encrypt(payload.encodeToByteArray(), target.encodeToByteArray())
+        return Incoming(target, ClipProtocol.encode(PresenceEnvelope(ct = ct)))
     }
 
-    private suspend fun rollCall(from: String): Incoming {
-        val envelope = PresenceEnvelope(
-            dev = from,
-            name = "Phone",
-            os = "Android",
+    private suspend fun rollCall(from: String, wrongKey: Boolean = false): Incoming =
+        presenceMessage(
+            from,
+            "Phone",
             online = true,
-            ts = 1_700_000_000_000,
-            sp = "999",
+            wrongKey = wrongKey,
             answer = true,
+            topic = ClipProtocol.syncTopic(hash()),
         )
-        return Incoming(ClipProtocol.syncTopic(hash()), ClipProtocol.encode(envelope))
-    }
+
+    private fun peerId(index: Int) = "peer-" + if (index < 10) "0$index" else "$index"
 
     private fun config() = ClipSyncEngine.Config(
         roomId = room,
@@ -546,9 +670,9 @@ class ClipSyncEngineReconnectTest {
         /** 每次新开一条会话时，手上还剩几条没关的。 */
         val aliveBesideNew = mutableListOf<Int>()
 
-        override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink {
+        override fun create(config: ClipSyncEngine.Config, roomHash: String, willPayload: String): MqttLink {
             aliveBesideNew += created.count { !it.closed }
-            return FakeLink {
+            return FakeLink(willPayload) {
                 attempts += clock()
                 if (clock() < failBefore) {
                     throw MqttException.ConnectionFailed(ReasonCode.SERVER_UNAVAILABLE, "broker down")
@@ -559,7 +683,7 @@ class ClipSyncEngineReconnectTest {
         val attempts = mutableListOf<Long>()
     }
 
-    private class FakeLink(private val onConnect: () -> Unit) : MqttLink {
+    private class FakeLink(val willPayload: String, private val onConnect: () -> Unit) : MqttLink {
 
         private val state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected.Idle)
         private val received = MutableSharedFlow<Incoming>(extraBufferCapacity = 32)

@@ -27,14 +27,14 @@ internal interface MqttLink {
 internal data class Incoming(val topic: String, val payload: String)
 
 internal fun interface MqttLinkFactory {
-    fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink
+    fun create(config: ClipSyncEngine.Config, roomHash: String, willPayload: String): MqttLink
 }
 
 private const val RECONNECT_BASE_MS = 1_000L
 private const val RECONNECT_MAX_MS = 30_000L
 private const val RECONNECT_HANDOFF_ATTEMPTS = 8
 
-internal val DefaultMqttLinks = MqttLinkFactory { config, hash, safetyPrefix ->
+internal val DefaultMqttLinks = MqttLinkFactory { config, hash, willPayload ->
     val client = MqttClient("cs-$hash-${config.deviceId}") {
         username = MqttSecrets.USERNAME
         password(MqttSecrets.PASSWORD)
@@ -47,21 +47,13 @@ internal val DefaultMqttLinks = MqttLinkFactory { config, hash, safetyPrefix ->
         // 库只快试几轮（1→30s），之后把断线交回引擎：那边的退避到 60s 封顶。
         // 长时间没网时（合盖、进电梯）少一半连接尝试，就少一半无线电唤醒。
         maxReconnectAttempts = RECONNECT_HANDOFF_ATTEMPTS
-        will {
-            topic = ClipProtocol.presenceTopic(hash, config.deviceId)
-            payload(
-                ClipProtocol.encode(
-                    PresenceEnvelope(
-                        dev = config.deviceId,
-                        name = config.deviceName,
-                        os = config.deviceOs,
-                        online = false,
-                        ts = currentTimeMillis(),
-                        sp = safetyPrefix,
-                    ),
-                ),
-            )
-            qos = QoS.AT_LEAST_ONCE
+        // 遗嘱由引擎事先加密好交进来：broker 只会原样转发，不会再帮我们算一次
+        if (willPayload.isNotBlank()) {
+            will {
+                topic = ClipProtocol.presenceTopic(hash, config.deviceId)
+                payload(willPayload)
+                qos = QoS.AT_LEAST_ONCE
+            }
         }
     }
     RealMqttLink(client)

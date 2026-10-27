@@ -130,7 +130,7 @@ class AppModelClipboardEchoTest {
     private class RoomLinks : MqttLinkFactory {
         var link: FakeLink? = null
 
-        override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink =
+        override fun create(config: ClipSyncEngine.Config, roomHash: String, willPayload: String): MqttLink =
             FakeLink().also { link = it }
 
         /** broker 递来一条房间里的密文。 */
@@ -175,7 +175,7 @@ class AppModelClipboardEchoTest {
         val payload = ClipProtocol.encode(ClipPayload(text = text, len = text.length))
         val ct = RoomCrypto.restore(key).encrypt(payload.encodeToByteArray(), topic.encodeToByteArray())
         val envelope = ClipEnvelope(
-            mid = sha256Hex(payload.encodeToByteArray() + from.encodeToByteArray()).take(16),
+            mid = ClipProtocol.randomMid(),
             ts = 1_700_000_000_000,
             dev = from,
             name = "Phone",

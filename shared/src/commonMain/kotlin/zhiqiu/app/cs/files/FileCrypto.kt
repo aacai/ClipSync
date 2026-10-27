@@ -14,13 +14,11 @@ data class DecryptedFile(
     override fun hashCode(): Int = sha256.hashCode()
 }
 
-// AAD 用 name/mime/size/sha256 拼出，等于把密文钉死在这份元数据上：换包、改大小、改名都会在 GCM 阶段失败。
-class FileCrypto(private val room: RoomCrypto) {
+class FileCrypto(private val room: RoomCrypto, private val clipTopic: String) {
 
     suspend fun encrypt(name: String, mime: String, plain: ByteArray): EncryptedFile {
         val sha = sha256Hex(plain)
-        val header = "$name\n$mime\n${plain.size}\n$sha".encodeToByteArray()
-        val body = room.encryptBytes(plain, header)
+        val body = room.encryptBytes(plain, aad(name, mime, plain.size.toLong(), sha))
         return EncryptedFile(
             cipher = body,
             name = name,
@@ -31,13 +29,16 @@ class FileCrypto(private val room: RoomCrypto) {
     }
 
     suspend fun decrypt(file: FileClip, cipher: ByteArray): DecryptedFile {
-        val header = "${file.name}\n${file.mime}\n${file.size}\n${file.sha256}".encodeToByteArray()
-        val plain = room.decryptBytes(cipher, header)
+        val plain = room.decryptBytes(cipher, aad(file.name, file.mime, file.size, file.sha256))
         val sha = sha256Hex(plain)
         check(sha == file.sha256) { "sha256 mismatch" }
         check(plain.size.toLong() == file.size) { "size mismatch" }
         return DecryptedFile(plain, sha)
     }
+
+    // 带上 clip topic：同一份文件在两个房间的密文不再相同，跨房搬运会在 GCM 阶段失败。
+    private fun aad(name: String, mime: String, size: Long, sha256: String): ByteArray =
+        "$clipTopic\n$name\n$mime\n$size\n$sha256".encodeToByteArray()
 
     private suspend fun sha256Hex(bytes: ByteArray): String =
         CryptographyProvider.Default.get(SHA256).hasher().hash(bytes)

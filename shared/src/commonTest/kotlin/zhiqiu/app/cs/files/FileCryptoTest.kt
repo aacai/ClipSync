@@ -1,5 +1,6 @@
 package zhiqiu.app.cs.files
 
+import zhiqiu.app.cs.core.ClipProtocol
 import zhiqiu.app.cs.core.RoomCrypto
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 class FileCryptoTest {
 
     private val room = "TESTROOM01"
+    private val topic = ClipProtocol.clipTopic("testhash")
     private val payload = "ClipSync 文件内容 \uD83D\uDCE1\nsecond line".encodeToByteArray()
 
     private fun clipFor(encrypted: EncryptedFile, name: String = encrypted.name, size: Long = encrypted.size) =
@@ -32,11 +34,11 @@ class FileCryptoTest {
     fun roundtrip_preserves_content() = runTest {
         val alice = RoomCrypto.open(room, password = "")
         val bob = RoomCrypto.open(room, password = "")
-        val enc = FileCrypto(alice).encrypt("shot.png", "image/png", payload)
+        val enc = FileCrypto(alice, topic).encrypt("shot.png", "image/png", payload)
         assertEquals(payload.size.toLong(), enc.size)
         assertEquals("shot.png", enc.name)
 
-        val dec = FileCrypto(bob).decrypt(clipFor(enc), enc.cipher)
+        val dec = FileCrypto(bob, topic).decrypt(clipFor(enc), enc.cipher)
         assertContentEquals(payload, dec.bytes)
         assertEquals(enc.sha256, dec.sha256)
         alice.wipe()
@@ -46,9 +48,9 @@ class FileCryptoTest {
     @Test
     fun tampered_cipher_fails() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
-        val enc = FileCrypto(crypto).encrypt("a.bin", "application/octet-stream", payload)
+        val enc = FileCrypto(crypto, topic).encrypt("a.bin", "application/octet-stream", payload)
         val flipped = enc.cipher.copyOf().also { it[it.size / 2] = (it[it.size / 2].toInt() xor 0xFF).toByte() }
-        assertFails { FileCrypto(crypto).decrypt(clipFor(enc), flipped) }
+        assertFails { FileCrypto(crypto, topic).decrypt(clipFor(enc), flipped) }
         crypto.wipe()
     }
 
@@ -56,8 +58,8 @@ class FileCryptoTest {
     fun wrong_room_password_fails() = runTest {
         val alice = RoomCrypto.open(room, password = "pw1")
         val mallory = RoomCrypto.open(room, password = "pw2")
-        val enc = FileCrypto(alice).encrypt("a.bin", "application/octet-stream", payload)
-        assertFails { FileCrypto(mallory).decrypt(clipFor(enc), enc.cipher) }
+        val enc = FileCrypto(alice, topic).encrypt("a.bin", "application/octet-stream", payload)
+        assertFails { FileCrypto(mallory, topic).decrypt(clipFor(enc), enc.cipher) }
         alice.wipe()
         mallory.wipe()
     }
@@ -65,18 +67,29 @@ class FileCryptoTest {
     @Test
     fun metadata_substitution_fails() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
-        val enc = FileCrypto(crypto).encrypt("real.png", "image/png", payload)
+        val enc = FileCrypto(crypto, topic).encrypt("real.png", "image/png", payload)
         // 攻击者把文件名/大小换成别的，头部参与 AAD，必须解密失败
-        assertFails { FileCrypto(crypto).decrypt(clipFor(enc, name = "fake.png"), enc.cipher) }
-        assertFails { FileCrypto(crypto).decrypt(clipFor(enc, size = enc.size + 1), enc.cipher) }
+        assertFails { FileCrypto(crypto, topic).decrypt(clipFor(enc, name = "fake.png"), enc.cipher) }
+        assertFails { FileCrypto(crypto, topic).decrypt(clipFor(enc, size = enc.size + 1), enc.cipher) }
+        crypto.wipe()
+    }
+
+    @Test
+    fun another_room_cannot_replay_the_cipher() = runTest {
+        val crypto = RoomCrypto.open(room, password = "")
+        val enc = FileCrypto(crypto, topic).encrypt("a.bin", "application/octet-stream", payload)
+        // 密文搬进另一条 clip 频道：AAD 绑了 topic，GCM 直接拒
+        assertFails {
+            FileCrypto(crypto, ClipProtocol.clipTopic("otherhash")).decrypt(clipFor(enc), enc.cipher)
+        }
         crypto.wipe()
     }
 
     @Test
     fun empty_file_roundtrip() = runTest {
         val crypto = RoomCrypto.open(room, password = "")
-        val enc = FileCrypto(crypto).encrypt("empty.txt", "text/plain", ByteArray(0))
-        val dec = FileCrypto(crypto).decrypt(clipFor(enc), enc.cipher)
+        val enc = FileCrypto(crypto, topic).encrypt("empty.txt", "text/plain", ByteArray(0))
+        val dec = FileCrypto(crypto, topic).decrypt(clipFor(enc), enc.cipher)
         assertEquals(0, dec.bytes.size)
         crypto.wipe()
     }

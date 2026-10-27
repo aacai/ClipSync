@@ -219,7 +219,7 @@ class AppModelLeaveRoomTest {
     private class RecordingLinks(private val failFirstConnects: Int = 0) : MqttLinkFactory {
         var connects = 0
 
-        override fun create(config: ClipSyncEngine.Config, roomHash: String, safetyPrefix: String): MqttLink =
+        override fun create(config: ClipSyncEngine.Config, roomHash: String, willPayload: String): MqttLink =
             FakeLink {
                 connects++
                 if (connects <= failFirstConnects) {
