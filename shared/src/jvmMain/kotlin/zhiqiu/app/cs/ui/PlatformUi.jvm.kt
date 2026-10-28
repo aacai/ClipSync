@@ -108,6 +108,14 @@ private object AwtClipboard : PlatformClipboard {
     }.getOrNull()
 
     override suspend fun write(text: String) {
+        if (WindowsClipboard.available) {
+            val placed =
+                    withContext(Dispatchers.IO) {
+                        WindowsClipboard.writeText(text) && WindowsClipboard.readText() == text
+                    }
+            if (!placed) throw ClipboardUnavailable(code = "unavailable")
+            return
+        }
         val selection = StringSelection(text)
         runCatching { clipboard.setContents(selection, selection) }
             .onFailure { throw ClipboardUnavailable(code = "unavailable", detail = it.userFacingDetail()) }
