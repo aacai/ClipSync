@@ -7,6 +7,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import zhiqiu.app.cs.files.ClipItem
@@ -16,6 +17,7 @@ import zhiqiu.app.cs.ui.AppModel
 import zhiqiu.app.cs.ui.CLIPBOARD_POLL_MS
 import zhiqiu.app.cs.ui.CopyTarget
 import zhiqiu.app.cs.ui.Feedback
+import zhiqiu.app.cs.ui.PickedSource
 import zhiqiu.app.cs.ui.PlatformClipboard
 import zhiqiu.app.cs.ui.PlatformUi
 import zhiqiu.app.cs.ui.UnavailableAutostart
@@ -52,7 +54,23 @@ class AppModelIncomingFileTest {
         runCurrent()
 
         assertTrue(clipboard.written.isEmpty())
-        assertEquals(null, harness.model.info.value)
+        val feedback = harness.model.info.value
+        assertIs<Feedback.Downloaded>(feedback)
+        assertEquals("report.pdf", feedback.name)
+    }
+
+    @Test
+    fun `a file put on the clipboard by the app is not captured again`() = runTest {
+        val clipboard = FakeFileClipboard()
+        val harness = Harness(clipboard, backgroundScope)
+        runCurrent()
+
+        harness.model.onIncomingFile(cachedFile("/cache/clip1/report.pdf"))
+        runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertTrue(harness.model.items.value.isEmpty())
     }
 
     @Test
@@ -105,8 +123,14 @@ class AppModelIncomingFileTest {
         val written = mutableListOf<List<String>>()
 
         override val canWriteFiles: Boolean get() = writable
+        override val canReadFiles: Boolean get() = true
         override fun pollIntervalMs(): Long = CLIPBOARD_POLL_MS
         override suspend fun read(): String? = null
+        override suspend fun readFiles(): List<PickedSource> =
+                written.lastOrNull().orEmpty().map { path ->
+                    val name = path.substringAfterLast('/')
+                    PickedSource(name, "application/pdf", 4L) { ByteArray(4) }
+                }
         override suspend fun write(text: String) = Unit
         override suspend fun writeFiles(paths: List<String>) {
             written += paths

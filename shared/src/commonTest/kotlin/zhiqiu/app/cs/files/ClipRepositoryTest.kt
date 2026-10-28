@@ -121,12 +121,39 @@ class ClipRepositoryTest {
     fun add_same_file_sha256_different_id_moves_existing_to_top() = runTest {
         val store = FakeClipStore()
         val repo = ClipRepository(store)
-        repo.add(file("f1", ts = 1, name = "a.png", sha256 = "same"))
+        repo.add(
+            file(
+                "f1", ts = 1, name = "a.png", sha256 = "same",
+                cached = true, localPath = "/cache/f1/a.png", link = "http://x/old",
+            ),
+        )
         // 同 sha256、不同 id：模拟同伴又发了一遍同一文件
-        val added = repo.add(file("f2", ts = 5, name = "a.png", sha256 = "same"))
-        assertFalse(added)
+        val added = repo.insert(file("f2", ts = 5, name = "a.png", sha256 = "same", link = "http://x/new"))
+        assertFalse(added.inserted)
+        assertEquals("f1", added.id)
         assertEquals(1, repo.items.value.size)
-        assertEquals("f1", repo.items.value.first().id)
+        val kept = repo.items.value.single()
+        assertEquals("f1", kept.id)
+        assertEquals(5, kept.ts)
+        assertEquals("http://x/new", kept.file?.link)
+        assertTrue(kept.file?.cached == true)
+        assertEquals("/cache/f1/a.png", kept.file?.localPath)
+    }
+
+    @Test
+    fun add_same_id_keeps_the_cached_copy() = runTest {
+        val store = FakeClipStore()
+        val repo = ClipRepository(store)
+        repo.add(file("f1", ts = 1, name = "a.png", sha256 = "same", cached = true, localPath = "/cache/f1/a.png"))
+
+        val added = repo.insert(file("f1", ts = 5, name = "a.png", sha256 = "same", link = "http://x/new"))
+
+        assertFalse(added.inserted)
+        assertEquals("f1", added.id)
+        val kept = repo.items.value.single().file
+        assertEquals("http://x/new", kept?.link)
+        assertTrue(kept?.cached == true)
+        assertEquals("/cache/f1/a.png", kept?.localPath)
     }
 
     @Test

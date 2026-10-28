@@ -70,7 +70,6 @@ private object AwtClipboard : PlatformClipboard {
 
     /** 同一份内容每次轮询都返回同一个 Transferable：认得出来就别再把整张位图取一遍编一次。 */
     private var lastImageContents: Transferable? = null
-    private var lastFilesContents: Transferable? = null
 
     override fun pollIntervalMs(): Long = clipboardPollIntervalMs()
 
@@ -85,8 +84,6 @@ private object AwtClipboard : PlatformClipboard {
 
     override suspend fun readFiles(): List<PickedSource> = runCatching {
         val contents = clipboard.getContents(null) ?: return emptyList()
-        if (contents === lastFilesContents) return emptyList()
-        lastFilesContents = contents
         if (!contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) return emptyList()
         val files = contents.getTransferData(DataFlavor.javaFileListFlavor) as? List<*> ?: return emptyList()
         files.filterIsInstance<File>().filter { it.isFile }.map { file ->

@@ -48,17 +48,17 @@ class FileTransferClient(
     private val http: HttpClient,
     private val x0atUrl: String = X0_AT_UPLOAD_URL,
     private val uuguUrl: String = UUGU_UPLOAD_URL,
-) {
+) : FileTransport {
 
     /**
      * 上传 [bytes]（调用方需先加密），返回分享链接。
      *
      * @param onProgress 已发送字节数 / 总字节数
      */
-    suspend fun upload(
+    override suspend fun upload(
         fileName: String,
         bytes: ByteArray,
-        onProgress: (sent: Long, total: Long) -> Unit = { _, _ -> },
+        onProgress: (sent: Long, total: Long) -> Unit,
     ): UploadedLink {
         val primary = runCatching { uploadToUugu(fileName, bytes, onProgress) }
         return primary.getOrNull()
@@ -122,9 +122,9 @@ class FileTransferClient(
         return response.bodyAsText()
     }
 
-    suspend fun download(
+    override suspend fun download(
         link: String,
-        onProgress: (received: Long, total: Long) -> Unit = { _, _ -> },
+        onProgress: (received: Long, total: Long) -> Unit,
     ): ByteArray {
         val response = runCatching { http.get(link) }
             .getOrElse { throw FileTransferException("下载失败：${it.message}", it) }

@@ -286,9 +286,10 @@ class AppModel internal constructor(
     }
 
     private suspend fun onClipboardChanged() {
+        if (captureFiles()) return
         val text = runCatching { platform.clipboard.read() }.getOrNull()
         if (text == null) {
-            if (!captureFiles()) captureImage()
+            captureImage()
             return
         }
         if (text.isBlank()) return
@@ -308,9 +309,10 @@ class AppModel internal constructor(
 
     /** 复制的文件：一份内容算一批，每个文件留一条。返回 true 表示这批剪贴板归文件管，别再当图片抓。 */
     private suspend fun captureFiles(): Boolean {
-        if (!platform.clipboard.canReadFiles || !settings.watchFiles.value) return false
+        if (!platform.clipboard.canReadFiles) return false
         val sources = runCatching { platform.clipboard.readFiles() }.getOrDefault(emptyList())
         if (sources.isEmpty()) return false
+        if (!settings.watchFiles.value) return false
         val signature = fileSignature(sources)
         if (signature == lastFilesSignature) return true
         lastFilesSignature = signature
@@ -561,6 +563,7 @@ class AppModel internal constructor(
             return
         }
         runCatching { platform.clipboard.writeFiles(listOf(path)) }
+            .onSuccess { rememberWrittenFiles(lastFilesSignature) }
         val name = path.substringAfterLast('/').ifBlank { "recording.mp4" }
         val hash = sha256Hex(bytes)
         var clipId: String? = null
@@ -625,7 +628,10 @@ class AppModel internal constructor(
     fun shareRecordPreview() {
         val preview = _recordPreview.value ?: return
         scope.launch {
-            val copied = runCatching { platform.clipboard.writeFiles(listOf(preview.path)) }.isSuccess
+            val copied = runCatching {
+                platform.clipboard.writeFiles(listOf(preview.path))
+                rememberWrittenFiles(lastFilesSignature)
+            }.isSuccess
             _info.value = if (copied) Feedback.RecordingCopied else Feedback.RecordingCopyFailed
         }
     }
@@ -935,16 +941,37 @@ class AppModel internal constructor(
 
     private fun copyFiles(paths: List<String>) {
         scope.launch {
+            val previous = lastFilesSignature
             runCatching { platform.clipboard.writeFiles(paths) }
-                .onSuccess { _info.value = Feedback.Copied(CopyTarget.File) }
+                .onSuccess {
+                    rememberWrittenFiles(previous)
+                    _info.value = Feedback.Copied(CopyTarget.File)
+                }
                 .onFailure { _failure.value = writeBlocked(it) }
+        }
+    }
+
+    private suspend fun rememberWrittenFiles(previous: String?) {
+        if (!platform.clipboard.canReadFiles) return
+        val sources = runCatching { platform.clipboard.readFiles() }.getOrDefault(emptyList())
+        if (sources.isNotEmpty()) {
+            lastFilesSignature = fileSignature(sources)
+            return
+        }
+        lastFilesSignature = previous
+        if (platform.clipboard.canReadImages) {
+            val hash = runCatching { platform.clipboard.readImage()?.bytes?.let { sha256Hex(it) } }.getOrNull()
+            if (hash != null) lastOwnImageWrite = hash
         }
     }
 
     /** 屋里发来的文件下完就替用户放进剪贴板，回窗口 Cmd/Ctrl+V 直接粘走。 */
     internal fun onIncomingFile(file: FileClip) {
-        val path = file.localPath ?: return
-        if (!settings.autoCopyIncomingFile.value || !platform.clipboard.canWriteFiles) return
+        val path = file.localPath
+        if (path == null || !settings.autoCopyIncomingFile.value || !platform.clipboard.canWriteFiles) {
+            _info.value = Feedback.Downloaded(file.name)
+            return
+        }
         copyFiles(listOf(path))
     }
 

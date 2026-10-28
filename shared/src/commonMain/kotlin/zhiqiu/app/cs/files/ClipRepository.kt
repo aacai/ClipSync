@@ -26,6 +26,8 @@ data class ClipItem(
 /** 一条条目能落到的可视位置区间（都从 1 起，含两端）；置顶条目只在置顶区内移动。 */
 data class MoveInfo(val position: Int, val from: Int, val to: Int)
 
+data class AddedItem(val inserted: Boolean, val id: String)
+
 class ClipRepository(
     private val store: ClipStore,
     private val maxItems: Int = DEFAULT_MAX_ITEMS,
@@ -44,22 +46,41 @@ class ClipRepository(
         _items.value = store.read()
     }
 
-    suspend fun add(item: ClipItem): Boolean {
+    suspend fun add(item: ClipItem): Boolean = insert(item).inserted
+
+    suspend fun insert(item: ClipItem): AddedItem {
         val byId = _items.value.firstOrNull { it.id == item.id }
         if (byId != null) {
-            replace(byId.copy(ts = item.ts, text = item.text, file = item.file, pinned = item.pinned))
-            return false
+            replace(
+                    byId.copy(
+                            ts = item.ts,
+                            text = item.text,
+                            file = mergedFile(byId, item),
+                            pinned = item.pinned,
+                    ),
+            )
+            return AddedItem(false, byId.id)
         }
         // 同内容（不同 id）视为同一条：把已有的那条抬到顶部，不再新增重复项。
         // 这样从列表里点“发送”、或同一条被再次复制/同伴又发了一遍，都不会叠出第二条一样的。
         val dup = _items.value.firstOrNull { sameContent(it, item) }
         if (dup != null) {
-            replace(dup.copy(ts = item.ts, order = item.ts))
-            return false
+            replace(dup.copy(ts = item.ts, order = item.ts, file = mergedFile(dup, item)))
+            return AddedItem(false, dup.id)
         }
         _items.value = (_items.value + item).sortedWith(ordering).take(maxItems)
         persist()
-        return true
+        return AddedItem(true, item.id)
+    }
+
+    private fun mergedFile(existing: ClipItem, incoming: ClipItem): FileClip? {
+        val current = existing.file
+        val next = incoming.file ?: return current
+        if (current == null || current.sha256 != next.sha256) return next
+        return next.copy(
+                cached = current.cached || next.cached,
+                localPath = current.localPath ?: next.localPath,
+        )
     }
 
     /** 两条条目是否为“同一份内容”：文本比文字，文件比 sha256（没哈希的不强行合并）。 */

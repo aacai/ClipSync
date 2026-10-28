@@ -19,18 +19,20 @@ import org.meshtastic.mqtt.ConnectionState
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.ClipStore
+import zhiqiu.app.cs.files.DefaultFileTransports
 import zhiqiu.app.cs.files.FileCrypto
 import zhiqiu.app.cs.files.FileClip
 import zhiqiu.app.cs.files.FileLimits
 import zhiqiu.app.cs.files.FilePayload
-import zhiqiu.app.cs.files.FileTransferClient
-import zhiqiu.app.cs.files.createSharedHttpClient
+import zhiqiu.app.cs.files.FileTransport
+import zhiqiu.app.cs.files.FileTransportFactory
 import zhiqiu.app.cs.files.sanitizeFileName
 import zhiqiu.app.cs.files.validateOutgoingFile
 
 internal class ClipSyncEngine(
     private val scope: CoroutineScope,
     private val links: MqttLinkFactory = DefaultMqttLinks,
+    private val transports: FileTransportFactory = DefaultFileTransports,
     private val clock: () -> Long = { currentTimeMillis() },
 ) {
 
@@ -100,10 +102,13 @@ internal class ClipSyncEngine(
     val fileIssues: SharedFlow<FileIssue> = _fileIssues.asSharedFlow()
 
     private var repository: ClipRepository? = null
-    private var transferClient: FileTransferClient? = null
+    private var transferClient: FileTransport? = null
     private var fileCrypto: FileCrypto? = null
     private var link: MqttLink? = null
     private var crypto: RoomCrypto? = null
+
+    /** 这间房已经挂上托管方的那几份：链接还活着就复用，同一份内容不传第二遍。 */
+    private val liveUploads = LinkedHashMap<String, Uploaded>()
 
     /** 用户想待在的房间：连接断了不改它，重连成功后照原样续上，退出房间才清空。 */
     private var desired: Config? = null
@@ -133,7 +138,7 @@ internal class ClipSyncEngine(
             roomHash = hash
             crypto = roomCrypto
             this.repository = config.repository
-            transferClient = FileTransferClient(createSharedHttpClient())
+            transferClient = transports.create()
             fileCrypto = FileCrypto(roomCrypto, ClipProtocol.clipTopic(hash))
             config.repository?.load()
             safety = roomCrypto.safetyNumber()
@@ -246,9 +251,13 @@ internal class ClipSyncEngine(
             text = file.name,
             file = file,
         )
-        addToHistory(item)
-        publishFileEnvelope(file)
-        return item
+        val added = repository?.insert(item)
+        val resolvedId = added?.id ?: mid
+        val stored =
+                if (resolvedId == mid) item
+                else item.copy(id = resolvedId, file = file.copy(id = resolvedId))
+        publishFileEnvelope(stored.file ?: file)
+        return stored
     }
 
     /**
@@ -279,9 +288,17 @@ internal class ClipSyncEngine(
         val safeName = sanitizeFileName(name)
         val crypto = fileCrypto ?: error("engine not started")
         val transfer = transferClient ?: error("engine not started")
+        val size = bytes.size.toLong()
+
+        val sha = runCatching { crypto.sha256(bytes) }.getOrElse { e ->
+            _fileIssues.emit(FileIssue.EncryptFailed(safeName, e.message))
+            return null
+        }
+        val key = liveKey(safeName, mime, size, sha)
+        reusable(key)?.let { return it }
 
         val encrypted = runCatching {
-            crypto.encrypt(safeName, mime, bytes)
+            crypto.encrypt(safeName, mime, bytes, sha)
         }.getOrElse { e ->
             _fileIssues.emit(FileIssue.EncryptFailed(safeName, e.message))
             return null
@@ -298,11 +315,33 @@ internal class ClipSyncEngine(
             return null
         }
         _transfer.value = null
-        return Uploaded(safeName, encrypted.sha256, uploaded.url, uploaded.expiresAt(now()))
+        val record = Uploaded(safeName, mime, sha, uploaded.url, uploaded.expiresAt(now()))
+        liveUploads.remove(key)
+        liveUploads[key] = record
+        while (liveUploads.size > MAX_LIVE_UPLOADS) liveUploads.remove(liveUploads.keys.first())
+        return record
     }
 
     /** 上传完成后的元信息：还没决定条目身份。 */
-    private data class Uploaded(val name: String, val sha256: String, val link: String, val expiresAt: Long)
+    private data class Uploaded(
+        val name: String,
+        val mime: String,
+        val sha256: String,
+        val link: String,
+        val expiresAt: Long,
+    )
+
+    private fun liveKey(name: String, mime: String, size: Long, sha256: String): String =
+        "$roomHash\n$name\n$mime\n$size\n$sha256"
+
+    private fun reusable(key: String): Uploaded? {
+        val hit = liveUploads[key] ?: return null
+        if (hit.expiresAt - LINK_GRACE_MS <= now()) {
+            liveUploads.remove(key)
+            return null
+        }
+        return hit
+    }
 
     suspend fun fetchFile(file: FileClip): ByteArray? {
         val crypto = fileCrypto ?: return null
@@ -476,7 +515,7 @@ internal class ClipSyncEngine(
         }
         val file = FileClip(
             id = envelope.mid,
-            name = sanitizeFileName(payload.name),
+            name = payload.name,
             mime = payload.mime,
             size = payload.size,
             sha256 = payload.sha256,
@@ -487,7 +526,7 @@ internal class ClipSyncEngine(
             senderName = envelope.name,
         )
         val known = repository?.items?.value?.any { it.id == file.id } == true
-        addToHistory(
+        val added = repository?.insert(
             ClipItem(
                 id = file.id,
                 kind = ClipRepository.KIND_FILE,
@@ -498,7 +537,9 @@ internal class ClipSyncEngine(
                 file = file,
             ),
         )
-        if (!known) fetchFile(file)
+        val resolvedId = added?.id ?: file.id
+        val cached = repository?.items?.value?.firstOrNull { it.id == resolvedId }?.file?.cached == true
+        if (!known && !cached) fetchFile(file.copy(id = resolvedId))
     }
 
     private suspend fun onPresence(topic: String, raw: String) {
@@ -703,6 +744,9 @@ internal class ClipSyncEngine(
         // 密钥不一致的名单是陌生人也能往我们频道灌帧喂出来的，给它一个上限
         private const val MAX_UNKNOWN_KEY_DEVICES = 8
         private const val MISMATCH_ID_CHARS = 8
+
+        private const val LINK_GRACE_MS = 60_000L
+        private const val MAX_LIVE_UPLOADS = 32
     }
 }
 @OptIn(ExperimentalTime::class)
