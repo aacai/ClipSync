@@ -328,7 +328,14 @@ internal class ClipSyncEngine(
         }
         val localPath = runCatching { repository?.writeCache(file.id, file.name, decrypted.bytes) }.getOrNull()
         if (localPath != null) repository?.markCached(file.id, localPath)
-        _clips.emit(ClipEvent(text = file.name, senderName = file.senderName, file = file))
+        // 事件里带上落盘路径：收到即进剪贴板的那条路要用，别让订阅方再去查一遍缓存表
+        _clips.emit(
+            ClipEvent(
+                text = file.name,
+                senderName = file.senderName,
+                file = file.copy(cached = localPath != null, localPath = localPath),
+            )
+        )
         return decrypted.bytes
     }
 

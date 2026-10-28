@@ -353,6 +353,8 @@
     <string name="setting_watch_files_hint">Files you copy are saved to the list, and shared with the room when you are in one. Oversized files are skipped</string>
     <string name="setting_auto_copy">Copy on receive</string>
     <string name="setting_auto_copy_hint">Turn off and incoming text only lands in this device list; the clipboard stays as it is until you choose copy on an entry</string>
+    <string name="setting_auto_copy_file">Copy files on receive</string>
+    <string name="setting_auto_copy_file_hint">A file from the room goes on the clipboard the moment it finishes downloading, so Cmd/Ctrl+V pastes it. Turn off and you copy an entry yourself</string>
     <string name="setting_delete_expired">Delete expired entries</string>
     <string name="setting_delete_expired_hint">Entries older than the retention window are dropped together with their local cache. Pinned entries are kept</string>
     <string name="setting_retention">Keep for</string>

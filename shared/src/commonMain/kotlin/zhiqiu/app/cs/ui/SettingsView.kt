@@ -97,6 +97,7 @@ internal fun SettingsView(
     val watchImages by settings.watchImages.collectAsState()
     val watchFiles by settings.watchFiles.collectAsState()
     val autoCopyIncoming by settings.autoCopyIncoming.collectAsState()
+    val autoCopyIncomingFile by settings.autoCopyIncomingFile.collectAsState()
     val deleteExpired by settings.deleteExpired.collectAsState()
     val retentionDays by settings.retentionDays.collectAsState()
     val residentSync by model.residentSync.collectAsState()
@@ -393,6 +394,16 @@ internal fun SettingsView(
                                             autoCopyIncoming,
                                             settings::setAutoCopyIncoming,
                                     )
+                                    // 只有桌面端能把文件写成 javaFileList，手机上这颗开关点了没作用
+                                    if (model.supportsClipboardFiles) {
+                                        RowDivider()
+                                        SwitchRow(
+                                                Res.string.setting_auto_copy_file,
+                                                Res.string.setting_auto_copy_file_hint,
+                                                autoCopyIncomingFile,
+                                                settings::setAutoCopyIncomingFile,
+                                        )
+                                    }
                                 }
                             }
                         }

@@ -92,6 +92,15 @@ class AppSettings(
         store.putBoolean(KEY_AUTO_COPY, enabled)
     }
 
+    /** 同伴发来的文件下完就自动放进剪贴板，和上面的 autoCopy 各管一类内容。 */
+    private val _autoCopyIncomingFile = MutableStateFlow(store.getBoolean(KEY_AUTO_COPY_FILE, true))
+    val autoCopyIncomingFile: StateFlow<Boolean> = _autoCopyIncomingFile.asStateFlow()
+
+    fun setAutoCopyIncomingFile(enabled: Boolean) {
+        _autoCopyIncomingFile.value = enabled
+        store.putBoolean(KEY_AUTO_COPY_FILE, enabled)
+    }
+
     private val _watchImages = MutableStateFlow(store.getBoolean(KEY_WATCH_IMAGES, true))
     val watchImages: StateFlow<Boolean> = _watchImages.asStateFlow()
 
@@ -271,6 +280,7 @@ class AppSettings(
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
+        private const val KEY_AUTO_COPY_FILE = "clipboard.autoCopyFile"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
         private const val KEY_WATCH_FILES = "clipboard.watchFiles"
         private const val KEY_SCREENSHOT_HOTKEY = "screenshot.hotkey"

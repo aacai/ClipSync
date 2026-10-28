@@ -348,6 +348,8 @@
     <string name="setting_watch_files_hint">复制文件后自动存进列表；在房间里同时发给同伴。超过上限的文件会被跳过</string>
     <string name="setting_auto_copy">收到即进剪贴板</string>
     <string name="setting_auto_copy_hint">关掉后，同伴发来的文本只存进本机列表，不碰你的剪贴板；要点条目里的复制才会写入</string>
+    <string name="setting_auto_copy_file">收到文件即进剪贴板</string>
+    <string name="setting_auto_copy_file_hint">同伴发来的文件一下完就放进剪贴板，回窗口 Cmd/Ctrl+V 直接粘走；关掉则要点条目里的复制才写入</string>
     <string name="setting_delete_expired">删除过期条目</string>
     <string name="setting_delete_expired_hint">开启后，超过保留时长的条目连同本机缓存一起清掉；置顶的条目不参与</string>
     <string name="setting_retention">保留时长</string>

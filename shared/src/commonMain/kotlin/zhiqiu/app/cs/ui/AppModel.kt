@@ -936,6 +936,13 @@ class AppModel internal constructor(
         }
     }
 
+    /** 屋里发来的文件下完就替用户放进剪贴板，回窗口 Cmd/Ctrl+V 直接粘走。 */
+    internal fun onIncomingFile(file: FileClip) {
+        val path = file.localPath ?: return
+        if (!settings.autoCopyIncomingFile.value || !platform.clipboard.canWriteFiles) return
+        copyFiles(listOf(path))
+    }
+
     private fun copyImage(file: FileClip) {
         scope.launch {
             val bytes = runCatching { engine.fetchFile(file) }.getOrElse { e ->
@@ -1275,7 +1282,11 @@ class AppModel internal constructor(
         if (receiveJob?.isActive != true) {
             receiveJob = scope.launch {
                 engine.clips.collect { event ->
-                    if (event.file != null) return@collect
+                    val file = event.file
+                    if (file != null) {
+                        onIncomingFile(file)
+                        return@collect
+                    }
                     // 关掉自动写入就只做记录：本机剪贴板没变，lastCaptured 也不能提前认下这份内容，
                     // 否则用户后亲手复制同样的文字会被当成"没变化"而不再广播。
                     if (!settings.autoCopyIncoming.value) {
