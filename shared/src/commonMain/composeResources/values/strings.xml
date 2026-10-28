@@ -23,6 +23,8 @@
     <string name="status_connected">已连接</string>
     <string name="status_disconnected">未连接</string>
     <string name="status_idle">未共享</string>
+    <string name="resident_memory">%1$s · %2$s</string>
+    <string name="cd_resident_memory">这个进程当前占的物理内存，每 5 秒取一次</string>
     <string name="local_history">本地记录</string>
     <string name="cd_share">进入或切换房间</string>
     <string name="safety_number">安全码 %1$s</string>

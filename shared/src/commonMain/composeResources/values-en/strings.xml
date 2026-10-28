@@ -23,6 +23,8 @@
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Offline</string>
     <string name="status_idle">Not sharing</string>
+    <string name="resident_memory">%1$s · %2$s</string>
+    <string name="cd_resident_memory">Physical memory this process holds, sampled every 5 seconds</string>
     <string name="local_history">Local history</string>
     <string name="cd_share">Enter or switch room</string>
     <string name="safety_number">Safety number %1$s</string>

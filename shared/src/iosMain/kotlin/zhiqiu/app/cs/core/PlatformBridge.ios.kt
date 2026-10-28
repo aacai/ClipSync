@@ -39,6 +39,8 @@ internal actual val platformSupportsSelfUpdate: Boolean = false
 internal actual fun platformSettings(): Settings =
     NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
 
+internal actual fun platformResidentMemory(): Long? = null
+
 internal actual val appLanguageSupport: AppLanguageSupport
     get() = AppLanguageSupport.AfterRestart
 

@@ -82,6 +82,8 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipSyncEngine
+import zhiqiu.app.cs.core.formatResidentMemory
+import zhiqiu.app.cs.core.platformResidentMemory
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.resources.*
@@ -779,6 +781,13 @@ private fun Header(
     val dark = isAppDarkTheme()
     val online = status is ClipSyncEngine.Status.Online
     val connecting = status is ClipSyncEngine.Status.Connecting
+    var memory by remember { mutableStateOf(platformResidentMemory()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5_000)
+            memory = platformResidentMemory()
+        }
+    }
     val dotColor by
             animateColorAsState(
                     targetValue =
@@ -843,16 +852,34 @@ private fun Header(
                     }
                 }
                 Spacer(Modifier.width(9.dp))
-                Text(
+                val statusText =
                         when {
                             online -> stringResource(Res.string.status_connected)
                             connecting -> stringResource(Res.string.connecting)
                             roomCode == null -> stringResource(Res.string.status_idle)
                             else -> stringResource(Res.string.status_disconnected)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                        }
+                val bytes = memory
+                val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                if (bytes == null) {
+                    Text(
+                            statusText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = labelColor,
+                    )
+                } else {
+                    Tip(stringResource(Res.string.cd_resident_memory)) {
+                        Text(
+                                stringResource(
+                                        Res.string.resident_memory,
+                                        statusText,
+                                        formatResidentMemory(bytes),
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = labelColor,
+                        )
+                    }
+                }
             }
             val safety = (status as? ClipSyncEngine.Status.Online)?.safetyNumber
             // 设备名单改由右侧设备图标点开；这里只留安全码入口

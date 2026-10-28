@@ -49,6 +49,8 @@ internal actual fun platformSettings(): Settings {
     return SharedPreferencesSettings(context.getSharedPreferences("clipsync", Context.MODE_PRIVATE))
 }
 
+internal actual fun platformResidentMemory(): Long? = null
+
 internal actual val appLanguageSupport: AppLanguageSupport
     get() = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         AppLanguageSupport.Immediate
