@@ -5,7 +5,10 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -34,15 +37,26 @@ interface ReleaseSource {
 class ManifestReleases(
     private val http: HttpClient,
     private val endpoint: String = DEFAULT_ENDPOINT,
+    private val timeoutMillis: Long = DEFAULT_TIMEOUT_MS,
 ) : ReleaseSource {
 
+    /** 检查更新只有一次几 KB 的往返，挂住不如直接报超时——没有超时的话，界面会一直停在「检查中」。 */
     override suspend fun latest(): Release {
-        val response = runCatching {
-            http.get(endpoint) { header(HttpHeaders.UserAgent, "ClipSync") }
-        }.getOrElse { throw UpdateException(it.message ?: "连不上更新服务", it) }
-        val raw = response.bodyAsText()
-        if (!response.status.isSuccess()) {
-            throw UpdateException("更新服务返回 ${response.status.value}：${raw.take(120)}")
+        val (status, raw) = runCatching {
+            withTimeout(timeoutMillis) {
+                val response = http.get(endpoint) { header(HttpHeaders.UserAgent, "ClipSync") }
+                response.status.value to response.bodyAsText()
+            }
+        }.getOrElse {
+            val reason = if (it is TimeoutCancellationException) {
+                "更新服务 ${timeoutMillis / 1000} 秒没响应"
+            } else {
+                it.message ?: "连不上更新服务"
+            }
+            throw UpdateException(reason, it)
+        }
+        if (!HttpStatusCode.fromValue(status).isSuccess()) {
+            throw UpdateException("更新服务返回 $status：${raw.take(120)}")
         }
         return decodeManifest(raw)
     }
@@ -54,6 +68,7 @@ class ManifestReleases(
 
     companion object {
         const val DEFAULT_ENDPOINT = "https://aacai.github.io/ClipSync/update.json"
+        const val DEFAULT_TIMEOUT_MS = 20_000L
     }
 }
 
