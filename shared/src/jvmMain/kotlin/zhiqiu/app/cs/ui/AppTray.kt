@@ -18,6 +18,10 @@ import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.WindowState
 import java.awt.Desktop
+import java.awt.Font
+import java.awt.GraphicsEnvironment
+import java.awt.MenuItem
+import java.awt.PopupMenu
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.desktop.AppReopenedListener
@@ -90,18 +94,19 @@ fun ApplicationScope.AppTray(onShowWindow: () -> Unit, onQuit: () -> Unit) {
     val icon = rememberVectorPainter(clipSyncIcon(if (isSystemInDarkTheme()) Color.White else Color.Black))
     // 关窗后窗口只是藏起来：点 Dock 会走 App Reopen，跟点菜单栏托盘同一条显示路径。
     InstallDockReopen(onShowWindow)
-    if (platformOs() == "macOS") {
-        MacTray(icon, onShowWindow)
-    } else {
-        Tray(
-            icon = icon,
-            tooltip = "ClipSync",
-            onAction = onShowWindow,
-            menu = {
-                Item(stringResource(Res.string.tray_show_window), onClick = onShowWindow)
-                Item(stringResource(Res.string.app_quit), onClick = onQuit)
-            },
-        )
+    when (platformOs()) {
+        "macOS" -> MacTray(icon, onShowWindow)
+        "Windows" -> WindowsTray(icon, onShowWindow, onQuit)
+        else ->
+            Tray(
+                    icon = icon,
+                    tooltip = "ClipSync",
+                    onAction = onShowWindow,
+                    menu = {
+                        Item(stringResource(Res.string.tray_show_window), onClick = onShowWindow)
+                        Item(stringResource(Res.string.app_quit), onClick = onQuit)
+                    },
+            )
     }
 }
 
@@ -142,4 +147,60 @@ private fun MacTray(icon: Painter, onShowWindow: () -> Unit) {
         SystemTray.getSystemTray().add(trayIcon)
         onDispose { SystemTray.getSystemTray().remove(trayIcon) }
     }
+}
+
+@Composable
+private fun WindowsTray(icon: Painter, onShowWindow: () -> Unit, onQuit: () -> Unit) {
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val awtIcon =
+            remember(icon, density, layoutDirection) {
+                icon.toAwtImage(density, layoutDirection, Size(22f, 22f))
+            }
+    val showLabel = stringResource(Res.string.tray_show_window)
+    val quitLabel = stringResource(Res.string.app_quit)
+    val currentOnShow by rememberUpdatedState(onShowWindow)
+    val currentOnQuit by rememberUpdatedState(onQuit)
+    DisposableEffect(awtIcon, showLabel, quitLabel) {
+        val font = trayMenuFont()
+        val menu =
+                PopupMenu().apply {
+                    add(
+                            MenuItem(showLabel).apply {
+                                this.font = font
+                                addActionListener { currentOnShow() }
+                            }
+                    )
+                    addSeparator()
+                    add(
+                            MenuItem(quitLabel).apply {
+                                this.font = font
+                                addActionListener { currentOnQuit() }
+                            }
+                    )
+                }
+        val trayIcon =
+                TrayIcon(awtIcon, "ClipSync").apply {
+                    isImageAutoSize = true
+                    popupMenu = menu
+                    addMouseListener(
+                            object : MouseAdapter() {
+                                override fun mousePressed(event: MouseEvent) {
+                                    if (event.button == MouseEvent.BUTTON1) currentOnShow()
+                                }
+                            },
+                    )
+                }
+        val tray = SystemTray.getSystemTray()
+        runCatching { tray.add(trayIcon) }
+        onDispose { tray.remove(trayIcon) }
+    }
+}
+
+private fun trayMenuFont(): Font {
+    val installed = GraphicsEnvironment.getLocalGraphicsEnvironment().availableFontFamilyNames.toSet()
+    val family =
+            listOf("Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "SimSun", "Noto Sans SC")
+                    .firstOrNull { it in installed }
+    return Font(family ?: Font.DIALOG, Font.PLAIN, 12)
 }
