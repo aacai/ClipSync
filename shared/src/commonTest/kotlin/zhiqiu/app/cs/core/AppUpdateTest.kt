@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -13,6 +14,7 @@ private const val REAL_RELEASE =
 {
   "tag_name": "v0.0.6",
   "name": "ClipSync 0.0.6",
+  "html_url": "https://github.com/aacai/ClipSync/releases/tag/v0.0.6",
   "draft": false,
   "prerelease": false,
   "assets": [
@@ -25,6 +27,8 @@ private const val REAL_RELEASE =
 }
 """
 
+private const val FALLBACK = "https://github.com/aacai/ClipSync/releases"
+
 class AppUpdateTest {
 
     @Test
@@ -32,6 +36,7 @@ class AppUpdateTest {
         val release = decodeRelease(REAL_RELEASE)
 
         assertEquals("0.0.6", release.version)
+        assertEquals("https://github.com/aacai/ClipSync/releases/tag/v0.0.6", release.pageUrl)
         assertEquals(5, release.assets.size)
         assertEquals("ClipSync-0.0.6-arm64.dmg", release.assets[1].name)
         assertEquals(73167785L, release.assets[1].size)
@@ -65,6 +70,43 @@ class AppUpdateTest {
         val release = decodeRelease("""{"tag_name":"v9.9.9","assets":[{"name":"x","size":1}]}""")
         assertEquals("9.9.9", release.version)
         assertTrue(release.assets.isEmpty())
+    }
+
+    @Test
+    fun `the browser gets the package link, the release page, or nothing`() {
+        val release = decodeRelease(REAL_RELEASE)
+        val dmg = assertNotNull(release.assetFor("macOS", "arm64"))
+
+        assertEquals(
+            dmg.url,
+            browserDownloadUrl(UpdateState.Available(release, dmg), FALLBACK),
+            "有本机那份包就直接下那条",
+        )
+        assertEquals(
+            release.pageUrl,
+            browserDownloadUrl(UpdateState.Available(release, null), FALLBACK),
+            "没有匹配的包就让人去发布页自己挑",
+        )
+        assertEquals(FALLBACK, browserDownloadUrl(UpdateState.Failed("超时"), FALLBACK))
+        assertEquals(
+            dmg.url,
+            browserDownloadUrl(UpdateState.Downloading(dmg, 1_024L), FALLBACK),
+            "下到一半卡住正是想跳浏览器的那一刻",
+        )
+        assertEquals("", browserDownloadUrl(UpdateState.Idle, FALLBACK))
+        assertEquals("", browserDownloadUrl(UpdateState.UpToDate("9.9.9"), FALLBACK))
+        assertEquals("", browserDownloadUrl(UpdateState.Checking, FALLBACK))
+    }
+
+    @Test
+    fun `a release page missing from the payload leaves nothing to open`() {
+        val release = decodeRelease("""{"tag_name":"v1.0.0","assets":[]}""")
+        assertEquals("", release.pageUrl)
+        assertEquals(
+            FALLBACK,
+            browserDownloadUrl(UpdateState.Available(release, null), FALLBACK),
+            "没有 html_url 就退到发布列表",
+        )
     }
 
     @Test

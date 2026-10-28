@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import zhiqiu.app.cs.files.InMemoryClipStore
 import zhiqiu.app.cs.ui.AppModel
+import zhiqiu.app.cs.ui.Feedback
+import zhiqiu.app.cs.ui.PlatformBrowser
 import zhiqiu.app.cs.ui.PlatformClipboard
 import zhiqiu.app.cs.ui.PlatformDownloads
 import zhiqiu.app.cs.ui.PlatformUi
@@ -119,10 +121,64 @@ class AppModelUpdateTest {
         assertTrue(downloads.saves.isEmpty())
     }
 
+    @Test
+    fun `the browser gets the direct link when there is a package for this machine`() = runTest {
+        val browser = RecordingBrowser()
+        val harness = Harness(backgroundScope, FakeReleaseSource(version = "9.9.9"), browser = browser)
+        runCurrent()
+
+        harness.model.checkUpdates()
+        runCurrent()
+        val asset = assertNotNull(assertIs<UpdateState.Available>(harness.model.update.value).asset)
+        harness.model.openUpdateInBrowser()
+
+        assertEquals(listOf(asset.url), browser.opened)
+        assertNull(harness.model.failure.value)
+    }
+
+    @Test
+    fun `with no package for this machine the browser goes to the release page`() = runTest {
+        val browser = RecordingBrowser()
+        val harness = Harness(backgroundScope, FakeReleaseSource(version = "9.9.9", onlyWeb = true), browser = browser)
+        runCurrent()
+
+        harness.model.checkUpdates()
+        runCurrent()
+        harness.model.openUpdateInBrowser()
+
+        assertEquals(listOf("https://g/releases/9.9.9"), browser.opened)
+    }
+
+    @Test
+    fun `a failed check still hands the release list to the browser`() = runTest {
+        val browser = RecordingBrowser()
+        val harness = Harness(backgroundScope, FakeReleaseSource(problem = "发布页返回 403"), browser = browser)
+        runCurrent()
+
+        harness.model.checkUpdates()
+        runCurrent()
+        harness.model.openUpdateInBrowser()
+
+        assertEquals(listOf(GithubReleases.RELEASES_PAGE), browser.opened)
+    }
+
+    @Test
+    fun `a machine with no browser says so instead of going quiet`() = runTest {
+        val harness = Harness(backgroundScope, FakeReleaseSource(version = "9.9.9"), browser = SilentBrowser)
+        runCurrent()
+
+        harness.model.checkUpdates()
+        runCurrent()
+        harness.model.openUpdateInBrowser()
+
+        assertEquals(Feedback.BrowserMissing, harness.model.failure.value)
+    }
+
     private inner class Harness(
         scope: CoroutineScope,
         private val releases: ReleaseSource,
         private val downloads: PlatformDownloads = UnavailableDownloads,
+        private val browser: PlatformBrowser = RecordingBrowser(),
     ) {
         val settings = AppSettings(MapSettings(mutableMapOf()), "test-install")
         val model =
@@ -138,6 +194,7 @@ class AppModelUpdateTest {
                                 deviceOs = "macOS",
                                 installId = "dev-1",
                                 downloads = downloads,
+                                browser = browser,
                         ),
                         settings,
                         DefaultMqttLinks,
@@ -171,7 +228,7 @@ class AppModelUpdateTest {
                                 ReleaseAsset("ClipSync-$version-universal.dmg", "https://g/u.dmg", 56L),
                         )
                     }
-            return Release(version, assets)
+            return Release(version, "https://g/releases/$version", assets)
         }
 
         override suspend fun download(
@@ -193,5 +250,17 @@ class AppModelUpdateTest {
             saves += name to bytes
             return name
         }
+    }
+
+    private class RecordingBrowser : PlatformBrowser {
+        val opened = mutableListOf<String>()
+        override fun open(url: String): Boolean {
+            opened += url
+            return true
+        }
+    }
+
+    private object SilentBrowser : PlatformBrowser {
+        override fun open(url: String): Boolean = false
     }
 }

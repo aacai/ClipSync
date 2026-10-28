@@ -54,6 +54,11 @@ sealed class Feedback {
         override val level get() = Level.Error
     }
 
+    /** 这台机器上没有能接住链接的浏览器：说了总比点了没反应强。 */
+    data object BrowserMissing : Feedback() {
+        override val level get() = Level.Error
+    }
+
     data class Deleted(val count: Int) : Feedback() {
         override val level get() = Level.Info
     }

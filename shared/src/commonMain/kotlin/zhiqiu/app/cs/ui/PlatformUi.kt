@@ -99,6 +99,16 @@ interface PlatformAutostart {
     fun setEnabled(enabled: Boolean)
 }
 
+/**
+ * 把链接交给系统默认浏览器。
+ *
+ * app 里没有 webview，也拿不到系统代理；下载这类慢活交给浏览器更划算。
+ */
+interface PlatformBrowser {
+    /** 真的交出去了才返回 true；这个平台压根没浏览器概念就是 false。 */
+    fun open(url: String): Boolean
+}
+
 class PlatformUi(
     val clipboard: PlatformClipboard,
     val picker: PlatformFilePicker,
@@ -109,6 +119,7 @@ class PlatformUi(
     val deviceOs: String,
     val installId: String,
     val downloads: PlatformDownloads = UnavailableDownloads,
+    val browser: PlatformBrowser = UnavailableBrowser,
     val capture: PlatformScreenCapture = UnavailableScreenCapture,
     val hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     val overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
@@ -225,6 +236,11 @@ internal object UnavailableDownloads : PlatformDownloads {
             throw UnsupportedOperationException("这个平台没有下载目录")
 }
 
+/** 没有系统浏览器概念的平台（浏览器自己就是浏览器）。 */
+internal object UnavailableBrowser : PlatformBrowser {
+    override fun open(url: String): Boolean = false
+}
+
 /** 抓不了屏的平台（手机沙箱、浏览器）。 */
 internal object UnavailableScreenCapture : PlatformScreenCapture {
     override suspend fun capture(): ByteArray = throw UnsupportedOperationException("这个平台不能截屏")
@@ -267,12 +283,13 @@ internal fun rememberPlatformUi(
     store: ClipStore,
     autostart: PlatformAutostart = UnavailableAutostart,
     downloads: PlatformDownloads = UnavailableDownloads,
+    browser: PlatformBrowser = UnavailableBrowser,
     capture: PlatformScreenCapture = UnavailableScreenCapture,
     hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
     window: PlatformWindow = UnavailableWindow,
     hoverRevealsActions: Boolean = false,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, capture, hotkeys, overlay, window, hoverRevealsActions) {
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, browser, capture, hotkeys, overlay, window, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -280,6 +297,7 @@ internal fun rememberPlatformUi(
         store = store,
         autostart = autostart,
         downloads = downloads,
+        browser = browser,
         capture = capture,
         hotkeys = hotkeys,
         overlay = overlay,

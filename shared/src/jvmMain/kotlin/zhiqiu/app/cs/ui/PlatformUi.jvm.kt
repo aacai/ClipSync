@@ -29,6 +29,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.net.URI
 import javax.imageio.ImageIO
 
 private const val TRAY_POLL_MS = 5_000L
@@ -45,6 +46,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     store = remember { JvmClipStore.default() },
     autostart = SystemAutostart,
     downloads = DesktopDownloads,
+    browser = DesktopBrowser,
     capture = RobotScreenCapture,
     hotkeys = CarbonGlobalHotkey,
     overlay = ScreenshotOverlay,
@@ -216,6 +218,18 @@ private object DesktopFileOpener : PlatformFileOpener {
             val file = File(path)
             if (file.isFile) Desktop.getDesktop().open(file)
         }
+    }
+}
+
+/** 桌面没有 webview，链接只能交给系统默认浏览器。 */
+private object DesktopBrowser : PlatformBrowser {
+    override fun open(url: String): Boolean {
+        if (url.isBlank()) return false
+        return runCatching {
+            val desktop = Desktop.getDesktop()
+            if (!desktop.isSupported(Desktop.Action.BROWSE)) return false
+            desktop.browse(URI(url))
+        }.isSuccess
     }
 }
 

@@ -24,6 +24,7 @@ class ReleaseAsset(
 
 class Release(
     val version: String,
+    val pageUrl: String,
     val assets: List<ReleaseAsset>,
 )
 
@@ -72,6 +73,7 @@ class GithubReleases(
 
     companion object {
         const val DEFAULT_ENDPOINT = "https://api.github.com/repos/aacai/ClipSync/releases/latest"
+        const val RELEASES_PAGE = "https://github.com/aacai/ClipSync/releases"
         const val DEFAULT_TIMEOUT_MS = 20_000L
     }
 }
@@ -96,6 +98,7 @@ internal fun decodeRelease(raw: String): Release {
     }
     return Release(
         version = version,
+        pageUrl = dto.pageUrl.orEmpty(),
         assets = dto.assets
             .filter { it.url.startsWith("http") && it.name.isNotBlank() }
             .map { ReleaseAsset(it.name, it.url, it.size) },
@@ -111,6 +114,7 @@ private val releaseJson = Json { ignoreUnknownKeys = true; isLenient = true }
 @Serializable
 private class ReleaseDto(
     @SerialName("tag_name") val tag: String? = null,
+    @SerialName("html_url") val pageUrl: String? = null,
     val message: String? = null,
     val assets: List<AssetDto> = emptyList(),
 )
@@ -168,6 +172,16 @@ private fun ReleaseAsset.archTag(): String = when {
     name.contains("-x64", ignoreCase = true) -> "x64"
     else -> ""
 }
+
+/** 自家下载太慢或压根没本机那份包时，把链接交给系统浏览器：它带系统代理，也能断点续传。 */
+internal fun browserDownloadUrl(state: UpdateState, fallbackPage: String): String =
+    when (state) {
+        is UpdateState.Available ->
+            (state.asset?.url ?: state.release.pageUrl).takeIf { it.isNotBlank() } ?: fallbackPage
+        is UpdateState.Downloading -> state.asset.url
+        is UpdateState.Failed -> fallbackPage
+        else -> ""
+    }
 
 sealed interface UpdateState {
     data object Idle : UpdateState

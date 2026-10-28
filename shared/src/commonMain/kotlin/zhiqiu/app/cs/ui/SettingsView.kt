@@ -664,6 +664,11 @@ private fun UpdateRow(model: AppModel) {
                 model.downloadUpdate()
             }
         }
+        if (model.updateBrowseUrl.isNotBlank()) {
+            RowAction(AppIcons.OpenInNew, stringResource(Res.string.update_open_browser)) {
+                model.openUpdateInBrowser()
+            }
+        }
         RowAction(AppIcons.Refresh, stringResource(Res.string.setting_update), enabled = !busy) {
             model.checkUpdates()
         }

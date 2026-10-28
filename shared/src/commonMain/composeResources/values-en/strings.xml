@@ -186,6 +186,7 @@
     <string name="fb_connect_failed">Connection failed: %1$s</string>
     <string name="fb_connect_failed_generic">Could not join the room, check your network and try again</string>
     <string name="fb_download_failed_generic">Download failed, check your network and try again</string>
+    <string name="fb_browser_missing">This machine has no browser to hand the link to</string>
     <string name="fb_room_required">Enter a room code first</string>
     <string name="fb_pinned">Pinned %1$d</string>
     <string name="fb_unpinned">Unpinned %1$d</string>
@@ -387,8 +388,9 @@
     <string name="update_downloading">Downloading %1$s of %2$s</string>
     <string name="update_downloaded">Downloaded %1$s</string>
     <string name="update_failed">Update failed: %1$s</string>
-    <string name="update_no_asset">No installer matches this machine</string>
+    <string name="update_no_asset">No installer matches this machine — open the release page in a browser and pick one</string>
     <string name="cd_download_update">Download the update</string>
+    <string name="update_open_browser">Download in browser</string>
     <string name="nickname_placeholder">Name this device</string>
     <string name="nickname_hint">This is what other devices in the room see. Leave blank to use the system device name</string>
     <string name="tray_show_window">Show main window</string>

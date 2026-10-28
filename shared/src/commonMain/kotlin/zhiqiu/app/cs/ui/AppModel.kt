@@ -24,12 +24,14 @@ import zhiqiu.app.cs.core.DefaultMqttLinks
 import zhiqiu.app.cs.core.DefaultReleaseSource
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
+import zhiqiu.app.cs.core.GithubReleases
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
 import zhiqiu.app.cs.core.RecordMode
 import zhiqiu.app.cs.core.ScreenshotHotkey
 import zhiqiu.app.cs.core.UpdateState
 import zhiqiu.app.cs.core.assetFor
+import zhiqiu.app.cs.core.browserDownloadUrl
 import zhiqiu.app.cs.core.isBehind
 import zhiqiu.app.cs.core.platformArch
 import zhiqiu.app.cs.core.platformSupportsResidentSync
@@ -180,6 +182,9 @@ class AppModel internal constructor(
 
     private val _update = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    /** 这条更新能不能丢给浏览器下：有包给直链，没包给发布页，其余状态没东西可跳。 */
+    val updateBrowseUrl: String get() = browserDownloadUrl(_update.value, GithubReleases.RELEASES_PAGE)
 
     fun setNickname(name: String) {
         settings.setNickname(name)
@@ -1197,6 +1202,13 @@ class AppModel internal constructor(
                         _update.value = UpdateState.Failed(it.userFacingDetail().orEmpty())
                     }
         }
+    }
+
+    /** 下载这条路走不通就交给浏览器：它带系统代理，也认断点续传。 */
+    fun openUpdateInBrowser() {
+        val url = updateBrowseUrl
+        if (url.isBlank()) return
+        if (!platform.browser.open(url)) _failure.value = Feedback.BrowserMissing
     }
 
     /** 只有离线攒下来、还没上过天的文件才值得补传；同伴那条本来就人人都有。 */

@@ -187,6 +187,7 @@
     <string name="fb_connect_failed">连接失败：%1$s</string>
     <string name="fb_connect_failed_generic">没连上房间，请检查网络后重试</string>
     <string name="fb_download_failed_generic">下载失败，请检查网络后重试</string>
+    <string name="fb_browser_missing">这台机器上没有能接住链接的浏览器</string>
     <string name="fb_room_required">请输入房间码</string>
     <string name="fb_pinned">已置顶 %1$d 条</string>
     <string name="fb_unpinned">已取消置顶 %1$d 条</string>
@@ -382,8 +383,9 @@
     <string name="update_downloading">下载中 %1$s / %2$s</string>
     <string name="update_downloaded">已下载 %1$s</string>
     <string name="update_failed">更新失败：%1$s</string>
-    <string name="update_no_asset">这台机器没有对应的安装包</string>
+    <string name="update_no_asset">这台机器没有对应的安装包，用浏览器打开发布页自己挑</string>
     <string name="cd_download_update">下载更新</string>
+    <string name="update_open_browser">用浏览器下载</string>
     <string name="nickname_placeholder">给这台设备起个名字</string>
     <string name="nickname_hint">同屋设备看到的就是它；留空则使用系统设备名</string>
     <string name="tray_show_window">显示主窗口</string>

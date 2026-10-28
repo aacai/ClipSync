@@ -66,6 +66,7 @@ object ClipSyncRuntime {
                 store = AndroidClipStore(app),
                 autostart = UnavailableAutostart,
                 downloads = AndroidDownloads(app),
+                browser = AndroidBrowser(app),
                 deviceName = deviceName(),
                 deviceOs = platformOs(),
                 installId = installId(),
@@ -304,6 +305,17 @@ private class AndroidDownloads(private val context: Context) : PlatformDownloads
         val written = numberedName(safe) { File(dir, it).exists() }
         File(dir, written).writeBytes(bytes)
         return written
+    }
+}
+
+/** 把链接丢给系统默认浏览器：Intent 被 activity 拦截就返回成功。 */
+internal class AndroidBrowser(private val context: Context) : PlatformBrowser {
+    override fun open(url: String): Boolean {
+        val uri = Uri.parse(url)
+        if (uri.scheme != "http" && uri.scheme != "https") return false
+        return runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
     }
 }
 
