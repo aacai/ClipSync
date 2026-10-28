@@ -48,7 +48,7 @@ internal fun feedbackText(feedback: Feedback): String =
                 } else {
                     stringResource(Res.string.fb_download_failed, feedback.reason)
                 }
-            Feedback.BrowserMissing -> stringResource(Res.string.fb_browser_missing)
+            is Feedback.BrowserMissing -> stringResource(Res.string.fb_browser_missing)
             is Feedback.Deleted -> pluralStringResource(Res.plurals.fb_deleted, feedback.count, feedback.count)
             is Feedback.Pruned -> pluralStringResource(Res.plurals.fb_pruned, feedback.count, feedback.count)
             is Feedback.Undeleted -> pluralStringResource(Res.plurals.fb_undeleted, feedback.count, feedback.count)
