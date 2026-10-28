@@ -25,20 +25,12 @@ internal expect val platformSupportsResidentSync: Boolean
 /** 这个平台的更新是自己下的包，还是刷新页面就换新的。 */
 internal expect val platformSupportsSelfUpdate: Boolean
 
-/**
- * 这个进程当前占了多少物理内存，给状态卡片看；问不到的平台返回 null，那一行直接不显示。
- * 桌面端对齐各自系统监视器的那一列（macOS 的 RSS、Windows 的工作集），不是托管堆。
- */
 internal expect fun platformResidentMemory(): Long?
 
 private const val KB = 1024L
 private const val MB = KB * 1024
 private const val GB = MB * 1024
 
-/**
- * 和 Rust 端同一套规则：1MB 以下报 KB，10MB 以下留一位小数，再往上取整到 MB，过 1GB 换单位。
- * 一位小数走四舍五入 —— 整数除法只截断，会跟 Rust 的 `{:.1}` 对不上。
- */
 internal fun formatResidentMemory(bytes: Long): String =
         when {
             bytes < MB -> "${bytes / KB} KB"

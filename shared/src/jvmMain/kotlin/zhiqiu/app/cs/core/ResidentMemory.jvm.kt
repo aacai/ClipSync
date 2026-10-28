@@ -12,12 +12,7 @@ private val isMac = osName.contains("mac") || osName.contains("darwin")
 private val isLinux = osName.contains("nix") || osName.contains("nux")
 private val isWindows = osName.contains("win")
 
-/**
- * 状态卡片上那个数：本进程当前占的物理内存，跟 Rust 端同一口径（常驻页 / 工作集），不是托管堆。
- *
- * JVM 自己没法问到一个跨版本可用的 RSS：`getPhysicalMemoryUsage` 是 JDK 14 才有，而这一版
- * 编译目标是 11，反射到各家的 MXBean 上也找不到那个方法。所以直接问内核。
- */
+/** 本进程的常驻物理内存（RSS），跟 Rust 端同一口径；问不到的平台上返回 null。 */
 internal actual fun platformResidentMemory(): Long? =
         when {
             isMac -> macResident()
@@ -37,7 +32,6 @@ private fun macResident(): Long? {
 
 private object MachKernel {
 
-    /** 任务端口是 libSystem 里的一个全局变量，不是函数——`task_get_self` 在 arm64 上并不存在。 */
     val taskSelf: Int? by lazy {
         runCatching {
                     NativeLibrary.getInstance(LIBRARY).getGlobalVariableAddress("mach_task_self_").getInt(0)
@@ -63,7 +57,6 @@ private const val MACH_BASIC_INFO_SIZE = 48L
 private const val RESIDENT_SIZE_OFFSET = 8L
 private const val KERN_SUCCESS = 0
 
-/** 内核算好的 `VmRSS: 88420 kB`，直接拿，不用自己乘 page size——ARM 板上可能是 16K 页。 */
 private fun linuxResident(): Long? {
     val value =
             runCatching { File("/proc/self/status").readLines().firstOrNull { it.startsWith("VmRSS:") } }
@@ -77,7 +70,6 @@ private fun linuxResident(): Long? {
 
 private fun windowsResident(): Long? {
     val kernel = WinKernel.bridge ?: return null
-    // 32 位上 SIZE_T 只有 4 字节，整套偏移都要重算；桌面包只出 x64，其它位数宁可不显示。
     if (Native.POINTER_SIZE != 8) return null
     val counters = Memory(WIN_COUNTERS_SIZE.toLong())
     counters.setInt(0, WIN_COUNTERS_SIZE)
