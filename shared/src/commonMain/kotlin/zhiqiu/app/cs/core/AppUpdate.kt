@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -34,31 +35,34 @@ interface ReleaseSource {
     suspend fun download(asset: ReleaseAsset, onProgress: (received: Long, total: Long) -> Unit): ByteArray
 }
 
-class ManifestReleases(
+/** 直接问 GitHub Releases：最新版本就是 Releases 页上那条，不再手工维护清单文件。 */
+class GithubReleases(
     private val http: HttpClient,
     private val endpoint: String = DEFAULT_ENDPOINT,
     private val timeoutMillis: Long = DEFAULT_TIMEOUT_MS,
 ) : ReleaseSource {
 
-    /** 检查更新只有一次几 KB 的往返，挂住不如直接报超时——没有超时的话，界面会一直停在「检查中」。 */
     override suspend fun latest(): Release {
         val (status, raw) = runCatching {
             withTimeout(timeoutMillis) {
-                val response = http.get(endpoint) { header(HttpHeaders.UserAgent, "ClipSync") }
+                val response = http.get(endpoint) {
+                    header(HttpHeaders.UserAgent, "ClipSync")
+                    header(HttpHeaders.Accept, "application/vnd.github+json")
+                }
                 response.status.value to response.bodyAsText()
             }
         }.getOrElse {
             val reason = if (it is TimeoutCancellationException) {
-                "更新服务 ${timeoutMillis / 1000} 秒没响应"
+                "发布页 ${timeoutMillis / 1000} 秒没响应"
             } else {
-                it.message ?: "连不上更新服务"
+                it.message ?: "连不上发布页"
             }
             throw UpdateException(reason, it)
         }
         if (!HttpStatusCode.fromValue(status).isSuccess()) {
-            throw UpdateException("更新服务返回 $status：${raw.take(120)}")
+            throw UpdateException("发布页拒绝了这个请求：${rejectDetail(raw, status)}")
         }
-        return decodeManifest(raw)
+        return decodeRelease(raw)
     }
 
     override suspend fun download(
@@ -67,13 +71,13 @@ class ManifestReleases(
     ): ByteArray = FileTransferClient(http).download(asset.url, onProgress)
 
     companion object {
-        const val DEFAULT_ENDPOINT = "https://aacai.github.io/ClipSync/update.json"
+        const val DEFAULT_ENDPOINT = "https://api.github.com/repos/aacai/ClipSync/releases/latest"
         const val DEFAULT_TIMEOUT_MS = 20_000L
     }
 }
 
 internal object DefaultReleaseSource : ReleaseSource {
-    private val client: ManifestReleases by lazy { ManifestReleases(createSharedHttpClient()) }
+    private val client: GithubReleases by lazy { GithubReleases(createSharedHttpClient()) }
 
     override suspend fun latest(): Release = client.latest()
 
@@ -83,11 +87,13 @@ internal object DefaultReleaseSource : ReleaseSource {
     ): ByteArray = client.download(asset, onProgress)
 }
 
-internal fun decodeManifest(raw: String): Release {
-    val dto = runCatching { releaseJson.decodeFromString<ManifestDto>(raw) }
-        .getOrElse { throw UpdateException("更新清单读不懂", it) }
-    val version = dto.version.orEmpty().trim().removePrefix("v").removePrefix("V")
-    if (version.isBlank()) throw UpdateException("更新清单里没有版本号")
+internal fun decodeRelease(raw: String): Release {
+    val dto = runCatching { releaseJson.decodeFromString<ReleaseDto>(raw) }
+        .getOrElse { throw UpdateException("发布信息读不懂", it) }
+    val version = dto.tag.orEmpty().trim().removePrefix("v").removePrefix("V")
+    if (version.isBlank()) {
+        throw UpdateException(dto.message?.takeIf { it.isNotBlank() } ?: "发布信息里没有版本号")
+    }
     return Release(
         version = version,
         assets = dto.assets
@@ -96,20 +102,28 @@ internal fun decodeManifest(raw: String): Release {
     )
 }
 
+private fun rejectDetail(raw: String, status: Int): String =
+    runCatching { releaseJson.decodeFromString<MessageDto>(raw).message }
+        .getOrNull()?.takeIf { it.isNotBlank() } ?: "HTTP $status"
+
 private val releaseJson = Json { ignoreUnknownKeys = true; isLenient = true }
 
 @Serializable
-private class ManifestDto(
-    val version: String? = null,
+private class ReleaseDto(
+    @SerialName("tag_name") val tag: String? = null,
+    val message: String? = null,
     val assets: List<AssetDto> = emptyList(),
 )
 
 @Serializable
 private class AssetDto(
     val name: String = "",
-    val url: String = "",
+    @SerialName("browser_download_url") val url: String = "",
     val size: Long = 0,
 )
+
+@Serializable
+private class MessageDto(val message: String? = null)
 
 /** 版本号逐段比数字：0.9 比 0.10 旧，缺的段当 0。 */
 internal fun isBehind(current: String, latest: String): Boolean {
