@@ -57,16 +57,8 @@ private const val MACH_BASIC_INFO_SIZE = 48L
 private const val RESIDENT_SIZE_OFFSET = 8L
 private const val KERN_SUCCESS = 0
 
-private fun linuxResident(): Long? {
-    val value =
-            runCatching { File("/proc/self/status").readLines().firstOrNull { it.startsWith("VmRSS:") } }
-                    .getOrNull()
-                    ?.substringAfter(':')
-                    ?.trim()
-                    ?.removeSuffix("kB")
-                    ?.trim()
-    return value?.toLongOrNull()?.takeIf { it > 0 }?.times(1024)
-}
+private fun linuxResident(): Long? =
+        runCatching { parseResidentMemory(File("/proc/self/status").readText()) }.getOrNull()
 
 private fun windowsResident(): Long? {
     val kernel = WinKernel.bridge ?: return null

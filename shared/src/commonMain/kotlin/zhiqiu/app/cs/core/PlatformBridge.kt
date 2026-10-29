@@ -39,6 +39,18 @@ internal fun formatResidentMemory(bytes: Long): String =
             else -> "${tenths(bytes, GB)} GB"
         }
 
+/** /proc/self/status 的 VmRSS 行，Linux 和 Android 同一个口径；内核没给这一行就当问不到。 */
+internal fun parseResidentMemory(status: String): Long? =
+        status.lineSequence()
+                .firstOrNull { it.startsWith("VmRSS:") }
+                ?.substringAfter(':')
+                ?.trim()
+                ?.removeSuffix("kB")
+                ?.trim()
+                ?.toLongOrNull()
+                ?.takeIf { it > 0 }
+                ?.times(KB)
+
 private fun tenths(bytes: Long, unit: Long): String {
     val rounded = (bytes.toDouble() * 10 / unit + 0.5).toLong()
     return "${rounded / 10}.${rounded % 10}"
