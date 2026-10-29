@@ -538,8 +538,15 @@ internal class ClipSyncEngine(
             ),
         )
         val resolvedId = added?.id ?: file.id
-        val cached = repository?.items?.value?.firstOrNull { it.id == resolvedId }?.file?.cached == true
-        if (!known && !cached) fetchFile(file.copy(id = resolvedId))
+        if (known) return
+        val stored = repository?.items?.value?.firstOrNull { it.id == resolvedId }?.file
+            ?.takeIf { it.cached && it.localPath != null }
+        val onDisk = stored?.localPath?.let { repository?.readCache(it) != null } == true
+        if (onDisk) {
+            _clips.emit(ClipEvent(text = file.name, senderName = file.senderName, file = stored))
+        } else {
+            fetchFile(file.copy(id = resolvedId))
+        }
     }
 
     private suspend fun onPresence(topic: String, raw: String) {
