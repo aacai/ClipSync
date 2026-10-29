@@ -124,6 +124,7 @@ class PlatformUi(
     val hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     val overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
     val window: PlatformWindow = UnavailableWindow,
+    val aboutMenu: PlatformAboutMenu = UnavailableAboutMenu,
     /**
      * 有指针悬浮的平台（桌面、网页）：列表行快捷操作默认收起，hover 才展开，减少视觉噪音；
      * 触摸设备（手机）没有 hover 事件，常驻显示，操作效率不打折。
@@ -208,6 +209,15 @@ interface PlatformWindow {
     fun restoreAfterRecording() = Unit
 }
 
+/**
+ * macOS 应用菜单里那条「关于 ClipSync」：AWT 默认把它接到系统面板，这里要让它打开我们自己的卡片。
+ *
+ * 只有 macOS 有这个接法，别的平台 [observe] 装了也没人回调。
+ */
+interface PlatformAboutMenu {
+    fun observe(onAbout: () -> Unit) = Unit
+}
+
 /** 「存到下载目录」：桌面和 Android 写用户自己的 Downloads，浏览器交给它自己的下载行为。 */
 interface PlatformDownloads {
     val isAvailable: Boolean get() = false
@@ -260,6 +270,9 @@ internal object UnavailableGlobalHotkey : PlatformGlobalHotkey {
 /** 没有「主窗口」概念的平台（手机、浏览器由系统管窗口）。 */
 internal object UnavailableWindow : PlatformWindow
 
+/** 没有应用菜单「关于」这一说的平台（手机、浏览器根本没有这条菜单）。 */
+internal object UnavailableAboutMenu : PlatformAboutMenu
+
 /** 尚未接入系统选择器的平台：入口保留但明确告知不可用，不做静默无反应。 */
 internal object UnavailableFilePicker : PlatformFilePicker {
     override val isAvailable: Boolean = false
@@ -288,8 +301,9 @@ internal fun rememberPlatformUi(
     hotkeys: PlatformGlobalHotkey = UnavailableGlobalHotkey,
     overlay: PlatformScreenshotOverlay = UnavailableScreenshotOverlay,
     window: PlatformWindow = UnavailableWindow,
+    aboutMenu: PlatformAboutMenu = UnavailableAboutMenu,
     hoverRevealsActions: Boolean = false,
-): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, browser, capture, hotkeys, overlay, window, hoverRevealsActions) {
+): PlatformUi = remember(clipboard, picker, opener, store, autostart, downloads, browser, capture, hotkeys, overlay, window, aboutMenu, hoverRevealsActions) {
     PlatformUi(
         clipboard = clipboard,
         picker = picker,
@@ -302,6 +316,7 @@ internal fun rememberPlatformUi(
         hotkeys = hotkeys,
         overlay = overlay,
         window = window,
+        aboutMenu = aboutMenu,
         deviceName = deviceName(),
         deviceOs = platformOs(),
         installId = installId(),

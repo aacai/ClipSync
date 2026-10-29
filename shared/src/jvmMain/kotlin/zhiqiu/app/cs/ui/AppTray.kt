@@ -24,6 +24,7 @@ import java.awt.MenuItem
 import java.awt.PopupMenu
 import java.awt.SystemTray
 import java.awt.TrayIcon
+import java.awt.desktop.AboutHandler
 import java.awt.desktop.AppReopenedListener
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -87,6 +88,25 @@ private fun requestAppForeground() {
     if (!Desktop.isDesktopSupported()) return
     val desktop = Desktop.getDesktop()
     if (desktop.isSupported(Desktop.Action.APP_REQUEST_FOREGROUND)) desktop.requestForeground(true)
+}
+
+/**
+ * macOS 应用菜单里那条「关于 ClipSync」：AWT 装了监听就不弹系统标准面板，改由界面开我们自己的卡片。
+ *
+ * 藏进托盘时窗口是 `visible=false`，卡片弹在看不见的窗口里等于没弹，所以先把窗口亮回来。
+ */
+object MacAboutMenu : PlatformAboutMenu {
+    override fun observe(onAbout: () -> Unit) {
+        if (!Desktop.isDesktopSupported()) return
+        val desktop = Desktop.getDesktop()
+        if (!desktop.isSupported(Desktop.Action.APP_ABOUT)) return
+        desktop.setAboutHandler(
+            AboutHandler {
+                MainWindowVisibility.show()
+                onAbout()
+            },
+        )
+    }
 }
 
 @Composable

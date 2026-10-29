@@ -113,6 +113,7 @@ internal fun SettingsView(
     val recordLongEdge by settings.recordLongEdge.collectAsState()
     val recordFps by settings.recordFps.collectAsState()
     val recordMicDevice by settings.recordMicDevice.collectAsState()
+    val aboutOpen by model.aboutPrompt.collectAsState()
     val canWatch = model.supportsClipboardAutoSync
     val languageSupport = appLanguageSupport
     val showLanguage = languageSupport != AppLanguageSupport.Unsupported
@@ -125,7 +126,6 @@ internal fun SettingsView(
     var pickingRetention by remember { mutableStateOf(false) }
     var editingNickname by remember { mutableStateOf(false) }
     var editingRoom by remember { mutableStateOf(false) }
-    var aboutOpen by remember { mutableStateOf(false) }
     var recordingHotkey by remember { mutableStateOf(false) }
     var recordingRecordHotkey by remember { mutableStateOf(false) }
     var pickingRecordMode by remember { mutableStateOf(false) }
@@ -452,7 +452,7 @@ internal fun SettingsView(
                                 NavRow(
                                         title = Res.string.setting_about,
                                         value = stringResource(Res.string.setting_about_hint),
-                                        onClick = { aboutOpen = true },
+                                        onClick = model::requestAbout,
                                 )
                                 if (onQuit != null) {
                                     RowDivider()
@@ -532,9 +532,6 @@ internal fun SettingsView(
     }
     if (editingRoom) {
         ShareDialog(model, onDismiss = { editingRoom = false })
-    }
-    if (aboutOpen) {
-        AboutDialog(model, onDismiss = { aboutOpen = false })
     }
     if (recordingHotkey) {
         HotkeyDialog(

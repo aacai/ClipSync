@@ -51,6 +51,7 @@ internal actual fun rememberPlatformUi(): PlatformUi = rememberPlatformUi(
     hotkeys = CarbonGlobalHotkey,
     overlay = ScreenshotOverlay,
     window = MainWindowVisibility,
+    aboutMenu = MacAboutMenu,
     hoverRevealsActions = true,
 )
 

@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.serialization.Serializable
 import zhiqiu.app.cs.core.AppSettings
+import zhiqiu.app.cs.ui.AboutDialog
 import zhiqiu.app.cs.ui.AppModel
 import zhiqiu.app.cs.ui.AppTheme
 import zhiqiu.app.cs.ui.LeaveRoomDialog
@@ -51,6 +52,7 @@ fun App(onQuit: (() -> Unit)? = null) {
         Surface(modifier = Modifier.fillMaxSize(), color = background) {
             val joinedRoom by model.joinedRoom.collectAsState()
             val leavePrompt by model.leavePrompt.collectAsState()
+            val aboutPrompt by model.aboutPrompt.collectAsState()
             val nav = rememberNavController()
             key(language) {
                 ClipSyncNavHost(nav, model, settings, joinedRoom, onQuit)
@@ -61,6 +63,9 @@ fun App(onQuit: (() -> Unit)? = null) {
                         onDismiss = model::cancelLeaveRoom,
                         onConfirm = model::confirmLeaveRoom,
                 )
+            }
+            if (aboutPrompt) {
+                AboutDialog(model, onDismiss = model::dismissAbout)
             }
         }
     }

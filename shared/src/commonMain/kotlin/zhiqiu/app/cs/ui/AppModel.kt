@@ -253,6 +253,7 @@ class AppModel internal constructor(
                 }
             }
         }
+        platform.aboutMenu.observe(::requestAbout)
     }
 
     /** 剪贴板监听跟着 App 走，不跟着房间走：没共享也要留下记录，桌面端打开就是记录器。
@@ -793,6 +794,17 @@ class AppModel internal constructor(
 
     private val _leavePrompt = MutableStateFlow(false)
     val leavePrompt: StateFlow<Boolean> = _leavePrompt.asStateFlow()
+
+    private val _aboutPrompt = MutableStateFlow(false)
+    val aboutPrompt: StateFlow<Boolean> = _aboutPrompt.asStateFlow()
+
+    fun requestAbout() {
+        _aboutPrompt.value = true
+    }
+
+    fun dismissAbout() {
+        _aboutPrompt.value = false
+    }
 
     /** 退房会清掉保存的会话，一次误点就回不去原来那间房了，所以先问一句。 */
     fun requestLeaveRoom() {
