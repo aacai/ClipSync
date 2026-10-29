@@ -559,7 +559,7 @@ class AppModel internal constructor(
         if (!recordingFinished(bytes)) {
             _failure.value =
                     if (error.isNullOrBlank()) Feedback.RecordingTruncated
-                    else Feedback.RecordingFailed("$error，文件不完整，已丢弃")
+                    else Feedback.RecordingFailed(error)
             return
         }
         runCatching { platform.clipboard.writeFiles(listOf(path)) }

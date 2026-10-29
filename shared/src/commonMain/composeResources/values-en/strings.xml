@@ -372,13 +372,7 @@
     <string name="setting_version">Version</string>
     <string name="setting_about">About</string>
     <string name="setting_about_hint">Project info</string>
-    <string name="about_title">About ClipSync</string>
-    <string name="about_device_id">Device ID</string>
-    <string name="about_room">Room</string>
-    <string name="about_room_none">Not sharing</string>
-    <string name="about_hosting">File hosting</string>
-    <string name="about_hosting_value">uguu.se, falling back to x0.at</string>
-    <string name="about_note">The room code and the password derive the key on this device; hosts only ever see ciphertext.</string>
+    <string name="about_copyright">© 2026 zhiqiu</string>
     <string name="setting_update">Check for updates</string>
     <string name="update_hint">The installer lands in your system Downloads folder; restart once it is installed</string>
     <string name="update_idle">Not checked yet</string>

@@ -58,6 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.app.cs.core.ClipSyncEngine
@@ -894,35 +895,32 @@ private const val REPO_URL = "https://github.com/aacai/ClipSync"
 
 @Composable
 internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
-    val room by model.joinedRoom.collectAsState()
-    val localCount by model.localCount.collectAsState()
     val uriHandler = LocalUriHandler.current
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.about_title), fontSize = 17.sp) },
+            confirmButton = {},
             text = {
-                Column(
-                        modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(9.dp),
-                ) {
-                    AboutRow(Res.string.setting_version, model.appVersion)
-                    AboutRow(Res.string.setting_os, model.deviceOs)
-                    AboutRow(Res.string.about_device_id, model.deviceId, monospace = true)
-                    AboutRow(
-                            Res.string.local_history,
-                            pluralStringResource(Res.plurals.setting_item_count, localCount, localCount),
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(
+                            painter = painterResource(Res.drawable.app_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
                     )
-                    AboutRow(
-                            Res.string.about_room,
-                            room ?: stringResource(Res.string.about_room_none),
-                            monospace = room != null,
-                    )
-                    AboutRow(Res.string.about_hosting, stringResource(Res.string.about_hosting_value))
+                    Spacer(Modifier.height(13.dp))
+                    Text("ClipSync", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(3.dp))
                     Text(
-                            stringResource(Res.string.about_note),
-                            style = MaterialTheme.typography.bodySmall,
+                            "${stringResource(Res.string.setting_version)} ${model.appVersion}",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(18.dp))
+                    Text(
+                            stringResource(Res.string.about_copyright),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
                     Text(
                             REPO_URL.removePrefix("https://"),
                             style = MaterialTheme.typography.labelMedium,
@@ -931,34 +929,7 @@ internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
                     )
                 }
             },
-            confirmButton = {
-                Button(onClick = onDismiss, shape = MaterialTheme.shapes.small) {
-                    Text(stringResource(Res.string.safety_close), fontWeight = FontWeight.SemiBold)
-                }
-            },
     )
-}
-
-@Composable
-private fun AboutRow(title: StringResource, value: String, monospace: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-                stringResource(title),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                fontFamily = if (monospace) FontFamily.Monospace else null,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.widthIn(max = 200.dp),
-        )
-    }
 }
 
 @Composable
