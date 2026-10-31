@@ -563,9 +563,12 @@ class AppModel internal constructor(
                     else Feedback.RecordingFailed(error)
             return
         }
-        runCatching { platform.clipboard.writeFiles(listOf(path)) }
-            .onSuccess { rememberWrittenFiles(lastFilesSignature) }
         val name = path.substringAfterLast('/').ifBlank { "recording.mp4" }
+        val previous = lastFilesSignature
+        lastFilesSignature = "$name:${bytes.size}"
+        runCatching { platform.clipboard.writeFiles(listOf(path)) }
+            .onSuccess { rememberWrittenFiles() }
+            .onFailure { lastFilesSignature = previous }
         val hash = sha256Hex(bytes)
         var clipId: String? = null
         if (bytes.size.toLong() > FileLimits.MAX_FILE_BYTES) {
@@ -629,10 +632,14 @@ class AppModel internal constructor(
     fun shareRecordPreview() {
         val preview = _recordPreview.value ?: return
         scope.launch {
+            val file = repository.items.value.firstOrNull { it.file?.localPath == preview.path }?.file
+            val previous = lastFilesSignature
+            if (file != null) lastFilesSignature = fileSignature(file)
             val copied = runCatching {
                 platform.clipboard.writeFiles(listOf(preview.path))
-                rememberWrittenFiles(lastFilesSignature)
+                rememberWrittenFiles()
             }.isSuccess
+            if (!copied) lastFilesSignature = previous
             _info.value = if (copied) Feedback.RecordingCopied else Feedback.RecordingCopyFailed
         }
     }
@@ -935,7 +942,7 @@ class AppModel internal constructor(
         when {
             item.kind == ClipRepository.KIND_TEXT -> copyToClipboard(item.text)
             file != null && file.localPath != null && platform.clipboard.canWriteFiles ->
-                copyFiles(listOf(file.localPath))
+                copyFiles(listOf(file.localPath), fileSignature(file))
             file != null && platform.clipboard.canWriteImage -> copyImage(file)
             else -> Unit
         }
@@ -951,31 +958,37 @@ class AppModel internal constructor(
         }
     }
 
-    private fun copyFiles(paths: List<String>) {
+    private fun copyFiles(paths: List<String>, signature: String) {
         scope.launch {
             val previous = lastFilesSignature
+            lastFilesSignature = signature
             runCatching { platform.clipboard.writeFiles(paths) }
                 .onSuccess {
-                    rememberWrittenFiles(previous)
+                    rememberWrittenFiles()
                     _info.value = Feedback.Copied(CopyTarget.File)
                 }
-                .onFailure { _failure.value = writeBlocked(it) }
+                .onFailure {
+                    lastFilesSignature = previous
+                    _failure.value = writeBlocked(it)
+                }
         }
     }
 
-    private suspend fun rememberWrittenFiles(previous: String?) {
-        if (!platform.clipboard.canReadFiles) return
-        val sources = runCatching { platform.clipboard.readFiles() }.getOrDefault(emptyList())
-        if (sources.isNotEmpty()) {
-            lastFilesSignature = fileSignature(sources)
-            return
+    private suspend fun rememberWrittenFiles() {
+        if (platform.clipboard.canReadFiles) {
+            val sources = runCatching { platform.clipboard.readFiles() }.getOrDefault(emptyList())
+            if (sources.isNotEmpty()) {
+                lastFilesSignature = fileSignature(sources)
+                return
+            }
         }
-        lastFilesSignature = previous
         if (platform.clipboard.canReadImages) {
             val hash = runCatching { platform.clipboard.readImage()?.bytes?.let { sha256Hex(it) } }.getOrNull()
             if (hash != null) lastOwnImageWrite = hash
         }
     }
+
+    private fun fileSignature(file: FileClip): String = "${file.name}:${file.size}"
 
     /** 屋里发来的文件下完就替用户放进剪贴板，回窗口 Cmd/Ctrl+V 直接粘走。 */
     internal fun onIncomingFile(file: FileClip) {
@@ -984,7 +997,7 @@ class AppModel internal constructor(
             _info.value = Feedback.Downloaded(file.name)
             return
         }
-        copyFiles(listOf(path))
+        copyFiles(listOf(path), fileSignature(file))
     }
 
     private fun copyImage(file: FileClip) {
@@ -1001,7 +1014,10 @@ class AppModel internal constructor(
             lastOwnImageWrite = runCatching { sha256Hex(bytes) }.getOrNull()
             runCatching { platform.clipboard.writeImage(bytes, file.mime) }
                 .onSuccess { _info.value = Feedback.Copied(CopyTarget.Image) }
-                .onFailure { _failure.value = writeBlocked(it) }
+                .onFailure {
+                    lastOwnImageWrite = null
+                    _failure.value = writeBlocked(it)
+                }
         }
     }
 

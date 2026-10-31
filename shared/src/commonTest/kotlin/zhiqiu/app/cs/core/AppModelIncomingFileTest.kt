@@ -74,6 +74,36 @@ class AppModelIncomingFileTest {
     }
 
     @Test
+    fun `a file is not re-announced when the write cannot be read back right away`() = runTest {
+        val clipboard = FakeFileClipboard(readBackWorks = false)
+        val harness = Harness(clipboard, backgroundScope)
+        runCurrent()
+
+        harness.model.onIncomingFile(cachedFile("/cache/clip1/report.pdf"))
+        runCurrent()
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertTrue(harness.model.items.value.isEmpty(), "写入读不回来，也不能把自家写进去的文件再发一遍")
+    }
+
+    @Test
+    fun `a file copied by the user after our write is still captured`() = runTest {
+        val clipboard = FakeFileClipboard(readBackWorks = false)
+        val harness = Harness(clipboard, backgroundScope)
+        runCurrent()
+
+        harness.model.onIncomingFile(cachedFile("/cache/clip1/report.pdf"))
+        runCurrent()
+        clipboard.copyExternally("notes.txt")
+        advanceTimeBy(1_000)
+        runCurrent()
+
+        assertEquals(1, harness.model.items.value.size)
+        assertEquals("notes.txt", harness.model.items.value.single().text)
+    }
+
+    @Test
     fun `a platform that cannot hold files writes nothing`() = runTest {
         val clipboard = FakeFileClipboard(writable = false)
         val harness = Harness(clipboard, backgroundScope)
@@ -119,21 +149,37 @@ class AppModelIncomingFileTest {
                 )
     }
 
-    private class FakeFileClipboard(private val writable: Boolean = true) : PlatformClipboard {
+    private class FakeFileClipboard(
+            private val writable: Boolean = true,
+            private val readBackWorks: Boolean = true,
+    ) : PlatformClipboard {
         val written = mutableListOf<List<String>>()
+        private var current: List<PickedSource> = emptyList()
+        private var skipRead = false
 
         override val canWriteFiles: Boolean get() = writable
         override val canReadFiles: Boolean get() = true
         override fun pollIntervalMs(): Long = CLIPBOARD_POLL_MS
         override suspend fun read(): String? = null
-        override suspend fun readFiles(): List<PickedSource> =
-                written.lastOrNull().orEmpty().map { path ->
-                    val name = path.substringAfterLast('/')
-                    PickedSource(name, "application/pdf", 4L) { ByteArray(4) }
-                }
+        override suspend fun readFiles(): List<PickedSource> {
+            if (skipRead) {
+                skipRead = false
+                return emptyList()
+            }
+            return current
+        }
         override suspend fun write(text: String) = Unit
         override suspend fun writeFiles(paths: List<String>) {
             written += paths
+            current = paths.map { path ->
+                val name = path.substringAfterLast('/')
+                PickedSource(name, "application/pdf", 4L) { ByteArray(4) }
+            }
+            if (!readBackWorks) skipRead = true
+        }
+
+        fun copyExternally(name: String) {
+            current = listOf(PickedSource(name, "application/pdf", 2L) { ByteArray(2) })
         }
     }
 
