@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -72,6 +73,10 @@ private val NUMBER_WIDTH = 24.dp
 
 /** 正文整段显示，行高跟着内容走；只给超长内容留个兜底上限。 */
 private const val MAX_BODY_LINES = 24
+
+private val IMAGE_PREVIEW_HEIGHT = 140.dp
+private val IMAGE_PREVIEW_MAX_WIDTH = 220.dp
+private const val IMAGE_PREVIEW_MAX_SIDE = 512
 
 @Composable
 internal fun ClipRow(
@@ -175,7 +180,7 @@ internal fun ClipRow(
             }
 
             val thumbPath = file?.localPath?.takeIf { isImage(file.mime) }
-            val thumb = rememberImageBitmap(thumbPath, THUMB_MAX_SIDE) { model.cachedBytes(item) }
+            val thumb = rememberImageBitmap(thumbPath, IMAGE_PREVIEW_MAX_SIDE) { model.cachedBytes(item) }
             Box(
                     modifier = Modifier.width(if (compact) 20.dp else NUMBER_WIDTH),
                     contentAlignment = if (compact) Alignment.CenterStart else Alignment.CenterEnd,
@@ -188,61 +193,100 @@ internal fun ClipRow(
                         color = badge,
                 )
             }
-            if (thumb != null) {
-                Spacer(Modifier.width(10.dp))
-                Box(
-                        modifier =
-                                Modifier.size(32.dp)
-                                        .clip(MaterialTheme.shapes.extraSmall)
-                                        .clickable(onClick = onZoom),
-                ) {
-                    Image(
-                            bitmap = thumb,
-                            contentDescription = stringResource(Res.string.cd_zoom_image),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
+            val meta =
+                    buildList {
+                        add(relTime(item.ts, now))
+                        add(stringResource(Res.string.from_sender, item.senderName))
+                        if (isFile && file != null) {
+                            add(humanSize(file.size))
+                            add(
+                                    if (cached) {
+                                        stringResource(Res.string.cached)
+                                    } else {
+                                        stringResource(Res.string.not_downloaded)
+                                    },
+                            )
+                            val left = file.expiresAt - now
+                            if (left > 0) add(stringResource(Res.string.expires_in, humanLeft(left)))
+                        }
+                        if (item.pinned) add(stringResource(Res.string.pinned))
+                        if (item.note.isNotBlank()) add(stringResource(Res.string.note_flag))
+                        if (item.order != 0L && item.order != item.ts) add(stringResource(Res.string.moved))
+                    }
+                            .joinToString(" · ")
+            if (isFile && file != null && isImage(file.mime)) {
+                BoxWithConstraints(modifier = Modifier.weight(1f)) {
+                    val previewWidth =
+                            (maxWidth - 140.dp)
+                                    .coerceIn(96.dp, if (compact) 160.dp else IMAGE_PREVIEW_MAX_WIDTH)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                                modifier =
+                                        Modifier.width(previewWidth)
+                                                .height(IMAGE_PREVIEW_HEIGHT)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .then(
+                                                        if (thumb != null) {
+                                                            Modifier.clickable(onClick = onZoom)
+                                                        } else {
+                                                            Modifier
+                                                        }
+                                                ),
+                                contentAlignment = Alignment.Center,
+                        ) {
+                            if (thumb != null) {
+                                Image(
+                                        bitmap = thumb,
+                                        contentDescription = stringResource(Res.string.cd_zoom_image),
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Box(
+                                        modifier =
+                                                Modifier.fillMaxSize()
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                )
+                                Icon(
+                                        AppIcons.Attach,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(26.dp),
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Text(
+                                meta,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(
+                            text =
+                                    when {
+                                        isFile && file != null -> displayTitle(file)
+                                        else -> item.text.ifBlank { stringResource(Res.string.empty_text) }
+                                    },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (cursor) FontWeight.Medium else FontWeight.Normal,
+                            maxLines = MAX_BODY_LINES,
+                            overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                            meta,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                     )
                 }
-            }
-
-            Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(
-                        text =
-                                when {
-                                    isFile && file != null -> displayTitle(file)
-                                    else -> item.text.ifBlank { stringResource(Res.string.empty_text) }
-                                },
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (cursor) FontWeight.Medium else FontWeight.Normal,
-                        maxLines = MAX_BODY_LINES,
-                        overflow = TextOverflow.Ellipsis,
-                )
-                val meta = buildList {
-                    add(relTime(item.ts, now))
-                    add(stringResource(Res.string.from_sender, item.senderName))
-                    if (isFile && file != null) {
-                        add(humanSize(file.size))
-                        add(
-                                if (cached) {
-                                    stringResource(Res.string.cached)
-                                } else {
-                                    stringResource(Res.string.not_downloaded)
-                                },
-                        )
-                        val left = file.expiresAt - now
-                        if (left > 0) add(stringResource(Res.string.expires_in, humanLeft(left)))
-                    }
-                    if (item.pinned) add(stringResource(Res.string.pinned))
-                    if (item.note.isNotBlank()) add(stringResource(Res.string.note_flag))
-                    if (item.order != 0L && item.order != item.ts) add(stringResource(Res.string.moved))
-                }
-                Text(
-                        meta.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                )
             }
 
             val fadeSupported = model.hoverRevealsActions
