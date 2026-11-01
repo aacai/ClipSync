@@ -137,7 +137,6 @@ internal fun MainView(
     var safetyNumber by remember { mutableStateOf<String?>(null) }
     var devicesOpen by remember { mutableStateOf(false) }
     var shareOpen by remember { mutableStateOf(false) }
-    var helpOpen by remember { mutableStateOf(false) }
     var sendFileOpen by remember { mutableStateOf(false) }
     var sharePrompted by rememberSaveable { mutableStateOf(false) }
     var dropHovering by remember { mutableStateOf(false) }
@@ -159,7 +158,6 @@ internal fun MainView(
                     safetyNumber == null &&
                     !devicesOpen &&
                     !shareOpen &&
-                    !helpOpen &&
                     !sendFileOpen
 
     LaunchedEffect(Unit) {
@@ -344,7 +342,7 @@ internal fun MainView(
                     handleChord(event.key, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed)
 
     fun hasOverlay() =
-            composingNew || confirmClear || safetyNumber != null || devicesOpen || shareOpen || helpOpen ||
+            composingNew || confirmClear || safetyNumber != null || devicesOpen || shareOpen ||
                     sendFileOpen ||
                     editing != null || noting != null || transforming != null || translating != null ||
                     inspecting != null || zooming != null || moving != null
@@ -354,7 +352,6 @@ internal fun MainView(
             devicesOpen -> devicesOpen = false
             safetyNumber != null -> safetyNumber = null
             shareOpen -> shareOpen = false
-            helpOpen -> helpOpen = false
             sendFileOpen -> sendFileOpen = false
             confirmClear -> confirmClear = false
             zooming != null -> zooming = null
@@ -499,7 +496,6 @@ internal fun MainView(
                                 onSettings = onOpenSettings,
                                 onSafety = { safetyNumber = it },
                                 onDevices = { devicesOpen = true },
-                                onHelp = { helpOpen = true },
                                 onCopyRoom = { roomCode?.let(model::copyToClipboard) },
                         )
                         Toolbar(
@@ -664,9 +660,6 @@ internal fun MainView(
     if (shareOpen) {
         ShareDialog(model, onDismiss = { shareOpen = false })
     }
-    if (helpOpen) {
-        HelpDialog(onDismiss = { helpOpen = false })
-    }
     if (devicesOpen) {
         DevicesDialog(devices = inRoom, onDismiss = { devicesOpen = false })
     }
@@ -775,7 +768,6 @@ private fun Header(
         onSettings: () -> Unit,
         onSafety: (String) -> Unit,
         onDevices: () -> Unit,
-        onHelp: () -> Unit,
         onCopyRoom: () -> Unit,
 ) {
     val dark = isAppDarkTheme()
@@ -929,7 +921,6 @@ private fun Header(
         if (roomCode == null) {
             RowAction(AppIcons.Key, stringResource(Res.string.cd_share), onClick = onShare)
         }
-        RowAction(AppIcons.Help, stringResource(Res.string.cd_help), onClick = onHelp)
         RowAction(AppIcons.Settings, stringResource(Res.string.cd_settings), onClick = onSettings)
         if (roomCode != null) {
             RowAction(AppIcons.Logout, stringResource(Res.string.cd_leave), onClick = onLeave)
@@ -1245,7 +1236,11 @@ private fun EmptyState(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                        stringResource(Res.string.empty_state_hint),
+                        if (query.isBlank()) {
+                            stringResource(Res.string.empty_state_hint)
+                        } else {
+                            stringResource(Res.string.empty_no_match_hint)
+                        },
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
