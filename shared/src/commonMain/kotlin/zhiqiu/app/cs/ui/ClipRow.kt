@@ -18,7 +18,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -54,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.StringResource
@@ -215,56 +215,63 @@ internal fun ClipRow(
                     }
                             .joinToString(" · ")
             if (isFile && file != null && isImage(file.mime)) {
-                BoxWithConstraints(modifier = Modifier.weight(1f)) {
-                    val previewWidth =
-                            (maxWidth - 140.dp)
-                                    .coerceIn(96.dp, if (compact) 160.dp else IMAGE_PREVIEW_MAX_WIDTH)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                                modifier =
-                                        Modifier.width(previewWidth)
-                                                .height(IMAGE_PREVIEW_HEIGHT)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .then(
-                                                        if (thumb != null) {
-                                                            Modifier.clickable(onClick = onZoom)
-                                                        } else {
-                                                            Modifier
-                                                        }
-                                                ),
-                                contentAlignment = Alignment.Center,
-                        ) {
-                            if (thumb != null) {
-                                Image(
-                                        bitmap = thumb,
-                                        contentDescription = stringResource(Res.string.cd_zoom_image),
-                                        contentScale = ContentScale.Fit,
-                                        modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxSize()
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                )
-                                Icon(
-                                        AppIcons.Attach,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(26.dp),
-                                )
-                            }
+                val previewMaxWidth = if (compact) 160.dp else IMAGE_PREVIEW_MAX_WIDTH
+                val previewSize =
+                        if (thumb == null) {
+                            DpSize(previewMaxWidth, IMAGE_PREVIEW_HEIGHT)
+                        } else {
+                            val scale =
+                                    (previewMaxWidth / thumb.width.dp)
+                                            .coerceAtMost(IMAGE_PREVIEW_HEIGHT / thumb.height.dp)
+                            DpSize(thumb.width.dp * scale, thumb.height.dp * scale)
                         }
-                        Spacer(Modifier.width(14.dp))
-                        Text(
-                                meta,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                        )
+                Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                            modifier =
+                                    Modifier.size(previewSize)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .then(
+                                                    if (thumb != null) {
+                                                        Modifier.clickable(onClick = onZoom)
+                                                    } else {
+                                                        Modifier
+                                                    }
+                                            ),
+                            contentAlignment = Alignment.Center,
+                    ) {
+                        if (thumb != null) {
+                            Image(
+                                    bitmap = thumb,
+                                    contentDescription = stringResource(Res.string.cd_zoom_image),
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Box(
+                                    modifier =
+                                            Modifier.fillMaxSize()
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            )
+                            Icon(
+                                    AppIcons.Attach,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(26.dp),
+                            )
+                        }
                     }
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                            meta,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                    )
                 }
             } else {
                 Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
