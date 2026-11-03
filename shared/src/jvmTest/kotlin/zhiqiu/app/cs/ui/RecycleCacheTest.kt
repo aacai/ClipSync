@@ -7,7 +7,8 @@ import kotlin.test.assertTrue
 
 class RecycleCacheTest {
 
-    private fun cache() = RecycleCache<String>(8)
+    private fun cache(maxBytes: Long = Long.MAX_VALUE) =
+        RecycleCache<String>(8, maxBytes) { it.length.toLong() }
 
     @Test
     fun `entries still on screen outlive the scrap window`() {
@@ -65,5 +66,23 @@ class RecycleCacheTest {
         assertNull(cache.peek(key), "离屏够久的该丢掉")
         cache.put(key, key)
         assertNotNull(cache.peek(key), "滚回来重新解出来还能用")
+    }
+
+    @Test
+    fun `the byte budget evicts off-screen entries past the retain window`() {
+        val cache = cache(maxBytes = 30)
+        val onScreen = "on-screen"
+        cache.acquire(onScreen)
+        cache.put(onScreen, "x".repeat(24))
+        listOf("first", "second", "third").forEach { key ->
+            cache.acquire(key)
+            cache.put(key, "y".repeat(4))
+            cache.release(key)
+        }
+        assertNotNull(cache.peek(onScreen), "在屏的再大也不动")
+        assertNull(cache.peek("first"), "超预算先丢最早离屏的")
+        assertNull(cache.peek("second"))
+        assertNotNull(cache.peek("third"))
+        assertTrue(cache.cachedBytes <= 30, "总量该压回预算，实际 ${cache.cachedBytes}")
     }
 }

@@ -15,8 +15,6 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.readAvailable
-import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -134,23 +132,33 @@ class FileTransferClient(
         }
 
         val total = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
-        var received = 0L
-        val buffer = Buffer()
         val channel = response.bodyAsChannel()
-        val chunk = ByteArray(64 * 1024)
+        var data =
+                ByteArray(
+                        if (total in 1..FileLimits.MAX_FILE_BYTES) total.toInt() else DOWNLOAD_CHUNK,
+                )
+        val chunk = ByteArray(DOWNLOAD_CHUNK)
+        var received = 0
         while (true) {
             val read = channel.readAvailable(chunk)
             if (read <= 0) break
-            buffer.write(chunk, 0, read)
+            if (received + read > data.size) {
+                data =
+                        data.copyOf(
+                                (data.size * 2).coerceAtLeast(received + read + DOWNLOAD_CHUNK),
+                        )
+            }
+            chunk.copyInto(data, received, 0, read)
             received += read
-            onProgress(received, total)
+            onProgress(received.toLong(), total)
         }
-        return buffer.readByteArray()
+        return if (received == data.size) data else data.copyOf(received)
     }
 
     companion object {
         const val X0_AT_UPLOAD_URL = "https://x0.at/"
         const val UUGU_UPLOAD_URL = "https://uguu.se/upload.php"
+        const val DOWNLOAD_CHUNK = 64 * 1024
 
         // x0.at 只承诺 3 天起步，按最短的那头算，别给 UI 一个兑现不了的剩余时间
         const val X0_AT_TTL_MS = 72L * 3_600_000L

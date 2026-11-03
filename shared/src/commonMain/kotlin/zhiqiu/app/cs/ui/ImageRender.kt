@@ -18,17 +18,25 @@ internal const val THUMB_MAX_SIDE = 256
 internal const val ZOOM_MAX_SIDE = 2048
 
 private const val OFFSCREEN_RETAIN = 8
+private const val CACHE_BYTES = 32L * 1024 * 1024
 
 /**
- * 按「谁还在用」回收的缓存：引用掉零才算离屏，离屏的也只留最近 offscreenRetain 份当回收池，
- * 免得来回滚反复重解。全部读写都发生在 UI 线程，所以不需要加锁。
+ * 按「谁还在用」回收的位图缓存：引用掉零才算离屏，离屏的只留最近 offscreenRetain 份、
+ * 且总量不超过 maxBytes 当回收池，免得来回滚反复重解。全部读写都发生在 UI 线程，所以不需要加锁。
  */
-internal class RecycleCache<V : Any>(private val offscreenRetain: Int) {
+internal class RecycleCache<V : Any>(
+    private val offscreenRetain: Int,
+    private val maxBytes: Long,
+    private val weightOf: (V) -> Long,
+) {
 
     private val entries = LinkedHashMap<String, V>()
     private val held = HashMap<String, Int>()
     private val used = HashMap<String, Long>()
+    private var bytes = 0L
     private var tick = 0L
+
+    val cachedBytes: Long get() = bytes
 
     fun acquire(key: String) {
         held[key] = (held[key] ?: 0) + 1
@@ -48,7 +56,9 @@ internal class RecycleCache<V : Any>(private val offscreenRetain: Int) {
     fun peek(key: String): V? = entries[key]?.also { touch(key) }
 
     fun put(key: String, value: V) {
+        entries.remove(key)?.let { bytes -= weightOf(it) }
         entries[key] = value
+        bytes += weightOf(value)
         touch(key)
         trim()
     }
@@ -59,18 +69,18 @@ internal class RecycleCache<V : Any>(private val offscreenRetain: Int) {
     }
 
     private fun trim() {
-        val free = entries.keys.filter { (held[it] ?: 0) == 0 }
-        if (free.size <= offscreenRetain) return
-        free.sortedBy { used[it] ?: 0L }
-                .take(free.size - offscreenRetain)
-                .forEach {
-                    entries.remove(it)
-                    used.remove(it)
-                }
+        val free = entries.keys.filter { (held[it] ?: 0) == 0 }.sortedBy { used[it] ?: 0L }
+        var index = 0
+        while (free.size - index > offscreenRetain || bytes > maxBytes) {
+            val victim = free.getOrNull(index++) ?: return
+            bytes -= weightOf(entries.remove(victim)!!)
+            used.remove(victim)
+        }
     }
 }
 
-private val thumbCache = RecycleCache<ImageBitmap>(OFFSCREEN_RETAIN)
+private val thumbCache: RecycleCache<ImageBitmap> =
+    RecycleCache(OFFSCREEN_RETAIN, CACHE_BYTES) { it.width.toLong() * it.height * 4 }
 
 @Composable
 internal fun rememberImageBitmap(

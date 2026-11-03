@@ -127,7 +127,6 @@ kotlin {
             implementation(libs.mqtt.client.transport.tcp)
             implementation(libs.ktor.client.cio)
             implementation(libs.compose.uiToolingPreview)
-            implementation(libs.compose.uiTooling)
             implementation(libs.androidx.activity.compose)
         }
         iosMain.dependencies {
@@ -146,7 +145,3 @@ kotlin {
 }
 
 kotlin.sourceSets.getByName("commonMain").kotlin.srcDir(writeAppVersion)
-
-dependencies {
-    androidRuntimeClasspath(libs.compose.uiTooling)
-}
