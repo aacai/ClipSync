@@ -552,7 +552,21 @@ internal fun DetailDialog(
                 }
             },
             confirmButton = {
-                TextButton(onClick = onCopy) { Text(stringResource(Res.string.cd_copy_text)) }
+                val copyAsFile = file != null && file.localPath != null && model.supportsClipboardFiles
+                val copyAsImage = file != null && isImage(file.mime) && model.supportsClipboardImage
+                if (!isFile || copyAsImage || copyAsFile) {
+                    TextButton(onClick = onCopy) {
+                        Text(
+                                stringResource(
+                                        when {
+                                            copyAsImage -> Res.string.cd_copy_image
+                                            copyAsFile -> Res.string.cd_copy_file
+                                            else -> Res.string.cd_copy_text
+                                        }
+                                )
+                        )
+                    }
+                }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
     )

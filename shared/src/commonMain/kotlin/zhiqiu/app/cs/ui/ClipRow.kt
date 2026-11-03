@@ -355,16 +355,18 @@ internal fun ClipRow(
                                     model.sendText(item.text)
                                 }
                             }
-                            MenuAction(
-                                    AppIcons.Copy,
-                                    when {
-                                        copyAsImage -> Res.string.cd_copy_image
-                                        copyAsFile -> Res.string.cd_copy_file
-                                        else -> Res.string.cd_copy_text
-                                    },
-                            ) {
-                                menu = false
-                                model.copy(item)
+                            if (!isFile || copyAsImage || copyAsFile) {
+                                MenuAction(
+                                        AppIcons.Copy,
+                                        when {
+                                            copyAsImage -> Res.string.cd_copy_image
+                                            copyAsFile -> Res.string.cd_copy_file
+                                            else -> Res.string.cd_copy_text
+                                        },
+                                ) {
+                                    menu = false
+                                    model.copy(item)
+                                }
                             }
                             MenuAction(AppIcons.Pin, if (item.pinned) Res.string.cd_unpin else Res.string.cd_pin) {
                                 menu = false
@@ -383,21 +385,25 @@ internal fun ClipRow(
                             }
                             MenuDivider()
                         }
-                        MenuAction(AppIcons.Edit, Res.string.act_edit, enabled = !isFile) {
-                            menu = false
-                            onEdit()
+                        if (item.isText) {
+                            MenuAction(AppIcons.Edit, Res.string.act_edit) {
+                                menu = false
+                                onEdit()
+                            }
                         }
                         MenuAction(AppIcons.Note, Res.string.act_note) {
                             menu = false
                             onNote()
                         }
-                        MenuAction(AppIcons.Transform, Res.string.act_transform, enabled = !isFile) {
-                            menu = false
-                            onTransform()
-                        }
-                        MenuAction(AppIcons.Translate, Res.string.act_translate, enabled = !isFile) {
-                            menu = false
-                            onTranslate()
+                        if (item.isText) {
+                            MenuAction(AppIcons.Transform, Res.string.act_transform) {
+                                menu = false
+                                onTransform()
+                            }
+                            MenuAction(AppIcons.Translate, Res.string.act_translate) {
+                                menu = false
+                                onTranslate()
+                            }
                         }
                         MenuAction(AppIcons.Duplicate, Res.string.act_duplicate) {
                             menu = false

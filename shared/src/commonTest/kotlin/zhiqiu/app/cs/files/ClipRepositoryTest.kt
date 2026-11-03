@@ -50,12 +50,13 @@ class ClipRepositoryTest {
         localPath: String? = null,
         link: String = "http://x/$id",
         sha256: String = id,
+        mime: String = "image/png",
     ) =
         ClipItem(
             id = id, kind = ClipRepository.KIND_FILE, ts = ts,
             senderId = "dev", senderName = "Pixel", text = name,
             file = FileClip(
-                id = id, name = name, mime = "image/png", size = 5, sha256 = sha256,
+                id = id, name = name, mime = mime, size = 5, sha256 = sha256,
                 link = link, expiresAt = 99, ts = ts,
                 senderId = "dev", senderName = "Pixel",
                 cached = cached, localPath = localPath,
@@ -446,5 +447,12 @@ class ClipRepositoryTest {
         repo.add(text("old", ts = 1))
         assertEquals(1, repo.removeExpired(before = 50))
         assertNull(repo.undo())
+    }
+
+    @Test
+    fun only_text_items_are_offered_text_actions() {
+        assertTrue(text("t", 1).isText)
+        assertFalse(file("image", 2, "a.png", cached = true, localPath = "/cache/image/a.png").isText)
+        assertFalse(file("doc", 3, "a.zip", mime = "application/zip").isText)
     }
 }
