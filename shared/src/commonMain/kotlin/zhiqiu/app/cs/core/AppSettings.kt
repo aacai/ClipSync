@@ -47,6 +47,25 @@ class AppSettings(
         applyAppLanguage(language)
     }
 
+    private val _backgroundPath = MutableStateFlow(store.getString(KEY_BACKGROUND_PATH, ""))
+    val backgroundPath: StateFlow<String> = _backgroundPath.asStateFlow()
+
+    fun setBackgroundPath(path: String) {
+        val value = path.trim()
+        _backgroundPath.value = value
+        if (value.isEmpty()) store.remove(KEY_BACKGROUND_PATH) else store.putString(KEY_BACKGROUND_PATH, value)
+    }
+
+    private val _backgroundDim =
+        MutableStateFlow(dimOf(store.getFloat(KEY_BACKGROUND_DIM, DEFAULT_BACKGROUND_DIM)))
+    val backgroundDim: StateFlow<Float> = _backgroundDim.asStateFlow()
+
+    fun setBackgroundDim(value: Float) {
+        val dim = dimOf(value)
+        _backgroundDim.value = dim
+        store.putFloat(KEY_BACKGROUND_DIM, dim)
+    }
+
     private val _rememberRoom = MutableStateFlow(store.getBoolean(KEY_REMEMBER_ROOM, true))
     val rememberRoom: StateFlow<Boolean> = _rememberRoom.asStateFlow()
 
@@ -277,6 +296,10 @@ class AppSettings(
 
         private const val KEY_THEME = "ui.themeMode"
         private const val KEY_LANGUAGE = "ui.language"
+        private const val KEY_BACKGROUND_PATH = "ui.background.path"
+        private const val KEY_BACKGROUND_DIM = "ui.background.dim"
+        const val DEFAULT_BACKGROUND_DIM = 0.45f
+        const val MAX_BACKGROUND_DIM = 0.9f
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
@@ -311,6 +334,9 @@ class AppSettings(
 
         private fun themeOf(name: String?): ThemeMode =
             ThemeMode.entries.firstOrNull { it.name == name } ?: ThemeMode.System
+
+        private fun dimOf(raw: Float): Float =
+            if (raw.isNaN()) DEFAULT_BACKGROUND_DIM else raw.coerceIn(0f, MAX_BACKGROUND_DIM)
 
         private fun languageOf(name: String?): AppLanguage =
             AppLanguage.entries.firstOrNull { it.name == name } ?: AppLanguage.System

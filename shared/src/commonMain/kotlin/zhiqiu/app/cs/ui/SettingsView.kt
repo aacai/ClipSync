@@ -27,6 +27,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,6 +93,8 @@ internal fun SettingsView(
     val status by model.status.collectAsState()
     val localCount by model.localCount.collectAsState()
     val themeMode by settings.themeMode.collectAsState()
+    val backgroundPath by model.backgroundPath.collectAsState()
+    val backgroundDim by model.backgroundDim.collectAsState()
     val language by settings.language.collectAsState()
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
@@ -167,6 +171,7 @@ internal fun SettingsView(
     }
 
     AppBackground(
+            model = model,
             modifier =
                     Modifier.fillMaxSize()
                             .focusRequester(rootFocus)
@@ -224,6 +229,26 @@ internal fun SettingsView(
                                         if (languageSupport == AppLanguageSupport.AfterRestart) {
                                             GroupFootnote(Res.string.language_restart_hint)
                                         }
+                                    }
+                                }
+                                if (model.supportsBackground) {
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_background,
+                                            value =
+                                                    stringResource(
+                                                            if (backgroundPath.isBlank()) Res.string.background_none
+                                                            else Res.string.background_picked
+                                                    ),
+                                            onClick = model::pickBackground,
+                                    )
+                                    if (backgroundPath.isNotBlank()) {
+                                        RowDivider()
+                                        BackgroundDimRow(
+                                                dim = backgroundDim,
+                                                onValueChange = model::setBackgroundDim,
+                                                onClear = model::clearBackground,
+                                        )
                                     }
                                 }
                             }
@@ -784,6 +809,34 @@ private fun NavRow(
         )
         Spacer(Modifier.width(2.dp))
         Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun BackgroundDimRow(
+        dim: Float,
+        onValueChange: (Float) -> Unit,
+        onClear: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(Res.string.background_dim), style = MaterialTheme.typography.bodyLarge)
+        Slider(
+                value = dim,
+                onValueChange = onValueChange,
+                valueRange = 0f..AppSettings.MAX_BACKGROUND_DIM,
+                colors =
+                        SliderDefaults.colors(
+                                thumbColor = scheme.primary,
+                                activeTrackColor = scheme.primary,
+                                inactiveTrackColor = scheme.surfaceVariant,
+                        ),
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+        )
+        TextButton(onClick = onClear) { Text(stringResource(Res.string.background_clear)) }
     }
 }
 

@@ -1,5 +1,6 @@
 package zhiqiu.app.cs.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -30,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
@@ -44,9 +48,21 @@ import com.kashif_e.backdrop.effects.blur
 
 val LocalBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
+private const val BACKGROUND_MAX_SIDE = 1024
+
 @Composable
-fun AppBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
+fun AppBackground(
+    model: AppModel,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
     val backdrop = rememberLayerBackdrop()
+    val path by model.backgroundPath.collectAsState()
+    val dim by model.backgroundDim.collectAsState()
+    val image =
+        rememberImageBitmap(path.takeIf { it.isNotBlank() }, BACKGROUND_MAX_SIDE) {
+            model.backgroundBytes()
+        }
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier
@@ -54,13 +70,21 @@ fun AppBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.(
                 .layerBackdrop(backdrop)
                 .background(Palette.Background)
         ) {
-            BackdropBlob(Color(0xFF2563EB), 360.dp, (-100).dp, (-80).dp)
-            BackdropBlob(Color(0xFF7C3AED), 320.dp, 220.dp, 20.dp)
-            BackdropBlob(Color(0xFF0EA5E9), 280.dp, 20.dp, 520.dp)
+            if (image != null) {
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim)))
+            } else {
+                BackdropBlob(Color(0xFF2563EB), 360.dp, (-100).dp, (-80).dp)
+                BackdropBlob(Color(0xFF7C3AED), 320.dp, 220.dp, 20.dp)
+                BackdropBlob(Color(0xFF0EA5E9), 280.dp, 20.dp, 520.dp)
+            }
         }
-        CompositionLocalProvider(LocalBackdrop provides backdrop        ) {
-            content()
-        }
+        CompositionLocalProvider(LocalBackdrop provides backdrop) { content() }
     }
 }
 

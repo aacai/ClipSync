@@ -134,6 +134,10 @@ class AppModel internal constructor(
 
     val screenshotHotkey: StateFlow<String> = settings.screenshotHotkey
 
+    val backgroundPath: StateFlow<String> = settings.backgroundPath
+    val backgroundDim: StateFlow<Float> = settings.backgroundDim
+    val supportsBackground: Boolean get() = platform.picker.isAvailable
+
     /** 能截屏并且本机装了录屏组件时才露出录屏设置。 */
     val supportsRecording: Boolean
         get() = supportsScreenshot && recordingAvailable
@@ -889,6 +893,47 @@ class AppModel internal constructor(
             if (sources.isEmpty()) return@pick
             ingestPickedSources(sources)
         }
+    }
+
+    fun setBackgroundDim(value: Float) = settings.setBackgroundDim(value)
+
+    fun pickBackground() {
+        if (!platform.picker.isAvailable) return
+        platform.picker.pick { sources ->
+            val image = sources.firstOrNull { isImage(it.mime) } ?: return@pick
+            scope.launch { saveBackground(image) }
+        }
+    }
+
+    fun clearBackground() {
+        val previous = settings.backgroundPath.value
+        settings.setBackgroundPath("")
+        if (previous.isNotBlank()) scope.launch { repository.removeCache(previous) }
+    }
+
+    private suspend fun saveBackground(source: PickedSource) {
+        val bytes = runCatching { withContext(Dispatchers.Default) { source.open() } }.getOrNull()
+        if (bytes == null || bytes.isEmpty()) {
+            _failure.value = Feedback.BackgroundRejected
+            return
+        }
+        val path =
+            runCatching { repository.writeCache(ClipRepository.BACKGROUND_ID, source.name, bytes) }
+                .getOrNull()
+        if (path.isNullOrBlank()) {
+            _failure.value = Feedback.BackgroundRejected
+            return
+        }
+        val previous = settings.backgroundPath.value
+        settings.setBackgroundPath(path)
+        if (previous.isNotBlank() && previous != path) repository.removeCache(previous)
+        _info.value = Feedback.BackgroundSaved
+    }
+
+    suspend fun backgroundBytes(): ByteArray? {
+        val path = settings.backgroundPath.value
+        if (path.isBlank()) return null
+        return runCatching { repository.readCache(path) }.getOrNull()
     }
 
     /**

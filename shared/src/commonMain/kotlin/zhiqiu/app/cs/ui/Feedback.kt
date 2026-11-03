@@ -59,6 +59,14 @@ sealed class Feedback {
         override val level get() = Level.Error
     }
 
+    data object BackgroundSaved : Feedback() {
+        override val level get() = Level.Info
+    }
+
+    data object BackgroundRejected : Feedback() {
+        override val level get() = Level.Error
+    }
+
     data class Deleted(val count: Int) : Feedback() {
         override val level get() = Level.Info
     }

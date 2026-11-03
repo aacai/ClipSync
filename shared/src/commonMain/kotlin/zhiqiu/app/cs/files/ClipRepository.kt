@@ -21,6 +21,8 @@ data class ClipItem(
     val note: String = "",
 ) {
     val rank: Long get() = if (order != 0L) order else ts
+
+    val isText: Boolean get() = kind != ClipRepository.KIND_FILE
 }
 
 /** 一条条目能落到的可视位置区间（都从 1 起，含两端）；置顶条目只在置顶区内移动。 */
@@ -237,6 +239,8 @@ class ClipRepository(
 
     suspend fun readCache(localPath: String): ByteArray? = store.readCache(localPath)
 
+    suspend fun removeCache(localPath: String) = store.deleteCache(localPath)
+
     fun search(
         query: String,
         regex: Boolean = false,
@@ -284,6 +288,7 @@ class ClipRepository(
         const val KIND_FILE = "file"
         const val DEFAULT_MAX_ITEMS = 500
         const val MAX_UNDO = 20
+        const val BACKGROUND_ID = "background"
 
         val ordering: Comparator<ClipItem> =
             compareByDescending<ClipItem> { it.pinned }.thenByDescending { it.rank }

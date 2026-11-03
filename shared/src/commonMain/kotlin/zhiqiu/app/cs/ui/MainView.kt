@@ -283,7 +283,7 @@ internal fun MainView(
             Key.Delete, Key.Backspace -> !searchFocused && deleteTargets()
             Key.F2 -> {
                 val item = cursorItem
-                if (!searchFocused && item != null && item.kind != ClipRepository.KIND_FILE) {
+                if (!searchFocused && item != null && item.isText) {
                     editing = item
                     true
                 } else {
@@ -389,6 +389,7 @@ internal fun MainView(
 
     CompositionLocalProvider(LocalWindowSize provides rememberWindowSize()) {
         AppBackground(
+                model = model,
                 modifier =
                         Modifier.fillMaxSize()
                                 .focusRequester(rootFocus)

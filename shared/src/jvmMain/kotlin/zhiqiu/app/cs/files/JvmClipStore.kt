@@ -41,7 +41,11 @@ class JvmClipStore(
 
     private fun evictIfNeeded(incoming: Long) {
         if (incoming > maxCacheBytes / 2) return
-        val files = cacheDir.listFiles()?.sortedBy { it.lastModified() } ?: return
+        val files =
+            cacheDir
+                .listFiles()
+                ?.filterNot { it.name.startsWith(BACKGROUND_PREFIX) }
+                ?.sortedBy { it.lastModified() } ?: return
         var total = files.sumOf { it.length() } + incoming
         for (f in files) {
             if (total <= maxCacheBytes) break
@@ -52,6 +56,7 @@ class JvmClipStore(
 
     companion object {
         const val DEFAULT_MAX_CACHE_BYTES = 512L * 1024 * 1024
+        private val BACKGROUND_PREFIX = "${ClipRepository.BACKGROUND_ID}-"
 
         fun default(): JvmClipStore {
             val home = File(System.getProperty("user.home"), ".clipsync")

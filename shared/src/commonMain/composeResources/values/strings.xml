@@ -180,6 +180,8 @@
     <string name="fb_connect_failed_generic">没连上房间，请检查网络后重试</string>
     <string name="fb_download_failed_generic">下载失败，请检查网络后重试</string>
     <string name="fb_browser_missing">这台机器上没有能接住链接的浏览器</string>
+    <string name="fb_background_saved">背景图已换好</string>
+    <string name="fb_background_rejected">那张图读不出来，换一张试试</string>
     <string name="fb_room_required">请输入房间码</string>
     <string name="fb_pinned">已置顶 %1$d 条</string>
     <string name="fb_unpinned">已取消置顶 %1$d 条</string>
@@ -324,6 +326,11 @@
     <string name="setting_screenshot_record_invalid">这个键做不了全局快捷键，再按一次别的组合键</string>
     <string name="setting_theme">主题</string>
     <string name="setting_language">语言</string>
+    <string name="setting_background">背景图</string>
+    <string name="background_none">未设置</string>
+    <string name="background_picked">已选择</string>
+    <string name="background_dim">压暗</string>
+    <string name="background_clear">移除</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
