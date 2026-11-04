@@ -55,6 +55,9 @@ internal actual fun recordingInputs(): List<RecordInput> = ScreenRecord.inputs()
 internal actual val recordingAvailable: Boolean
     get() = ScreenRecord.isAvailable
 
+internal actual val recordingAudioAvailable: Boolean
+    get() = Mac.isMacOs && ScreenRecord.isAvailable
+
 internal actual fun recordingActive(): Boolean = ScreenRecord.active()
 
 internal actual fun recordingStart(

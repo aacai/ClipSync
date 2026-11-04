@@ -212,6 +212,12 @@ class ClipRepository(
         return doomed.size
     }
 
+    /** 手动按时间范围清理：只动这一段时间里进来的条目，置顶的留着。 */
+    suspend fun removeRecent(since: Long): Int {
+        val ids = _items.value.filter { !it.pinned && it.ts >= since }.map { it.id }
+        return removeMany(ids)
+    }
+
     suspend fun undo(): List<ClipItem>? {
         if (trash.isEmpty()) return null
         val batch = trash.removeAt(trash.lastIndex)

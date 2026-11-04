@@ -2,6 +2,7 @@ package zhiqiu.app.cs.ui
 
 import com.sun.jna.Library
 import com.sun.jna.Native
+import java.awt.GraphicsEnvironment
 import java.io.File
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -12,11 +13,13 @@ import kotlinx.serialization.json.jsonPrimitive
 /** 加载 `libclipsyncrecord.dylib`。打包后在 Frameworks 里，开发时靠系统属性指过去。 */
 internal object ScreenRecord {
     val isAvailable: Boolean
-        get() = Mac.isMacOs && native != null
+        get() =
+            if (Mac.isMacOs) native != null else !GraphicsEnvironment.isHeadless()
 
     private val native: RecordNative? by lazy { load() }
 
-    fun active(): Boolean = native?.cs_record_active() == 1
+    fun active(): Boolean =
+            if (Mac.isMacOs) native?.cs_record_active() == 1 else RobotScreenRecord.active()
 
     /** 失败时返回给界面看的原因；成功返回 null。 */
     fun start(
@@ -28,6 +31,7 @@ internal object ScreenRecord {
             micDevice: String,
             path: String,
     ): String? {
+        if (!Mac.isMacOs) return RobotScreenRecord.start(region, fps, longEdge, path)
         val lib = native ?: return "录屏组件没有装上"
         // 存着的设备拔掉了就退回系统默认：把不存在的 ID 交给 ScreenCaptureKit 只会让开录失败。
         val device = if (mic && micDevice.isNotEmpty() && inputs().none { it.id == micDevice }) "" else micDevice
@@ -62,6 +66,7 @@ internal object ScreenRecord {
     }
 
     fun stop(): String? {
+        if (!Mac.isMacOs) return RobotScreenRecord.stop()
         val lib = native ?: return null
         return if (lib.cs_record_stop() == 0) null else lib.cs_record_last_error().ifBlank { "停止录屏失败" }
     }
@@ -71,6 +76,8 @@ internal object ScreenRecord {
      * 所以要等它出现后重取一次可共享内容。
      */
     fun excludeSelf(): String? {
+        // 抓帧的平台本来就盖不住自己的窗口，排除不掉也不值得报错。
+        if (!Mac.isMacOs) return null
         val lib = native ?: return null
         // 装好的包里可能还是旧 dylib，没有这个符号；排除不掉只是把停止条录进去，不值得为此崩掉。
         val code = runCatching { lib.cs_record_exclude_self() }.getOrDefault(0)

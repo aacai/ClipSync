@@ -56,6 +56,14 @@
     <string name="send_file_drop_hint">Drag files into this box to upload them</string>
     <string name="send_file_browse">Choose from this computer</string>
     <string name="cd_clear_history">Clear history</string>
+    <string name="tools">Tools</string>
+    <string name="tools_screenshot">Screenshot now</string>
+    <string name="tools_record">Start recording</string>
+    <string name="tools_stop_record">Stop recording</string>
+    <string name="tools_delete_hour">Delete last hour</string>
+    <string name="tools_delete_day">Delete last day</string>
+    <string name="tools_delete_week">Delete last 7 days</string>
+    <string name="tools_delete_all">Delete all records</string>
     <string name="hint_offline">Offline: this list is only your local history</string>
     <string name="hint_manual_send">Browsers never read the clipboard in background: copy, then press Send clipboard, or use New to paste manually</string>
     <string name="hint_no_picker">This platform cannot pick files yet</string>
@@ -196,7 +204,7 @@
     <string name="drop_overlay_hint">Drop to send files</string>
     <string name="fb_autostart_failed">Could not change the system login item</string>
     <string name="fb_screenshot_taken">Screenshot captured: it is on your clipboard and in the list</string>
-    <string name="fb_screenshot_permission">Screen Recording permission is missing: allow it in the prompt just shown, or enable ClipSync in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then restart ClipSync</string>
+    <string name="fb_screenshot_permission">Screen Recording permission is missing; System Settings is now open: enable ClipSync under Screen &amp; System Audio Recording, then restart ClipSync</string>
     <string name="fb_screenshot_too_large">The whole screen is over %1$d MB, so nothing was captured</string>
     <string name="fb_screenshot_failed">Screenshot failed: %1$s</string>
     <string name="fb_screenshot_failed_generic">Screenshot failed; try again. If you just allowed Screen Recording, quit ClipSync fully and reopen it</string>

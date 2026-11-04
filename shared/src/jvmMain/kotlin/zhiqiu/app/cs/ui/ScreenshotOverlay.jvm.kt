@@ -585,79 +585,81 @@ private fun BoxScope.RecordBar(request: OverlayRequest, unit: Float) {
         }
         BarDivider()
 
-        Box {
-            TextButton(onClick = { systemOpen = true }) {
-                Text(systemLabel, color = Color.White, fontSize = 13.sp)
-                Text(" ▾", color = Muted, fontSize = 12.sp)
-            }
-            DropdownMenu(expanded = systemOpen, onDismissRequest = { systemOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.record_system_off), fontSize = 13.sp) },
-                    trailingIcon = { if (!options.systemAudio) Text("✓", color = Accent) },
-                    onClick = {
-                        options.systemAudio = false
-                        systemOpen = false
-                        request.revision.intValue++
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.record_system_on), fontSize = 13.sp) },
-                    trailingIcon = { if (options.systemAudio) Text("✓", color = Accent) },
-                    onClick = {
-                        options.systemAudio = true
-                        systemOpen = false
-                        request.revision.intValue++
-                    },
-                )
-            }
-        }
-        BarDivider()
-
-        Box {
-            TextButton(onClick = {
-                devices = recordingInputs()
-                micOpen = true
-            }) {
-                Text(micLabel, color = Color.White, fontSize = 13.sp)
-                Text(" ▾", color = Muted, fontSize = 12.sp)
-            }
-            DropdownMenu(
-                expanded = micOpen,
-                onDismissRequest = { micOpen = false },
-                scrollState = rememberScrollState(),
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.record_mic_off), fontSize = 13.sp) },
-                    trailingIcon = { if (!options.mic) Text("✓", color = Accent) },
-                    onClick = {
-                        options.mic = false
-                        micOpen = false
-                        request.revision.intValue++
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.record_mic_default), fontSize = 13.sp) },
-                    trailingIcon = {
-                        if (options.mic && options.micDevice.isBlank()) Text("✓", color = Accent)
-                    },
-                    onClick = {
-                        options.mic = true
-                        options.micDevice = ""
-                        micOpen = false
-                        request.revision.intValue++
-                    },
-                )
-                for (device in devices) {
+        if (recordingAudioAvailable) {
+            Box {
+                TextButton(onClick = { systemOpen = true }) {
+                    Text(systemLabel, color = Color.White, fontSize = 13.sp)
+                    Text(" ▾", color = Muted, fontSize = 12.sp)
+                }
+                DropdownMenu(expanded = systemOpen, onDismissRequest = { systemOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text(device.name, fontSize = 13.sp) },
-                        trailingIcon = { if (options.mic && options.micDevice == device.id) Text("✓", color = Accent) },
+                        text = { Text(stringResource(Res.string.record_system_off), fontSize = 13.sp) },
+                        trailingIcon = { if (!options.systemAudio) Text("✓", color = Accent) },
                         onClick = {
-                            options.mic = true
-                            options.micDevice = device.id
+                            options.systemAudio = false
+                            systemOpen = false
+                            request.revision.intValue++
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.record_system_on), fontSize = 13.sp) },
+                        trailingIcon = { if (options.systemAudio) Text("✓", color = Accent) },
+                        onClick = {
+                            options.systemAudio = true
+                            systemOpen = false
+                            request.revision.intValue++
+                        },
+                    )
+                }
+            }
+            BarDivider()
+
+            Box {
+                TextButton(onClick = {
+                    devices = recordingInputs()
+                    micOpen = true
+                }) {
+                    Text(micLabel, color = Color.White, fontSize = 13.sp)
+                    Text(" ▾", color = Muted, fontSize = 12.sp)
+                }
+                DropdownMenu(
+                    expanded = micOpen,
+                    onDismissRequest = { micOpen = false },
+                    scrollState = rememberScrollState(),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.record_mic_off), fontSize = 13.sp) },
+                        trailingIcon = { if (!options.mic) Text("✓", color = Accent) },
+                        onClick = {
+                            options.mic = false
                             micOpen = false
                             request.revision.intValue++
                         },
                     )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.record_mic_default), fontSize = 13.sp) },
+                        trailingIcon = {
+                            if (options.mic && options.micDevice.isBlank()) Text("✓", color = Accent)
+                        },
+                        onClick = {
+                            options.mic = true
+                            options.micDevice = ""
+                            micOpen = false
+                            request.revision.intValue++
+                        },
+                    )
+                    for (device in devices) {
+                        DropdownMenuItem(
+                            text = { Text(device.name, fontSize = 13.sp) },
+                            trailingIcon = { if (options.mic && options.micDevice == device.id) Text("✓", color = Accent) },
+                            onClick = {
+                                options.mic = true
+                                options.micDevice = device.id
+                                micOpen = false
+                                request.revision.intValue++
+                            },
+                        )
+                    }
                 }
             }
         }

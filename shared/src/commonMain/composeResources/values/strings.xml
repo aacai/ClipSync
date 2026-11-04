@@ -56,6 +56,14 @@
     <string name="send_file_drop_hint">把文件拖到这个框里就能上传</string>
     <string name="send_file_browse">从电脑选择</string>
     <string name="cd_clear_history">清空历史</string>
+    <string name="tools">工具</string>
+    <string name="tools_screenshot">立即截屏</string>
+    <string name="tools_record">开始录屏</string>
+    <string name="tools_stop_record">停止录屏</string>
+    <string name="tools_delete_hour">删除最近 1 小时</string>
+    <string name="tools_delete_day">删除最近 1 天</string>
+    <string name="tools_delete_week">删除最近 7 天</string>
+    <string name="tools_delete_all">删除全部记录</string>
     <string name="hint_offline">未连接：这里只做本机历史浏览</string>
     <string name="hint_manual_send">浏览器不会后台读剪贴板：复制后点“发送剪贴板”，或用“新建”手动粘贴</string>
     <string name="hint_no_picker">本机暂不支持挑选文件</string>
@@ -197,7 +205,7 @@
     <string name="drop_overlay_hint">松开以发送文件</string>
     <string name="fb_autostart_failed">没能改到系统的登录项里</string>
     <string name="fb_screenshot_taken">已截屏：图片进了剪贴板，也存进了列表</string>
-    <string name="fb_screenshot_permission">缺少屏幕录制权限：在刚弹出的系统提示里允许，或到系统设置 → 隐私与安全性 → 屏幕与系统音频录制勾上 ClipSync，然后重启 ClipSync</string>
+    <string name="fb_screenshot_permission">缺少屏幕录制权限，已打开系统设置：在「屏幕与系统音频录制」里勾上 ClipSync，然后重启 ClipSync</string>
     <string name="fb_screenshot_too_large">整屏超过 %1$dMB，这次没有截</string>
     <string name="fb_screenshot_failed">截屏失败：%1$s</string>
     <string name="fb_screenshot_failed_generic">截屏失败，再试一次；若刚开过屏幕录制权限，请先完全退出再打开 ClipSync</string>

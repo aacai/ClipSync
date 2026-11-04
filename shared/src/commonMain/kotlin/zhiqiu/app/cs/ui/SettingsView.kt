@@ -291,32 +291,34 @@ internal fun SettingsView(
                                             value = "$recordFps fps",
                                             onClick = { pickingRecordFps = true },
                                     )
-                                    RowDivider()
-                                    SwitchRow(
-                                            Res.string.setting_record_mic,
-                                            Res.string.setting_record_mic_hint,
-                                            recordMic,
-                                            settings::setRecordMic,
-                                    )
-                                    if (recordMic) {
+                                    if (recordingAudioAvailable) {
                                         RowDivider()
-                                        NavRow(
-                                                title = Res.string.setting_record_mic_device,
-                                                value = recordMicLabel(recordMicDevice, recordInputs),
-                                                onClick = {
-                                                    // 每次打开都重新枚举：中途插上的麦克风不该等到重启才出现
-                                                    recordInputs = recordingInputs()
-                                                    pickingRecordMicDevice = true
-                                                },
+                                        SwitchRow(
+                                                Res.string.setting_record_mic,
+                                                Res.string.setting_record_mic_hint,
+                                                recordMic,
+                                                settings::setRecordMic,
+                                        )
+                                        if (recordMic) {
+                                            RowDivider()
+                                            NavRow(
+                                                    title = Res.string.setting_record_mic_device,
+                                                    value = recordMicLabel(recordMicDevice, recordInputs),
+                                                    onClick = {
+                                                        // 每次打开都重新枚举：中途插上的麦克风不该等到重启才出现
+                                                        recordInputs = recordingInputs()
+                                                        pickingRecordMicDevice = true
+                                                    },
+                                            )
+                                        }
+                                        RowDivider()
+                                        SwitchRow(
+                                                Res.string.setting_record_system,
+                                                Res.string.setting_record_system_hint,
+                                                recordSystemAudio,
+                                                settings::setRecordSystemAudio,
                                         )
                                     }
-                                    RowDivider()
-                                    SwitchRow(
-                                            Res.string.setting_record_system,
-                                            Res.string.setting_record_system_hint,
-                                            recordSystemAudio,
-                                            settings::setRecordSystemAudio,
-                                    )
                                 }
                             }
                         }

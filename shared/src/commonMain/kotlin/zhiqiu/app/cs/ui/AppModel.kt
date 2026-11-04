@@ -368,8 +368,10 @@ class AppModel internal constructor(
                 val cause = captured.exceptionOrNull()
                 _failure.value =
                     when {
-                        cause != null && cause.hasCause<ScreenCapturePermissionMissing>() ->
-                                Feedback.ScreenshotPermission
+                        cause != null && cause.hasCause<ScreenCapturePermissionMissing>() -> {
+                            platform.capture.openSettings()
+                            Feedback.ScreenshotPermission
+                        }
                         else -> Feedback.ScreenshotFailed(cause?.userFacingDetail().orEmpty())
                     }
                 return@launch
@@ -452,6 +454,12 @@ class AppModel internal constructor(
 
     private suspend fun beginRecording() {
         if (recordPhase != RecordPhase.Idle || recordingActive()) return
+        // 没权限时先跳设置：录屏都是热键起的，App 窗口未必开着，只弹一句提示等于让用户自己去翻。
+        if (!withContext(Dispatchers.Default) { platform.capture.ensurePermission() }) {
+            platform.capture.openSettings()
+            _failure.value = Feedback.ScreenshotPermission
+            return
+        }
         val pick =
                 if (settings.recordMode.value == RecordMode.Region) {
                     if (!platform.overlay.isAvailable) return
@@ -465,8 +473,8 @@ class AppModel internal constructor(
         // 工具条上选的这一次优先；整屏录制没有工具条，就用设置页里的值。
         val fps = pick?.quality?.fps ?: settings.recordFps.value
         val longEdge = pick?.quality?.longEdge ?: settings.recordLongEdge.value
-        val mic = pick?.mic ?: settings.recordMic.value
-        val systemAudio = pick?.systemAudio ?: settings.recordSystemAudio.value
+        val mic = recordingAudioAvailable && (pick?.mic ?: settings.recordMic.value)
+        val systemAudio = recordingAudioAvailable && (pick?.systemAudio ?: settings.recordSystemAudio.value)
         val micDevice = pick?.micDevice ?: settings.recordMicDevice.value
         if (pick != null) {
             // 工具条选过的值回写设置，下次打开还是这一套。
@@ -1210,6 +1218,14 @@ class AppModel internal constructor(
     fun clearAll() {
         scope.launch {
             val count = repository.clear()
+            if (count > 0) _info.value = Feedback.Deleted(count)
+        }
+    }
+
+    /** 删掉最近一段时间里产生的记录；置顶条目不在清理范围内。 */
+    fun deleteRecent(windowMs: Long) {
+        scope.launch {
+            val count = repository.removeRecent(Clock.System.now().toEpochMilliseconds() - windowMs)
             if (count > 0) _info.value = Feedback.Deleted(count)
         }
     }

@@ -21,6 +21,8 @@ internal actual fun recordingInputs(): List<RecordInput> = emptyList()
 
 internal actual val recordingAvailable: Boolean = false
 
+internal actual val recordingAudioAvailable: Boolean = false
+
 internal actual fun recordingActive(): Boolean = false
 
 internal actual fun recordingStart(

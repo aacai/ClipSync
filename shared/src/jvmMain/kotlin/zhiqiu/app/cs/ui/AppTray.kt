@@ -160,7 +160,9 @@ private fun MacTray(icon: Painter, onShowWindow: () -> Unit) {
             isImageAutoSize = true
             addMouseListener(
                 object : MouseAdapter() {
-                    override fun mousePressed(event: MouseEvent) = currentOnShow()
+                    override fun mousePressed(event: MouseEvent) {
+                        if (event.button == MouseEvent.BUTTON1) currentOnShow()
+                    }
                 },
             )
         }

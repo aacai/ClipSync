@@ -107,6 +107,9 @@ kotlin {
             implementation(libs.mqtt.client.transport.tcp)
             implementation(libs.ktor.client.java)
             implementation(libs.jna)
+            // 没有 ScreenCaptureKit 的桌面平台靠它抓帧并把 H.264 写进 MP4。
+            implementation(libs.jcodec)
+            implementation(libs.jcodec.javase)
             // 预览窗口里的播放器：Compose Desktop 没有视频控件，JavaFX 的 MediaView 是
             // 唯一不用额外装 VLC 就能放 H.264 MP4 的方案。
             val javafx = "21.0.5"

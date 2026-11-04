@@ -63,6 +63,9 @@ internal expect fun recordingInputs(): List<RecordInput>
 
 internal expect val recordingAvailable: Boolean
 
+/** 本机录屏能不能混入麦克风或系统声；不能的平台不显示这两个开关。 */
+internal expect val recordingAudioAvailable: Boolean
+
 internal expect fun recordingActive(): Boolean
 
 internal expect fun recordingStart(

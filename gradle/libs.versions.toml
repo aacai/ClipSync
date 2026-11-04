@@ -23,6 +23,8 @@ mqttastic = "0.9.0"
 multiplatformSettings = "1.3.0"
 # 全局快捷键要探 Carbon 事件热键，JVM 自己没有这个入口
 jna = "5.19.1"
+# 没有系统级录屏组件时，纯 Java 抓帧 + 编 H.264/MP4，Windows / Linux 也能录
+jcodec = "0.2.5"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -64,6 +66,8 @@ ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.re
 wrappers-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlin-wrappers" }
 settings-core = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatformSettings" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+jcodec = { module = "org.jcodec:jcodec", version.ref = "jcodec" }
+jcodec-javase = { module = "org.jcodec:jcodec-javase", version.ref = "jcodec" }
 settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatformSettings" }
 
 [plugins]

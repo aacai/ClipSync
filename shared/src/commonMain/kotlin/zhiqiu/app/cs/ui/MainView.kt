@@ -35,6 +35,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -1024,6 +1027,8 @@ private fun Toolbar(
         onClear: () -> Unit,
         onSendFile: () -> Unit,
 ) {
+    var toolsOpen by remember { mutableStateOf(false) }
+    val recording by model.recording.collectAsState()
     OutlinedTextField(
             value = query,
             onValueChange = model::updateQuery,
@@ -1076,6 +1081,56 @@ private fun Toolbar(
                 tinted = MaterialTheme.colorScheme.error,
                 onClick = onClear,
         )
+        Box {
+            RowAction(AppIcons.More, stringResource(Res.string.tools)) { toolsOpen = true }
+            DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.tools_screenshot)) },
+                        enabled = model.supportsScreenshot,
+                        onClick = {
+                            toolsOpen = false
+                            model.takeScreenshot()
+                        },
+                )
+                val recordLabel =
+                        stringResource(
+                                if (recording) Res.string.tools_stop_record
+                                else Res.string.tools_record
+                        )
+                DropdownMenuItem(
+                        text = { Text(recordLabel) },
+                        enabled = model.supportsRecording,
+                        onClick = {
+                            toolsOpen = false
+                            model.onRecordHotkey()
+                        },
+                )
+                HorizontalDivider()
+                for ((label, window) in
+                        listOf(
+                                Res.string.tools_delete_hour to 3_600_000L,
+                                Res.string.tools_delete_day to 86_400_000L,
+                                Res.string.tools_delete_week to 604_800_000L,
+                        )) {
+                    DropdownMenuItem(
+                            text = { Text(stringResource(label)) },
+                            enabled = canClear,
+                            onClick = {
+                                toolsOpen = false
+                                model.deleteRecent(window)
+                            },
+                    )
+                }
+                DropdownMenuItem(
+                        text = { Text(stringResource(Res.string.tools_delete_all)) },
+                        enabled = canClear,
+                        onClick = {
+                            toolsOpen = false
+                            onClear()
+                        },
+                )
+            }
+        }
         if (total > 0) {
             Spacer(Modifier.weight(1f))
             Text(

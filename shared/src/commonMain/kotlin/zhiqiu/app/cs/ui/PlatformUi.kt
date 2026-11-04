@@ -144,6 +144,9 @@ interface PlatformScreenCapture {
      */
     fun ensurePermission(): Boolean = true
 
+    /** 打开系统里同一项权限的开关面板；没有这个概念的平台什么都不做。 */
+    fun openSettings() = Unit
+
     suspend fun capture(): ByteArray
 }
 

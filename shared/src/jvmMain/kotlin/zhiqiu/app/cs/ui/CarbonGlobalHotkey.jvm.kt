@@ -209,6 +209,16 @@ internal object Mac {
         return runCatching { cg.CGRequestScreenCaptureAccess() }.getOrDefault(false)
     }
 
+    /** 直接落在「屏幕与系统音频录制」那一条开关上，省得用户自己一路翻。 */
+    fun openScreenRecordingSettings() {
+        runCatching {
+            ProcessBuilder(
+                "open",
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+            ).start()
+        }
+    }
+
     fun applicationEventTarget(): Pointer? =
         runCatching { carbon?.GetApplicationEventTarget() }.getOrNull()
 

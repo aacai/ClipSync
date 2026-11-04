@@ -17,6 +17,10 @@ internal object RobotScreenCapture : PlatformScreenCapture {
 
     override fun ensurePermission(): Boolean = !Mac.isMacOs || Mac.requestScreenCapture()
 
+    override fun openSettings() {
+        if (Mac.isMacOs) Mac.openScreenRecordingSettings()
+    }
+
     /** 权限没给的时候 macOS 不报错，只把壁纸给你，所以先申请一次再决定要不要按下去。 */
     override suspend fun capture(): ByteArray =
         withContext(Dispatchers.IO) {
