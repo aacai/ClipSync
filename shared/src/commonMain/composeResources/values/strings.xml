@@ -69,9 +69,9 @@
     <string name="hint_no_picker">本机暂不支持挑选文件</string>
     <string name="shortcuts_hint">↑↓ 选择 · Enter 复制/打开 · F2 编辑 · %1$s+D 副本 · %1$s+Shift+↑↓ 排序 · Del 删除 · %1$s+Z 撤销 · %1$s+A 多选 · %1$s+N 新建 · %1$s+F 搜索 · Esc 取消</string>
 
-    <string name="clear_all_title">清空全部历史？</string>
-    <string name="clear_all_body">只删除本机保存的这些条目，房间另一端的历史与已经收到的文件不受影响。</string>
-    <string name="clear">清空</string>
+    <string name="delete_history_title">删除历史记录</string>
+    <string name="delete_history_body">只删除本机保存的这些条目，房间另一端的历史与已经收到的文件不受影响。</string>
+    <string name="delete_count">%1$d 条</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
     <string name="confirm">确定</string>

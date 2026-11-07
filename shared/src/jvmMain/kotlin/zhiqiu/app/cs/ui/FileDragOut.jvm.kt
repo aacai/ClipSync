@@ -12,8 +12,21 @@ import java.awt.datatransfer.DataFlavor
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.File
+import java.awt.dnd.DropTargetDragEvent
+import java.awt.dnd.DropTargetDropEvent
 import java.io.IOException
 import java.nio.file.Files
+
+internal val SELF_DRAG_FLAVOR = DataFlavor("application/x-clipsync-drag-source;class=java.lang.String")
+
+@OptIn(ExperimentalComposeUiApi::class)
+internal fun androidx.compose.ui.draganddrop.DragAndDropEvent.fromSelfDragOut(): Boolean {
+    val transferable =
+            (nativeEvent as? DropTargetDragEvent)?.transferable
+                    ?: (nativeEvent as? DropTargetDropEvent)?.transferable
+                    ?: return false
+    return transferable.isDataFlavorSupported(SELF_DRAG_FLAVOR)
+}
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -49,12 +62,14 @@ internal actual fun writeDragOutTemp(fileName: String, bytes: ByteArray): String
 
 /** 仅暴露 javaFileListFlavor，访达/资源管理器按文件列表接收。 */
 private class FileListTransferable(private val files: List<File>) : Transferable {
-    override fun getTransferDataFlavors(): Array<DataFlavor> = arrayOf(DataFlavor.javaFileListFlavor)
+    override fun getTransferDataFlavors(): Array<DataFlavor> =
+            arrayOf(DataFlavor.javaFileListFlavor, SELF_DRAG_FLAVOR)
 
     override fun isDataFlavorSupported(flavor: DataFlavor?): Boolean =
-            flavor == DataFlavor.javaFileListFlavor
+            flavor == DataFlavor.javaFileListFlavor || flavor == SELF_DRAG_FLAVOR
 
     override fun getTransferData(flavor: DataFlavor?): Any {
+        if (flavor == SELF_DRAG_FLAVOR) return "clipsync"
         if (flavor != DataFlavor.javaFileListFlavor) throw UnsupportedFlavorException(flavor)
         if (files.isEmpty()) throw IOException("empty file list")
         return files

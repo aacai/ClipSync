@@ -35,10 +35,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -137,23 +138,25 @@ internal fun ClipRow(
                     label = "rowBadge",
             )
 
-    Surface(
-            color = background,
-            border = BorderStroke(1.dp, edge),
-            shape = MaterialTheme.shapes.medium,
+    val shape = MaterialTheme.shapes.medium
+    Box(
             modifier =
                     modifier
                             .fillMaxWidth()
                             .padding(horizontal = ROW_HORIZONTAL_PADDING, vertical = 4.dp)
-                            // 拖到访达/桌面：文本→临时 txt，已缓存图片/文件→本机路径。
-                            .fileDragOutSource { model.prepareDragOutPaths(listOf(item)) },
+                            .fileDragOutSource { model.prepareDragOutPaths(listOf(item)) }
+                            .clip(shape)
+                            .background(background, shape)
+                            .border(1.dp, edge, shape)
     ) {
-        Box {
-            Box(
-                    Modifier.fillMaxWidth()
-                            .height(1.dp)
-                            .background(rimHighlight(isAppDarkTheme()))
-            )
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+            Box {
+                Box(
+                        Modifier.fillMaxWidth()
+                                .height(1.dp)
+                                .background(rimHighlight(isAppDarkTheme()))
+                )
+            }
             Row(
                     modifier =
                             Modifier.clickable(
@@ -545,10 +548,10 @@ private fun PickBox(picked: Boolean, onToggle: () -> Unit) {
 private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
     val scheme = MaterialTheme.colorScheme
     return when {
-        picked -> scheme.primary.copy(alpha = 0.16f)
-        cursor -> scheme.primary.copy(alpha = 0.08f)
-        // 浅色用纯白面而不是半透明白：叠在渐变底上会发脏灰，纯白卡片才干净
-        else -> if (isAppDarkTheme()) scheme.surfaceVariant.copy(alpha = 0.5f) else scheme.surface
+        picked -> scheme.primary.copy(alpha = 0.22f)
+        cursor -> scheme.primary.copy(alpha = 0.12f)
+        isAppDarkTheme() -> Color.White.copy(alpha = 0.06f)
+        else -> Color.White.copy(alpha = 0.46f)
     }
 }
 
@@ -558,7 +561,8 @@ private fun rowBorder(cursor: Boolean, picked: Boolean): Color {
     return when {
         picked -> scheme.primary.copy(alpha = 0.55f)
         cursor -> scheme.primary.copy(alpha = 0.32f)
-        else -> scheme.outlineVariant.copy(alpha = 0.45f)
+        isAppDarkTheme() -> Color.White.copy(alpha = 0.14f)
+        else -> Color.White.copy(alpha = 0.62f)
     }
 }
 

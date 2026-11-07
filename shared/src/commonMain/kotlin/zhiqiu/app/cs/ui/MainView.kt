@@ -602,7 +602,20 @@ internal fun MainView(
         )
     }
     if (confirmClear) {
-        ClearConfirmDialog(onDismiss = { confirmClear = false }, onConfirm = model::clearAll)
+        DeleteHistoryDialog(
+                counts =
+                        listOf(
+                                model.countRecent(3_600_000L),
+                                model.countRecent(86_400_000L),
+                                model.countRecent(604_800_000L),
+                                model.localCount.value,
+                        ),
+                onDismiss = { confirmClear = false },
+                onPick = { window ->
+                    confirmClear = false
+                    if (window == null) model.clearAll() else model.deleteRecent(window)
+                },
+        )
     }
     editing?.let { item ->
         EditDialog(
@@ -1103,30 +1116,6 @@ private fun Toolbar(
                         onClick = {
                             toolsOpen = false
                             model.onRecordHotkey()
-                        },
-                )
-                HorizontalDivider()
-                for ((label, window) in
-                        listOf(
-                                Res.string.tools_delete_hour to 3_600_000L,
-                                Res.string.tools_delete_day to 86_400_000L,
-                                Res.string.tools_delete_week to 604_800_000L,
-                        )) {
-                    DropdownMenuItem(
-                            text = { Text(stringResource(label)) },
-                            enabled = canClear,
-                            onClick = {
-                                toolsOpen = false
-                                model.deleteRecent(window)
-                            },
-                    )
-                }
-                DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.tools_delete_all)) },
-                        enabled = canClear,
-                        onClick = {
-                            toolsOpen = false
-                            onClear()
                         },
                 )
             }

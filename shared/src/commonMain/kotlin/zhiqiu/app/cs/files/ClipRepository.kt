@@ -218,6 +218,9 @@ class ClipRepository(
         return removeMany(ids)
     }
 
+    /** 这一段时间里能删掉的条目数，删之前先给用户看个准数。 */
+    fun countSince(since: Long): Int = _items.value.count { !it.pinned && it.ts >= since }
+
     suspend fun undo(): List<ClipItem>? {
         if (trash.isEmpty()) return null
         val batch = trash.removeAt(trash.lastIndex)

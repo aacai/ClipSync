@@ -1230,6 +1230,10 @@ class AppModel internal constructor(
         }
     }
 
+    /** 这段时间里能删掉的条目数，删之前的对话框用它报个数。 */
+    fun countRecent(windowMs: Long): Int =
+        repository.countSince(Clock.System.now().toEpochMilliseconds() - windowMs)
+
     fun undoDelete() {
         scope.launch {
             val batch = repository.undo() ?: return@launch

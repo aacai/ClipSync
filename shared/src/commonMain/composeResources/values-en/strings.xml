@@ -69,9 +69,9 @@
     <string name="hint_no_picker">This platform cannot pick files yet</string>
     <string name="shortcuts_hint">↑↓ select · Enter copy/open · F2 edit · %1$s+D duplicate · %1$s+Shift+↑↓ reorder · Del remove · %1$s+Z undo · %1$s+A select all · %1$s+N new · %1$s+F search · Esc cancel</string>
 
-    <string name="clear_all_title">Clear all history?</string>
-    <string name="clear_all_body">Only these locally stored entries are deleted. The other end of the room and files already downloaded stay untouched.</string>
-    <string name="clear">Clear</string>
+    <string name="delete_history_title">Delete history</string>
+    <string name="delete_history_body">Only these locally stored entries are deleted. The other end of the room and files already downloaded stay untouched.</string>
+    <string name="delete_count">%1$d items</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="confirm">OK</string>

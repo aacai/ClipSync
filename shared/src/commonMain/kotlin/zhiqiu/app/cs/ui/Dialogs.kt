@@ -632,27 +632,63 @@ internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> U
 }
 
 @Composable
-internal fun ClearConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
+internal fun DeleteHistoryDialog(
+        counts: List<Int>,
+        onDismiss: () -> Unit,
+        onPick: (Long?) -> Unit,
+) {
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.clear_all_title), fontSize = 17.sp) },
-            text = { Text(stringResource(Res.string.clear_all_body), style = MaterialTheme.typography.bodySmall) },
-            confirmButton = {
-                TextButton(
-                        onClick = {
-                            onDismiss()
-                            onConfirm()
-                        },
-                ) {
+            title = { Text(stringResource(Res.string.delete_history_title), fontSize = 17.sp) },
+            text = {
+                Column {
                     Text(
-                            stringResource(Res.string.clear),
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold,
+                            stringResource(Res.string.delete_history_body),
+                            style = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    val rows =
+                            listOf(
+                                    Res.string.tools_delete_hour to 3_600_000L,
+                                    Res.string.tools_delete_day to 86_400_000L,
+                                    Res.string.tools_delete_week to 604_800_000L,
+                            )
+                    for ((index, row) in rows.withIndex()) {
+                        DeleteRangeRow(
+                                label = stringResource(row.first),
+                                count = counts.getOrElse(index) { 0 },
+                                onClick = { onPick(row.second) },
+                        )
+                    }
+                    DeleteRangeRow(
+                            label = stringResource(Res.string.tools_delete_all),
+                            count = counts.getOrElse(3) { 0 },
+                            onClick = { onPick(null) },
                     )
                 }
             },
+            confirmButton = {},
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
     )
+}
+
+@Composable
+private fun DeleteRangeRow(label: String, count: Int, onClick: () -> Unit) {
+    Row(
+            modifier =
+                    Modifier.fillMaxWidth()
+                            .clickable(onClick = onClick)
+                            .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(
+                stringResource(Res.string.delete_count, count),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

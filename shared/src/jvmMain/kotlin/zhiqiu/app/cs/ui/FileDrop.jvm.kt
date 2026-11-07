@@ -25,11 +25,15 @@ internal actual fun Modifier.fileDropTarget(
             remember {
                 object : DragAndDropTarget {
                     override fun onStarted(event: DragAndDropEvent) {
-                        if (event.dragData() is DragData.FilesList) hovering.value(true)
+                        if (!event.fromSelfDragOut() && event.dragData() is DragData.FilesList) {
+                            hovering.value(true)
+                        }
                     }
 
                     override fun onEntered(event: DragAndDropEvent) {
-                        if (event.dragData() is DragData.FilesList) hovering.value(true)
+                        if (!event.fromSelfDragOut() && event.dragData() is DragData.FilesList) {
+                            hovering.value(true)
+                        }
                     }
 
                     override fun onExited(event: DragAndDropEvent) {
@@ -42,6 +46,7 @@ internal actual fun Modifier.fileDropTarget(
 
                     override fun onDrop(event: DragAndDropEvent): Boolean {
                         hovering.value(false)
+                        if (event.fromSelfDragOut()) return false
                         val data = event.dragData() as? DragData.FilesList ?: return false
                         val files = data.readFiles()
                         if (files.isEmpty()) return false
@@ -51,7 +56,7 @@ internal actual fun Modifier.fileDropTarget(
                 }
             }
     return dragAndDropTarget(
-            shouldStartDragAndDrop = { event -> event.dragData() is DragData.FilesList },
+            shouldStartDragAndDrop = { !it.fromSelfDragOut() },
             target = target,
     )
 }
