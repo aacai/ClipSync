@@ -35,6 +35,9 @@ class ClipboardImage(
  * UI 必须据此改用手动发送，而不是假装自动同步在工作。
  */
 interface PlatformClipboard {
+    /** 应用是否在前台（有可见界面）。后台时 Android 12+ 会拦截剪贴板读写。 */
+    val appInForeground: Boolean get() = true
+
     val supportsAutoSync: Boolean get() = true
 
     /** 能否把本地文件以“文件”形态放进剪贴板（CF_HDROP / file URL / content URI）。 */

@@ -16,6 +16,9 @@ import java.util.UUID
 object ClipSyncAppContext {
     @Volatile
     var context: Context? = null
+
+    @Volatile
+    var appInForeground: Boolean = false
 }
 
 internal actual fun mqttTransportFactory(): MqttTransportFactory =

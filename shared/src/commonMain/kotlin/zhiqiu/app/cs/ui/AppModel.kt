@@ -211,6 +211,7 @@ class AppModel internal constructor(
     private val translator: TranslateClient by lazy { createTranslateClient() }
     private var connectJob: Job? = null
     private var receiveJob: Job? = null
+    private var pendingReceived: Pair<String, String>? = null
     private val outbound = EchoLog()
     private var lastOwnWrite: String? = null
     private var lastCaptured: String? = null
@@ -1425,6 +1426,11 @@ class AppModel internal constructor(
                         _info.value = Feedback.Received(event.senderName, copied = false)
                         return@collect
                     }
+                    if (!platform.clipboard.appInForeground) {
+                        pendingReceived = event.text to event.senderName
+                        _info.value = Feedback.Received(event.senderName, copied = false)
+                        return@collect
+                    }
                     // 屋里另一台机器（或本机另一个 ClipSync）把我们刚发出去的内容又推回来。
                     // 用户的剪贴板这时候多半已经换成新的一份了，写下去就是把新的盖掉。
                     if (isEcho(event.text)) return@collect
@@ -1445,6 +1451,23 @@ class AppModel internal constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun flushPendingClip() {
+        val (text, sender) = pendingReceived ?: return
+        pendingReceived = null
+        scope.launch {
+            if (isEcho(text)) return@launch
+            lastOwnWrite = text
+            lastCaptured = text
+            val outcome = runCatching { platform.clipboard.write(text) }
+            _info.value =
+                if (outcome.isSuccess) Feedback.Received(sender)
+                else {
+                    val e = outcome.exceptionOrNull()
+                    Feedback.Received(sender, e?.clipboardCode() ?: "unavailable", e?.userFacingDetail())
+                }
         }
     }
 

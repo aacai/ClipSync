@@ -95,6 +95,11 @@ object ClipSyncRuntime {
     fun retryNow() {
         modelRef?.retryNow()
     }
+
+    /** 应用回到前台时，把后台收下、被系统拦住没写进剪贴板的内容补写一次。 */
+    fun flushPendingClip() {
+        modelRef?.flushPendingClip()
+    }
 }
 
 class RuntimeFilePicker : PlatformFilePicker {
@@ -170,6 +175,7 @@ private fun Uri.toPickedSource(context: Context): PickedSource {
 }
 
 internal class AndroidClipboard(private val context: Context) : PlatformClipboard {
+    override val appInForeground: Boolean get() = ClipSyncAppContext.appInForeground
     override val canWriteFiles: Boolean = true
     override val canReadImages: Boolean = true
     override val canReadFiles: Boolean = true
