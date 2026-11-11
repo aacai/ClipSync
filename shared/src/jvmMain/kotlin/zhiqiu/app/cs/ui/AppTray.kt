@@ -25,6 +25,8 @@ import java.awt.PopupMenu
 import java.awt.SystemTray
 import java.awt.TrayIcon
 import java.awt.desktop.AboutHandler
+import java.awt.desktop.AppForegroundEvent
+import java.awt.desktop.AppForegroundListener
 import java.awt.desktop.AppReopenedListener
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -34,8 +36,12 @@ import zhiqiu.app.cs.core.platformOs
 import zhiqiu.app.cs.resources.*
 
 fun showFromTray(state: WindowState, window: AwtWindow?) {
+    MainWindowVisibility.show()
     state.isMinimized = false
     window?.isVisible = true
+    if (window is java.awt.Frame) {
+        window.extendedState = java.awt.Frame.NORMAL
+    }
     requestAppForeground()
     window?.toFront()
     window?.requestFocus()
@@ -133,6 +139,9 @@ fun ApplicationScope.AppTray(onShowWindow: () -> Unit, onQuit: () -> Unit) {
 /**
  * 用户点 Dock / 任务栏图标时，系统会发「重新打开应用」。
  * 窗口若已用 visible=false 藏进托盘，不接这个事件就只会把进程激活，窗口还是不出来。
+ *
+ * 部分 JBR/AWT 组合里 reopen 不一定到；再叠一层「回到前台且主窗藏着 → 抬起来」，
+ * 避免只能点菜单栏托盘才能看见窗口。
  */
 @Composable
 private fun InstallDockReopen(onShowWindow: () -> Unit) {
@@ -140,10 +149,25 @@ private fun InstallDockReopen(onShowWindow: () -> Unit) {
     DisposableEffect(Unit) {
         if (!Desktop.isDesktopSupported()) return@DisposableEffect onDispose {}
         val desktop = Desktop.getDesktop()
-        if (!desktop.isSupported(Desktop.Action.APP_EVENT_REOPENED)) return@DisposableEffect onDispose {}
-        val listener = AppReopenedListener { currentOnShow() }
-        desktop.addAppEventListener(listener)
-        onDispose { desktop.removeAppEventListener(listener) }
+        val reopen =
+                if (desktop.isSupported(Desktop.Action.APP_EVENT_REOPENED)) {
+                    AppReopenedListener { currentOnShow() }.also { desktop.addAppEventListener(it) }
+                } else {
+                    null
+                }
+        val foreground =
+                object : AppForegroundListener {
+                    override fun appRaisedToForeground(e: AppForegroundEvent) {
+                        if (!MainWindowVisibility.visible) currentOnShow()
+                    }
+
+                    override fun appMovedToBackground(e: AppForegroundEvent) {}
+                }
+        desktop.addAppEventListener(foreground)
+        onDispose {
+            reopen?.let { desktop.removeAppEventListener(it) }
+            desktop.removeAppEventListener(foreground)
+        }
     }
 }
 
