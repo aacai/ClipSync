@@ -29,5 +29,9 @@ rm -rf "$APP"
 ditto "$SOURCE" "$APP"
 codesign --force --options runtime --sign "$IDENTITY" --preserve-metadata=entitlements "$APP"
 codesign --verify --strict "$APP"
+if codesign -dv "$APP" 2>&1 | grep -Fq 'Signature=adhoc'; then
+  echo "签名仍是 adhoc：屏幕录制授权会跟着 cdhash 丢" >&2
+  exit 1
+fi
 open "$APP"
 echo "installed -> $APP"

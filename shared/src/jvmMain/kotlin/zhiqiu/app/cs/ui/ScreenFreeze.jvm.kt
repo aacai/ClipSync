@@ -90,7 +90,7 @@ private const val CF_UTF8 = 0x08000100L // kCFStringEncodingUTF8
  *
  * 只留普通层（layer 0）的窗口：菜单栏、程序坞、桌面图标那些对框选没意义。
  */
-private object MacWindowList {
+internal object MacWindowList {
 
     private const val ON_SCREEN_ONLY = 1 shl 1
     private const val EXCLUDE_DESKTOP_ELEMENTS = 1 shl 4
@@ -121,6 +121,30 @@ private object MacWindowList {
             cg.CGWindowListCopyWindowInfo(ON_SCREEN_ONLY or EXCLUDE_DESKTOP_ELEMENTS, NULL_WINDOW_ID)
         }.getOrNull() ?: return emptyList()
         return runCatching { read(list, cf, keys, ourPid, bounds) }.getOrDefault(emptyList())
+    }
+
+    /** 其它应用窗口标题可见 = 实际已有屏幕录制权限。 */
+    fun otherWindowTitlesVisible(): Boolean {
+        val cg = coreGraphics ?: return false
+        val cf = coreFoundation ?: return false
+        val keys = names ?: return false
+        val ourPid = runCatching { ProcessHandle.current().pid() }.getOrNull()
+        val list = runCatching {
+            cg.CGWindowListCopyWindowInfo(ON_SCREEN_ONLY or EXCLUDE_DESKTOP_ELEMENTS, NULL_WINDOW_ID)
+        }.getOrNull() ?: return false
+        return runCatching { hasForeignTitle(list, cf, keys, ourPid) }.getOrDefault(false)
+    }
+
+    private fun hasForeignTitle(list: Pointer, cf: CoreFoundation, keys: CfKeys, ourPid: Long?): Boolean {
+        val count = cf.CFArrayGetCount(list).toInt()
+        for (index in 0 until count) {
+            val info = cf.CFArrayGetValueAtIndex(list, index.toLong()) ?: continue
+            if (ourPid != null && number(cf, cf.CFDictionaryGetValue(info, keys.pid))?.toLong() == ourPid) continue
+            if (number(cf, cf.CFDictionaryGetValue(info, keys.layer)) != 0.0) continue
+            val title = cf.CFDictionaryGetValue(info, keys.title) ?: continue
+            if (cf.CFStringGetLength(title) > 0L) return true
+        }
+        return false
     }
 
     private fun read(list: Pointer, cf: CoreFoundation, keys: CfKeys, ourPid: Long?, bounds: Rectangle): List<Rect> {
@@ -157,6 +181,7 @@ private object MacWindowList {
 
     private interface CoreFoundation : Library {
         fun CFStringCreateWithCString(alloc: Pointer?, cString: String, encoding: Long): Pointer?
+        fun CFStringGetLength(theString: Pointer): Long
         fun CFArrayGetCount(array: Pointer): Long
         fun CFArrayGetValueAtIndex(array: Pointer, index: Long): Pointer?
         fun CFDictionaryGetValue(dictionary: Pointer, key: Pointer): Pointer?
@@ -167,6 +192,7 @@ private object MacWindowList {
         val layer = name(cf, "kCGWindowLayer")
         val pid = name(cf, "kCGWindowOwnerPID")
         val bounds = name(cf, "kCGWindowBounds")
+        val title = name(cf, "kCGWindowName")
         val x = name(cf, "X")
         val y = name(cf, "Y")
         val width = name(cf, "Width")

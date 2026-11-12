@@ -167,8 +167,8 @@ internal interface CarbonLibrary : Library {
 }
 
 private interface CoreGraphicsLibrary : Library {
-    fun CGPreflightScreenCaptureAccess(): Boolean
-    fun CGRequestScreenCaptureAccess(): Boolean
+    fun CGPreflightScreenCaptureAccess(): Byte
+    fun CGRequestScreenCaptureAccess(): Byte
 }
 
 /** Carbon 那一层的常量、键码表和加载，全放这里，出问题时一眼能看完。 */
@@ -196,17 +196,32 @@ internal object Mac {
         runCatching { Native.load("CoreGraphics", CoreGraphicsLibrary::class.java) }.getOrNull()
     }
 
+    @Volatile private var screenCaptureOk = false
+
     /**
      * 没有屏幕录制权限时 macOS 不报错，只会把桌面壁纸给你，所以抓之前先问一次。
      *
-     * 光用 preflight 查是不够的：它不弹窗、也不会把 app 登记进「系统设置 → 录屏」的列表，
-     * 用户连去哪儿勾选都找不到。所以没权限时真去申请一次，把系统的授权弹窗拉起来。
-     * 返回「现在到底能不能抓」；刚批下来的权限要重启进程才生效，那一下仍然是不能。
+     * preflight 在重签/adhoc 后会和系统设置列表脱节；JNA 的 Boolean 编组也不稳，
+     * 所以用其它窗口标题是否可见做二次判定，并在进程内缓存通过结果。
+     * 两边都过不了才真正申请一次，把系统授权弹窗拉起来。
      */
     fun requestScreenCapture(): Boolean {
+        if (screenCaptureOk) return true
         val cg = coreGraphics ?: return true
-        if (cg.CGPreflightScreenCaptureAccess()) return true
-        return runCatching { cg.CGRequestScreenCaptureAccess() }.getOrDefault(false)
+        if (runCatching { cg.CGPreflightScreenCaptureAccess() }.getOrDefault(0) != 0.toByte()) {
+            screenCaptureOk = true
+            return true
+        }
+        if (MacWindowList.otherWindowTitlesVisible()) {
+            screenCaptureOk = true
+            return true
+        }
+        val asked = runCatching { cg.CGRequestScreenCaptureAccess() }.getOrDefault(0) != 0.toByte()
+        if (asked || MacWindowList.otherWindowTitlesVisible()) {
+            screenCaptureOk = true
+            return true
+        }
+        return false
     }
 
     /** 直接落在「屏幕与系统音频录制」那一条开关上，省得用户自己一路翻。 */

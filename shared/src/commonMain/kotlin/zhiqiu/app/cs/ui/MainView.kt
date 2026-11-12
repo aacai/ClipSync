@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1071,63 +1072,76 @@ private fun Toolbar(
                             .onFocusEvent { onSearchFocused(it.isFocused) },
     )
 
-    Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RowAction(AppIcons.Send, stringResource(Res.string.send_clipboard), enabled = online) {
-            model.sendClipboard()
-        }
-        RowAction(AppIcons.Add, stringResource(Res.string.new_entry), enabled = online, onClick = onNew)
-        RowAction(
-                AppIcons.Attach,
-                stringResource(Res.string.send_file),
-                enabled = online && model.supportsFilePicker,
-        ) { onSendFile() }
-        RowAction(AppIcons.SelectAll, stringResource(Res.string.cd_select), active = picking, onClick = onToggleSelect)
-        RowAction(AppIcons.Undo, stringResource(Res.string.cd_undo), enabled = undoDepth > 0) { model.undoDelete() }
-        Spacer(Modifier.width(4.dp))
-        RowAction(
-                AppIcons.Delete,
-                stringResource(Res.string.cd_clear_history),
-                enabled = canClear,
-                tinted = MaterialTheme.colorScheme.error,
-                onClick = onClear,
-        )
-        Box {
-            RowAction(AppIcons.More, stringResource(Res.string.tools)) { toolsOpen = true }
-            DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.tools_screenshot)) },
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, bottom = 2.dp)) {
+        val showCaptureInline = maxWidth >= 390.dp
+        val recordLabel =
+                stringResource(if (recording) Res.string.tools_stop_record else Res.string.tools_record)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            RowAction(AppIcons.Send, stringResource(Res.string.send_clipboard), enabled = online) {
+                model.sendClipboard()
+            }
+            RowAction(AppIcons.Add, stringResource(Res.string.new_entry), enabled = online, onClick = onNew)
+            RowAction(
+                    AppIcons.Attach,
+                    stringResource(Res.string.send_file),
+                    enabled = online && model.supportsFilePicker,
+            ) { onSendFile() }
+            RowAction(AppIcons.SelectAll, stringResource(Res.string.cd_select), active = picking, onClick = onToggleSelect)
+            RowAction(AppIcons.Undo, stringResource(Res.string.cd_undo), enabled = undoDepth > 0) {
+                model.undoDelete()
+            }
+            Spacer(Modifier.width(4.dp))
+            RowAction(
+                    AppIcons.Delete,
+                    stringResource(Res.string.cd_clear_history),
+                    enabled = canClear,
+                    tinted = MaterialTheme.colorScheme.error,
+                    onClick = onClear,
+            )
+            if (showCaptureInline) {
+                RowAction(
+                        AppIcons.Crop,
+                        stringResource(Res.string.tools_screenshot),
                         enabled = model.supportsScreenshot,
-                        onClick = {
-                            toolsOpen = false
-                            model.takeScreenshot()
-                        },
-                )
-                val recordLabel =
-                        stringResource(
-                                if (recording) Res.string.tools_stop_record
-                                else Res.string.tools_record
-                        )
-                DropdownMenuItem(
-                        text = { Text(recordLabel) },
+                ) { model.takeScreenshot() }
+                RowAction(
+                        if (recording) AppIcons.Stop else AppIcons.Videocam,
+                        recordLabel,
+                        active = recording,
                         enabled = model.supportsRecording,
-                        onClick = {
-                            toolsOpen = false
-                            model.onRecordHotkey()
-                        },
+                ) { model.onRecordHotkey() }
+            } else {
+                Box {
+                    RowAction(AppIcons.More, stringResource(Res.string.tools)) { toolsOpen = true }
+                    DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                        DropdownMenuItem(
+                                text = { Text(stringResource(Res.string.tools_screenshot)) },
+                                enabled = model.supportsScreenshot,
+                                onClick = {
+                                    toolsOpen = false
+                                    model.takeScreenshot()
+                                },
+                        )
+                        DropdownMenuItem(
+                                text = { Text(recordLabel) },
+                                enabled = model.supportsRecording,
+                                onClick = {
+                                    toolsOpen = false
+                                    model.onRecordHotkey()
+                                },
+                        )
+                    }
+                }
+            }
+            if (total > 0) {
+                Spacer(Modifier.weight(1f))
+                Text(
+                        text = stringResource(Res.string.list_total, total),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 8.dp),
                 )
             }
-        }
-        if (total > 0) {
-            Spacer(Modifier.weight(1f))
-            Text(
-                    text = stringResource(Res.string.list_total, total),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(end = 8.dp),
-            )
         }
     }
 }

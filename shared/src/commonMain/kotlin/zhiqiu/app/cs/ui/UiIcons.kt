@@ -44,9 +44,20 @@ internal object AppIcons {
     val Export: ImageVector = icon("export", FileUploadPath)
     val Settings: ImageVector = icon("settings", SettingsPath)
     val ArrowBack: ImageVector = icon("arrowBack", ArrowBackPath)
+    val Crop: ImageVector = icon("crop", CropPath)
+    val Videocam: ImageVector = icon("videocam", VideocamPath)
+    val Stop: ImageVector = icon("stop", StopPath)
 }
 
 internal fun clipSyncIcon(tint: Color): ImageVector = icon("clipSync", ContentPastePath, tint)
+
+private const val CropPath =
+        "M17,15h2V7c0,-1.1 -0.9,-2 -2,-2H9v2h8v8zM7,17V1H5v4H1v2h4v12c0,1.1 0.9,2 2,2h12v4h2v-4h4v-2H7z"
+
+private const val VideocamPath =
+        "M17,10.5V7c0,-0.55 -0.45,-1 -1,-1H4c-0.55,0 -1,0.45 -1,1v10c0,0.55 0.45,1 1,1h12c0.55,0 1,-0.45 1,-1v-3.5l4,4v-11l-4,4z"
+
+private const val StopPath = "M6,6h12v12H6z"
 
 private const val ArrowBackPath =
         "M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"
