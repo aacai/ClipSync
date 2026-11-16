@@ -16,13 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +57,13 @@ import javafx.scene.media.MediaPlayer
 import javafx.scene.media.MediaView
 import javax.swing.SwingUtilities
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIconButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkSlider
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.resources.Res
 import zhiqiu.app.cs.resources.cancel
 import zhiqiu.app.cs.resources.record_preview_close
@@ -118,8 +118,35 @@ internal actual fun RecordPreviewHost(
             window.minimumSize = Dimension(680, 480)
             window.toFront()
         }
-        PreviewBody(current, onClose, onShare, onDownload, onDelete)
+        OinkTheme(darkTheme = true) { PreviewBody(current, onClose, onShare, onDownload, onDelete) }
     }
+}
+
+/** 录屏预览窗自有配色，把 M3 Text 的字体参数适配到 OinkText。 */
+@Composable
+private fun PreviewText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    fontWeight: FontWeight? = null,
+    fontFamily: FontFamily? = null,
+    style: androidx.compose.ui.text.TextStyle? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: androidx.compose.ui.text.style.TextOverflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+) {
+    OinkText(
+        text = text,
+        modifier = modifier,
+        color = color,
+        style = style ?: OinkTheme.textStyles.body.copy(
+            fontSize = fontSize,
+            fontWeight = fontWeight ?: FontWeight.Normal,
+            fontFamily = fontFamily ?: FontFamily.Default,
+        ),
+        maxLines = maxLines,
+        overflow = overflow,
+    )
 }
 
 @Composable
@@ -147,7 +174,7 @@ private fun PreviewBody(
                 verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(
+                PreviewText(
                         text = preview.name,
                         color = Color.White,
                         fontSize = 13.sp,
@@ -155,20 +182,17 @@ private fun PreviewBody(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                 )
-                Text(
+                PreviewText(
                         text = if (exists) "MP4" else stringResource(Res.string.record_preview_missing),
                         color = PreviewMuted,
                         fontSize = 11.sp,
                 )
             }
-            IconButton(onClick = onClose) {
-                Icon(
-                        AppIcons.Close,
-                        contentDescription = stringResource(Res.string.record_preview_close),
-                        tint = PreviewMuted,
-                        modifier = Modifier.size(18.dp),
-                )
-            }
+            OinkIconButton(
+                    icon = AppIcons.Close,
+                    onClick = onClose,
+                    contentDescription = stringResource(Res.string.record_preview_close),
+            )
         }
 
         Box(
@@ -182,19 +206,19 @@ private fun PreviewBody(
         ) {
             when {
                 !exists ->
-                        Text(
+                        PreviewText(
                                 stringResource(Res.string.record_preview_missing),
                                 color = PreviewMuted,
                                 fontSize = 13.sp,
                         )
                 player == null ->
-                        Text(
+                        PreviewText(
                                 stringResource(Res.string.record_preview_missing),
                                 color = PreviewMuted,
                                 fontSize = 13.sp,
                         )
                 player.failed ->
-                        Text(
+                        PreviewText(
                                 stringResource(Res.string.record_preview_failed),
                                 color = PreviewMuted,
                                 fontSize = 13.sp,
@@ -219,7 +243,7 @@ private fun PreviewBody(
                     onClick = { player?.toggle() },
             )
             Spacer(Modifier.width(14.dp))
-            Text(
+            PreviewText(
                     text = timeLabel(player),
                     color = PreviewMuted,
                     fontSize = 12.sp,
@@ -232,21 +256,13 @@ private fun PreviewBody(
                 val value =
                         (if (player?.scrubbing == true) player.scrub else player?.position ?: 0.0)
                                 .coerceIn(0.0, max)
-                Slider(
+                OinkSlider(
                         value = value.toFloat(),
                         onValueChange = { player?.scrubTo(it) },
                         onValueChangeFinished = { player?.endScrub() },
                         valueRange = 0f..max.toFloat(),
                         enabled = player != null && player.ready && !player.failed,
-                        colors =
-                                SliderDefaults.colors(
-                                        thumbColor = Color.White,
-                                        activeTrackColor = PreviewAccent,
-                                        inactiveTrackColor = Color(0x33FFFFFF),
-                                        disabledThumbColor = PreviewMuted,
-                                        disabledActiveTrackColor = Color(0x22FFFFFF),
-                                        disabledInactiveTrackColor = Color(0x14FFFFFF),
-                                ),
+                        showBubble = false,
                 )
             }
             Spacer(Modifier.width(12.dp))
@@ -276,35 +292,33 @@ private fun PreviewBody(
         GlassAlertDialog(
                 onDismissRequest = { confirmDelete = false },
                 title = {
-                    Text(
+                    PreviewText(
                             stringResource(Res.string.record_preview_delete_title),
                             fontSize = 17.sp,
                     )
                 },
                 text = {
-                    Text(
+                    PreviewText(
                             stringResource(Res.string.record_preview_delete_body),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = OinkTheme.textStyles.caption,
                     )
                 },
                 confirmButton = {
-                    TextButton(
+                    OinkButton(
+                            text = stringResource(Res.string.record_preview_delete_confirm),
                             onClick = {
                                 confirmDelete = false
                                 onDelete()
                             },
-                    ) {
-                        Text(
-                                stringResource(Res.string.record_preview_delete_confirm),
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.SemiBold,
-                        )
-                    }
+                            variant = OinkButtonVariant.Danger,
+                    )
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmDelete = false }) {
-                        Text(stringResource(Res.string.cancel))
-                    }
+                    OinkButton(
+                            text = stringResource(Res.string.cancel),
+                            onClick = { confirmDelete = false },
+                            variant = OinkButtonVariant.Ghost,
+                    )
                 },
         )
     }
@@ -354,9 +368,9 @@ private fun PreviewAction(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        OinkIcon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
-        Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        PreviewText(label, color = tint, style = OinkTheme.textStyles.label)
     }
 }
 

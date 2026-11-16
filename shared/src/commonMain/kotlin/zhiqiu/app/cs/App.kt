@@ -6,10 +6,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.serialization.Serializable
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.ui.AboutDialog
 import zhiqiu.app.cs.ui.AppModel
@@ -47,9 +48,9 @@ fun App(onQuit: (() -> Unit)? = null) {
 
     AppTheme(themeMode) {
         val background by
-                animateColorAsState(MaterialTheme.colorScheme.background, tween(M3.MEDIUM_3, easing = M3.STANDARD), label = "appBg")
+                animateColorAsState(OinkTheme.colors.bg, tween(M3.MEDIUM_3, easing = M3.STANDARD), label = "appBg")
         // 根节点必须铺满背景色：wasmJs 下根元素透明会让浅色文字落在白色 body 上
-        Surface(modifier = Modifier.fillMaxSize(), color = background) {
+        Box(modifier = Modifier.fillMaxSize().background(background)) {
             val joinedRoom by model.joinedRoom.collectAsState()
             val leavePrompt by model.leavePrompt.collectAsState()
             val aboutPrompt by model.aboutPrompt.collectAsState()

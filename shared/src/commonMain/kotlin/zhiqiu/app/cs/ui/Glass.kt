@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -151,7 +150,7 @@ fun GlassCard(
 
 /**
  * 同窗 Popup + GlassCard，才能采到 [LocalBackdrop]。
- * Material [androidx.compose.material3.AlertDialog] 走独立窗/实心 surface，只会看起来像纯色块。
+ * 独立窗口的对话框采不到这层背景，只会显示为纯色块。
  */
 @Composable
 internal fun GlassAlertDialog(

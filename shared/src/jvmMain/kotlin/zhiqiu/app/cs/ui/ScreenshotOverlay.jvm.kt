@@ -20,13 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -103,6 +96,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonSize
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenu
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenuItem
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.core.AppSettings
 import zhiqiu.app.cs.resources.Res
 import zhiqiu.app.cs.resources.overlay_record_tag
@@ -147,6 +147,34 @@ private val Muted = Color(0xFFB8B8B8)
  * 下一次截屏就会叠在上面。几何全在 [ScreenshotSession] 里，这里只负责把事件喂进去、把结果画出来，
  * 和 Rust 端 `clipsync-desktop/src/overlay.rs` 是同一套流程。
  */
+/** 遮罩浮层自有一套深色配色，这里把 M3 Text 的 fontSize/fontWeight 参数适配到 OinkText。 */
+@Composable
+private fun BarText(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    fontWeight: FontWeight? = null,
+    fontFamily: FontFamily? = null,
+    textAlign: androidx.compose.ui.text.style.TextAlign? = null,
+    overflow: androidx.compose.ui.text.style.TextOverflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+    maxLines: Int = Int.MAX_VALUE,
+) {
+    OinkText(
+        text = text,
+        modifier = modifier,
+        color = color,
+        style = OinkTheme.textStyles.body.copy(
+            fontSize = fontSize,
+            fontWeight = fontWeight ?: FontWeight.Normal,
+            fontFamily = fontFamily ?: FontFamily.Default,
+        ),
+        textAlign = textAlign,
+        overflow = overflow,
+        maxLines = maxLines,
+    )
+}
+
 object ScreenshotOverlay : PlatformScreenshotOverlay {
 
     override val isAvailable: Boolean
@@ -244,6 +272,7 @@ object ScreenshotOverlay : PlatformScreenshotOverlay {
             resizable = false,
             title = OVERLAY_TITLE,
         ) {
+          OinkTheme(darkTheme = true) {
             val request = pending
             if (request != null) {
                 // 置顶只到浮动级，压不过菜单栏，所以再把原生窗口的层级抬上去。
@@ -255,6 +284,7 @@ object ScreenshotOverlay : PlatformScreenshotOverlay {
                 }
                 OverlayFrame(request)
             }
+          }
         }
     }
 
@@ -506,7 +536,7 @@ private fun BoxScope.SizeReadout(hole: Rect, unit: Float, label: String, record:
             Box(Modifier.size(7.dp).background(RecordRed, CircleShape))
             Spacer(Modifier.width(5.dp))
         }
-        Text(text = label, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+        BarText(text = label, color = Color.White, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
     }
 }
 
@@ -548,37 +578,36 @@ private fun BoxScope.RecordBar(request: OverlayRequest, unit: Float) {
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(Res.string.record_format), color = Muted, fontSize = 12.sp)
+        BarText(stringResource(Res.string.record_format), color = Muted, fontSize = 12.sp)
         Spacer(Modifier.width(8.dp))
         Box(
             Modifier.clip(RoundedCornerShape(6.dp))
                 .background(Accent)
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
-            Text("MP4", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            BarText("MP4", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
         BarDivider()
 
         Box {
-            TextButton(onClick = { qualityOpen = true }) {
-                Text(qualityLabel(options.quality), color = Color.White, fontSize = 13.sp)
-                Text(" ▾", color = Muted, fontSize = 12.sp)
+            OinkButton(
+                    onClick = { qualityOpen = true },
+                    variant = OinkButtonVariant.Ghost,
+                    size = OinkButtonSize.Sm,
+            ) {
+                BarText(qualityLabel(options.quality), color = Color.White, fontSize = 13.sp)
+                BarText(" ▾", color = Muted, fontSize = 12.sp)
             }
-            DropdownMenu(expanded = qualityOpen, onDismissRequest = { qualityOpen = false }) {
+            OinkMenu(expanded = qualityOpen, onDismissRequest = { qualityOpen = false }) {
                 for (quality in RecordQuality.entries) {
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(qualityLabel(quality), fontSize = 13.sp)
-                                Text(qualityHint(quality), color = Muted, fontSize = 11.sp)
-                            }
-                        },
-                        trailingIcon = { if (options.quality == quality) Text("✓", color = Accent) },
-                        onClick = {
-                            options.quality = quality
-                            qualityOpen = false
-                            request.revision.intValue++
-                        },
+                    OinkMenuItem(
+                            text = "${qualityLabel(quality)} · ${qualityHint(quality)}",
+                            selected = options.quality == quality,
+                            onClick = {
+                                options.quality = quality
+                                qualityOpen = false
+                                request.revision.intValue++
+                            },
                     )
                 }
             }
@@ -587,107 +616,106 @@ private fun BoxScope.RecordBar(request: OverlayRequest, unit: Float) {
 
         if (recordingAudioAvailable) {
             Box {
-                TextButton(onClick = { systemOpen = true }) {
-                    Text(systemLabel, color = Color.White, fontSize = 13.sp)
-                    Text(" ▾", color = Muted, fontSize = 12.sp)
+                OinkButton(
+                        onClick = { systemOpen = true },
+                        variant = OinkButtonVariant.Ghost,
+                        size = OinkButtonSize.Sm,
+                ) {
+                    BarText(systemLabel, color = Color.White, fontSize = 13.sp)
+                    BarText(" ▾", color = Muted, fontSize = 12.sp)
                 }
-                DropdownMenu(expanded = systemOpen, onDismissRequest = { systemOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.record_system_off), fontSize = 13.sp) },
-                        trailingIcon = { if (!options.systemAudio) Text("✓", color = Accent) },
-                        onClick = {
-                            options.systemAudio = false
-                            systemOpen = false
-                            request.revision.intValue++
-                        },
+                OinkMenu(expanded = systemOpen, onDismissRequest = { systemOpen = false }) {
+                    OinkMenuItem(
+                            text = stringResource(Res.string.record_system_off),
+                            selected = !options.systemAudio,
+                            onClick = {
+                                options.systemAudio = false
+                                systemOpen = false
+                                request.revision.intValue++
+                            },
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.record_system_on), fontSize = 13.sp) },
-                        trailingIcon = { if (options.systemAudio) Text("✓", color = Accent) },
-                        onClick = {
-                            options.systemAudio = true
-                            systemOpen = false
-                            request.revision.intValue++
-                        },
+                    OinkMenuItem(
+                            text = stringResource(Res.string.record_system_on),
+                            selected = options.systemAudio,
+                            onClick = {
+                                options.systemAudio = true
+                                systemOpen = false
+                                request.revision.intValue++
+                            },
                     )
                 }
             }
             BarDivider()
 
             Box {
-                TextButton(onClick = {
-                    devices = recordingInputs()
-                    micOpen = true
-                }) {
-                    Text(micLabel, color = Color.White, fontSize = 13.sp)
-                    Text(" ▾", color = Muted, fontSize = 12.sp)
-                }
-                DropdownMenu(
-                    expanded = micOpen,
-                    onDismissRequest = { micOpen = false },
-                    scrollState = rememberScrollState(),
+                OinkButton(
+                        onClick = {
+                            devices = recordingInputs()
+                            micOpen = true
+                        },
+                        variant = OinkButtonVariant.Ghost,
+                        size = OinkButtonSize.Sm,
                 ) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.record_mic_off), fontSize = 13.sp) },
-                        trailingIcon = { if (!options.mic) Text("✓", color = Accent) },
-                        onClick = {
-                            options.mic = false
-                            micOpen = false
-                            request.revision.intValue++
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(Res.string.record_mic_default), fontSize = 13.sp) },
-                        trailingIcon = {
-                            if (options.mic && options.micDevice.isBlank()) Text("✓", color = Accent)
-                        },
-                        onClick = {
-                            options.mic = true
-                            options.micDevice = ""
-                            micOpen = false
-                            request.revision.intValue++
-                        },
-                    )
-                    for (device in devices) {
-                        DropdownMenuItem(
-                            text = { Text(device.name, fontSize = 13.sp) },
-                            trailingIcon = { if (options.mic && options.micDevice == device.id) Text("✓", color = Accent) },
+                    BarText(micLabel, color = Color.White, fontSize = 13.sp)
+                    BarText(" ▾", color = Muted, fontSize = 12.sp)
+                }
+                OinkMenu(expanded = micOpen, onDismissRequest = { micOpen = false }) {
+                    OinkMenuItem(
+                            text = stringResource(Res.string.record_mic_off),
+                            selected = !options.mic,
                             onClick = {
-                                options.mic = true
-                                options.micDevice = device.id
+                                options.mic = false
                                 micOpen = false
                                 request.revision.intValue++
                             },
+                    )
+                    OinkMenuItem(
+                            text = stringResource(Res.string.record_mic_default),
+                            selected = options.mic && options.micDevice.isBlank(),
+                            onClick = {
+                                options.mic = true
+                                options.micDevice = ""
+                                micOpen = false
+                                request.revision.intValue++
+                            },
+                    )
+                    for (device in devices) {
+                        OinkMenuItem(
+                                text = device.name,
+                                selected = options.mic && options.micDevice == device.id,
+                                onClick = {
+                                    options.mic = true
+                                    options.micDevice = device.id
+                                    micOpen = false
+                                    request.revision.intValue++
+                                },
                         )
                     }
                 }
             }
         }
         Spacer(Modifier.width(8.dp))
-        Button(
-            onClick = {
-                session.onEnter()
-                request.settle(session.outcome)
-            },
-            modifier = Modifier.height(38.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White),
-        ) {
-            Text(stringResource(Res.string.record_start), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
+        OinkButton(
+                text = stringResource(Res.string.record_start),
+                onClick = {
+                    session.onEnter()
+                    request.settle(session.outcome)
+                },
+                modifier = Modifier.height(38.dp),
+                size = OinkButtonSize.Sm,
+                variant = OinkButtonVariant.Accent,
+        )
         Spacer(Modifier.width(8.dp))
-        OutlinedButton(
-            onClick = {
-                session.onEscape()
-                request.settle(session.outcome)
-            },
-            modifier = Modifier.height(38.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x66FFFFFF)),
-        ) {
-            Text(stringResource(Res.string.record_exit), fontSize = 13.sp)
-        }
+        OinkButton(
+                text = stringResource(Res.string.record_exit),
+                onClick = {
+                    session.onEscape()
+                    request.settle(session.outcome)
+                },
+                modifier = Modifier.height(38.dp),
+                size = OinkButtonSize.Sm,
+                variant = OinkButtonVariant.Outline,
+        )
     }
 }
 
@@ -853,7 +881,7 @@ private fun TextEditor(request: OverlayRequest, unit: Float) {
         decorationBox = { inner ->
             Box {
                 if (text.isEmpty()) {
-                    Text(stringResource(Res.string.shot_text_hint), color = Muted, fontSize = 13.sp)
+                    BarText(stringResource(Res.string.shot_text_hint), color = Muted, fontSize = 13.sp)
                 }
                 inner()
             }

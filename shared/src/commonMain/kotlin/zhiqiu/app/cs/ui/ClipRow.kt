@@ -423,13 +423,12 @@ internal fun RowAction(
         tinted: Color? = null,
         onClick: () -> Unit,
 ) {
-    val c = OinkTheme.colors
-    val ink =
+    // 统一走 oink 按钮变体：普通=幽灵、选中/进行中=强调、危险操作=红，禁用态交给组件自身处理。
+    val variant =
             when {
-                !enabled -> c.text3
-                tinted != null -> tinted
-                active -> c.warning
-                else -> c.text2
+                tinted != null -> OinkButtonVariant.Danger
+                active -> OinkButtonVariant.Accent
+                else -> OinkButtonVariant.Ghost
             }
     Tip(description) {
         OinkIconButton(
@@ -437,6 +436,7 @@ internal fun RowAction(
                 onClick = onClick,
                 enabled = enabled,
                 contentDescription = description,
+                variant = variant,
                 size = OinkButtonSize.Sm,
                 modifier = Modifier.size(33.dp),
         )

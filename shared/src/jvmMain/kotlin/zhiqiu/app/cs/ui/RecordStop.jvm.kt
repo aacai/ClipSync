@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -36,6 +33,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonSize
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.resources.Res
 import zhiqiu.app.cs.resources.record_saving
 import zhiqiu.app.cs.resources.record_stop
@@ -109,6 +111,7 @@ internal actual fun RecordStopHost(
             resizable = false,
             alwaysOnTop = true,
     ) {
+        OinkTheme(darkTheme = true) {
         LaunchedEffect(Unit) {
             window.toFront()
             // 这条停止栏是开录之后才建出来的窗口，开录那一份排除名单里没有它；
@@ -128,30 +131,24 @@ internal actual fun RecordStopHost(
         ) {
             Box(Modifier.size(10.dp).background(RecordRed, CircleShape))
             Spacer(Modifier.width(10.dp))
-            Text(
+            OinkText(
                     text =
                             if (saving) stringResource(Res.string.record_saving)
                             else "${recordClock(elapsedSec)} / ${recordClock(limitSec)}",
+                    style = OinkTheme.textStyles.mono,
                     color = Color.White,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
             )
             Spacer(Modifier.weight(1f))
             if (!saving) {
-                Button(
+                OinkButton(
+                        text = stringResource(Res.string.record_stop),
                         onClick = onStop,
                         modifier = Modifier.height(36.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors =
-                                ButtonDefaults.buttonColors(
-                                        containerColor = RecordRed,
-                                        contentColor = Color.White,
-                                ),
-                ) {
-                    Text(stringResource(Res.string.record_stop), fontSize = 13.sp)
-                }
+                        size = OinkButtonSize.Sm,
+                        variant = OinkButtonVariant.Danger,
+                )
             }
+        }
         }
     }
 }

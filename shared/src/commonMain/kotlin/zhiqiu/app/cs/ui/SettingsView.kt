@@ -23,15 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -726,10 +717,10 @@ private fun updateLabel(state: UpdateState): String =
 private fun updateColor(state: UpdateState): Color {
     val dark = isAppDarkTheme()
     return when (state) {
-        is UpdateState.Failed -> MaterialTheme.colorScheme.error
+        is UpdateState.Failed -> OinkTheme.colors.dangerText
         is UpdateState.Available -> if (dark) PinAmberDark else PinAmber
         is UpdateState.Downloaded -> if (dark) SuccessGreenDark else SuccessGreen
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> OinkTheme.colors.text2
     }
 }
 
@@ -1052,7 +1043,7 @@ private fun roomColor(status: ClipSyncEngine.Status, roomCode: String?): Color? 
         status is ClipSyncEngine.Status.Online -> if (dark) SuccessGreenDark else SuccessGreen
         status is ClipSyncEngine.Status.Connecting -> if (dark) PinAmberDark else PinAmber
         roomCode == null -> null
-        else -> MaterialTheme.colorScheme.error
+        else -> OinkTheme.colors.dangerText
     }
 }
 

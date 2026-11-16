@@ -35,16 +35,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -86,6 +76,7 @@ import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonSize
 import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
 import zhiqiu.applewidgets.kmp.oink.basic.OinkCard
 import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
@@ -1169,32 +1160,19 @@ private fun chordKey(name: String): Key? =
 
 @Composable
 private fun ToggleChip(description: StringResource, label: String, active: Boolean, onClick: () -> Unit) {
-    val c = OinkTheme.colors
-    val shape = RoundedCornerShape(10.dp)
-    val spec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
-    val fill by animateColorAsState(
-            if (active) c.accentSoft else Color.Transparent,
-            spec,
-            label = "chipFill",
-    )
-    val edge by animateColorAsState(
-            if (active) c.accent.copy(alpha = 0.6f) else c.line.copy(alpha = 0.6f),
-            spec,
-            label = "chipEdge",
-    )
-    val ink by animateColorAsState(if (active) c.accent else c.text2, spec, label = "chipInk")
     val cd = stringResource(description)
     Tip(cd) {
-        Box(
-                modifier =
-                        Modifier.size(width = 30.dp, height = 26.dp)
-                                .background(fill, shape)
-                                .border(1.dp, edge, shape)
-                                .semantics { contentDescription = cd }
-                                .clickable(onClick = onClick),
-                contentAlignment = Alignment.Center,
+        OinkButton(
+                onClick = onClick,
+                modifier = Modifier.size(33.dp).semantics { contentDescription = cd },
+                variant = if (active) OinkButtonVariant.Accent else OinkButtonVariant.Ghost,
+                size = OinkButtonSize.Sm,
+                insideMargin = PaddingValues(0.dp),
         ) {
-            OinkText(label, style = OinkTheme.textStyles.mono, color = ink)
+            OinkText(
+                    label,
+                    style = OinkTheme.textStyles.mono.copy(fontSize = 11.sp),
+            )
         }
     }
 }
