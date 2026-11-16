@@ -44,6 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # oink / applewidgets-ui 以 submodule 形式引入，CI 必须一并拉取否则 Gradle 找不到工程目录
+          submodules: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -114,6 +117,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # oink / applewidgets-ui 以 submodule 形式引入，CI 必须一并拉取否则 Gradle 找不到工程目录
+          submodules: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -169,6 +175,9 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+        with:
+          # oink / applewidgets-ui 以 submodule 形式引入，CI 必须一并拉取否则 Gradle 找不到工程目录
+          submodules: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -212,6 +221,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # oink / applewidgets-ui 以 submodule 形式引入，CI 必须一并拉取否则 Gradle 找不到工程目录
+          submodules: true
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -250,6 +262,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # oink / applewidgets-ui 以 submodule 形式引入，CI 必须一并拉取否则 Gradle 找不到工程目录
+          submodules: true
 
       - name: Download Web artifact
         uses: actions/download-artifact@v4
