@@ -2,12 +2,10 @@ package zhiqiu.app.cs.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,18 +15,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,7 +28,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -51,16 +39,22 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIconButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkSegmented
+import zhiqiu.applewidgets.kmp.oink.basic.OinkSpinner
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.form.OinkTextField
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.files.ClipItem
@@ -78,6 +72,16 @@ import zhiqiu.app.cs.translate.TranslationException
 import zhiqiu.app.cs.translate.detectTarget
 
 @Composable
+private fun Primary(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+    OinkButton(text = text, onClick = onClick, enabled = enabled, variant = OinkButtonVariant.Accent)
+}
+
+@Composable
+private fun Ghost(text: String, onClick: () -> Unit) {
+    OinkButton(text = text, onClick = onClick, variant = OinkButtonVariant.Ghost)
+}
+
+@Composable
 internal fun TextEntryDialog(
         title: StringResource,
         initial: String,
@@ -89,41 +93,37 @@ internal fun TextEntryDialog(
         onDismiss: () -> Unit,
         onSubmit: (String) -> Unit,
 ) {
+    val c = OinkTheme.colors
     var text by remember { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column {
-                    OutlinedTextField(
+                    OinkTextField(
                             value = text,
                             onValueChange = { text = it },
-                            placeholder = { Text(stringResource(placeholder)) },
-                            minLines = minLines,
-                            shape = MaterialTheme.shapes.small,
-                            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                            placeholder = stringResource(placeholder),
+                            singleLine = false,
+                            modifier =
+                                    Modifier.fillMaxWidth()
+                                            .heightIn(min = (minLines * 24).dp)
+                                            .focusRequester(focus),
                     )
                     if (supporting != null) {
-                        Text(
+                        OinkText(
                                 stringResource(supporting),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = OinkTheme.textStyles.caption,
+                                color = c.text3,
                                 modifier = Modifier.padding(top = 6.dp),
                         )
                     }
                 }
             },
-            confirmButton = {
-                TextButton(
-                        onClick = { onSubmit(text) },
-                        enabled = allowBlank || text.isNotBlank(),
-                ) {
-                    Text(stringResource(confirm), fontWeight = FontWeight.SemiBold)
-                }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            confirmButton = { Primary(stringResource(confirm), enabled = allowBlank || text.isNotBlank()) { onSubmit(text) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
@@ -168,33 +168,38 @@ internal fun NoteDialog(item: ClipItem, onDismiss: () -> Unit, onSave: (String) 
 
 @Composable
 internal fun TransformDialog(text: String, onDismiss: () -> Unit, onApply: (TextOp) -> Unit) {
+    val c = OinkTheme.colors
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.transform_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.transform_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(
                         modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(
+                    OinkText(
                             text.lineSequence().first().take(72).ifBlank { stringResource(Res.string.empty_text) },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                             maxLines = 1,
                     )
-                    Text(
+                    OinkText(
                             stringResource(Res.string.transform_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                             modifier = Modifier.padding(vertical = 8.dp),
                     )
                     TextOp.entries.chunked(2).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                             row.forEach { op ->
-                                TransformButton(op, Modifier.weight(1f)) {
-                                    onDismiss()
-                                    onApply(op)
-                                }
+                                OinkButton(
+                                        text = opLabel(op),
+                                        onClick = {
+                                            onDismiss()
+                                            onApply(op)
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                )
                             }
                             if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
@@ -202,20 +207,8 @@ internal fun TransformDialog(text: String, onDismiss: () -> Unit, onApply: (Text
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
-}
-
-@Composable
-private fun TransformButton(op: TextOp, modifier: Modifier, onClick: () -> Unit) {
-    TextButton(
-            onClick = onClick,
-            modifier = modifier.height(40.dp),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            shape = MaterialTheme.shapes.small,
-    ) {
-        Text(opLabel(op), fontSize = 12.sp, maxLines = 1)
-    }
 }
 
 @Composable
@@ -237,10 +230,6 @@ private fun opLabel(op: TextOp): String =
                 }
         )
 
-/**
- * 中英互译弹窗：选方向 → 点翻译 → 展示译文，再由用户决定复制 / 另存 / 替换。
- * 不再像旧版那样静默翻完直接塞一条历史、只弹个提示。
- */
 @Composable
 internal fun TranslateDialog(
         item: ClipItem,
@@ -248,6 +237,7 @@ internal fun TranslateDialog(
         onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val c = OinkTheme.colors
     val source = item.text
     var target by remember { mutableStateOf(detectTarget(source)) }
     var running by remember { mutableStateOf(false) }
@@ -273,46 +263,34 @@ internal fun TranslateDialog(
 
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.translate_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.translate_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(
                         modifier = Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        DirectionChip(
-                                label = stringResource(Res.string.translate_to_en),
-                                selected = target == TranslateTarget.English,
-                                onClick = { target = TranslateTarget.English },
-                        )
-                        DirectionChip(
-                                label = stringResource(Res.string.translate_to_zh),
-                                selected = target == TranslateTarget.Chinese,
-                                onClick = { target = TranslateTarget.Chinese },
-                        )
-                    }
+                    OinkSegmented(
+                            options = listOf(stringResource(Res.string.translate_to_en), stringResource(Res.string.translate_to_zh)),
+                            selectedIndex = if (target == TranslateTarget.English) 0 else 1,
+                            onSelectedChange = {
+                                target = if (it == 0) TranslateTarget.English else TranslateTarget.Chinese
+                            },
+                    )
                     SectionLabel(Res.string.translate_source)
                     ReadOnlyTextBox(source)
                     if (tooLong) {
-                        Text(
-                                stringResource(
-                                        Res.string.fb_translate_too_long,
-                                        source.length,
-                                        MAX_TRANSLATE_CHARS,
-                                ),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
+                        OinkText(
+                                stringResource(Res.string.fb_translate_too_long, source.length, MAX_TRANSLATE_CHARS),
+                                style = OinkTheme.textStyles.caption,
+                                color = c.dangerText,
                         )
                     }
                     val failed = failure
                     if (failed != null) {
-                        Text(
+                        OinkText(
                                 translateFailureText(failed.first, failed.second),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error,
+                                style = OinkTheme.textStyles.caption,
+                                color = c.dangerText,
                         )
                     }
                     val translated = result
@@ -320,103 +298,63 @@ internal fun TranslateDialog(
                         SectionLabel(Res.string.translate_result)
                         ReadOnlyTextBox(translated)
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = { model.copyToClipboard(translated) }) {
-                                Text(
-                                        stringResource(Res.string.translate_copy_result),
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                )
-                            }
-                            TextButton(
+                            OinkButton(
+                                    text = stringResource(Res.string.translate_copy_result),
+                                    onClick = { model.copyToClipboard(translated) },
+                                    variant = OinkButtonVariant.Ghost,
+                            )
+                            OinkButton(
+                                    text = stringResource(Res.string.translate_save_new),
                                     onClick = {
                                             model.addEntry(translated)
                                             onDismiss()
                                     },
-                            ) {
-                                Text(stringResource(Res.string.translate_save_new), fontSize = 12.sp, maxLines = 1)
-                            }
-                            TextButton(
+                                    variant = OinkButtonVariant.Ghost,
+                            )
+                            OinkButton(
+                                    text = stringResource(Res.string.translate_replace),
                                     onClick = {
                                             model.editItem(item, translated)
                                             onDismiss()
                                     },
-                            ) {
-                                Text(stringResource(Res.string.translate_replace), fontSize = 12.sp, maxLines = 1)
-                            }
+                                    variant = OinkButtonVariant.Ghost,
+                            )
                         }
                     }
                 }
             },
             confirmButton = {
-                Button(
+                OinkButton(
+                        text = stringResource(if (running) Res.string.translate_running else Res.string.translate_run),
                         onClick = { run() },
                         enabled = !running && !tooLong,
-                        shape = MaterialTheme.shapes.small,
-                ) {
-                    if (running) {
-                        CircularProgressIndicator(
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    Text(
-                            stringResource(
-                                    if (running) Res.string.translate_running else Res.string.translate_run
-                            ),
-                    )
-                }
+                        variant = OinkButtonVariant.Accent,
+                )
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
-@Composable
-private fun DirectionChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Box(
-            modifier =
-                    Modifier.clip(MaterialTheme.shapes.extraSmall)
-                            .background(if (selected) scheme.primary.copy(alpha = 0.14f) else scheme.surfaceVariant)
-                            .border(
-                                    1.dp,
-                                    if (selected) scheme.primary.copy(alpha = 0.55f) else Color.Transparent,
-                                    MaterialTheme.shapes.extraSmall,
-                            )
-                            .clickable(onClick = onClick)
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
-    ) {
-        Text(
-                label,
-                fontSize = 12.sp,
-                color = if (selected) scheme.primary else scheme.onSurfaceVariant,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        )
-    }
-}
-
-/** 只读文本块：原文/译文共用，限高 + 内部滚动，长内容不把弹窗撑爆。 */
 @Composable
 private fun ReadOnlyTextBox(text: String) {
     Box(
             modifier =
                     Modifier.fillMaxWidth()
                             .heightIn(max = 160.dp)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(OinkTheme.colors.well, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                             .verticalScroll(rememberScrollState())
                             .padding(10.dp),
     ) {
-        Text(
+        OinkText(
                 text.ifBlank { stringResource(Res.string.empty_text) },
-                style = MaterialTheme.typography.bodySmall,
+                style = OinkTheme.textStyles.caption,
         )
     }
 }
 
 @Composable
 internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmit: (Int) -> Unit) {
+    val c = OinkTheme.colors
     var input by remember { mutableStateOf(info.position.toString()) }
     val target = input.trim().toIntOrNull()
     val outOfRange = target != null && target !in info.from..info.to
@@ -424,43 +362,33 @@ internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmi
     LaunchedEffect(Unit) { focus.requestFocus() }
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.move_to_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.move_to_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column {
-                    OutlinedTextField(
+                    OinkTextField(
                             value = input,
                             onValueChange = { input = it.filter(Char::isDigit).take(6) },
+                            placeholder = stringResource(Res.string.move_to_position),
                             singleLine = true,
-                            isError = outOfRange,
-                            label = { Text(stringResource(Res.string.move_to_position)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                            shape = MaterialTheme.shapes.small,
                             modifier = Modifier.fillMaxWidth().focusRequester(focus),
                     )
-                    Text(
+                    OinkText(
                             if (outOfRange) stringResource(Res.string.move_to_invalid, info.from, info.to)
                             else stringResource(Res.string.move_to_hint, info.from, info.to, info.position),
-                            style = MaterialTheme.typography.labelSmall,
-                            color =
-                                    if (outOfRange) {
-                                        MaterialTheme.colorScheme.error
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                            style = OinkTheme.textStyles.caption,
+                            color = if (outOfRange) c.dangerText else c.text3,
                             modifier = Modifier.padding(top = 6.dp),
                     )
                 }
             },
             confirmButton = {
-                TextButton(
-                        onClick = { target?.let(onSubmit) },
+                Primary(
+                        stringResource(Res.string.confirm),
                         enabled = target != null && !outOfRange && target != info.position,
-                ) {
-                    Text(stringResource(Res.string.confirm), fontWeight = FontWeight.SemiBold)
-                }
+                ) { target?.let(onSubmit) }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
@@ -473,22 +401,18 @@ internal fun DetailDialog(
         onCopy: () -> Unit,
         onZoom: () -> Unit,
 ) {
+    val c = OinkTheme.colors
     val isFile = item.kind == ClipRepository.KIND_FILE
     val file = item.file
     val path = file?.localPath?.takeIf { isImage(file.mime) }
     val thumb = rememberImageBitmap(path, THUMB_MAX_SIDE) { model.cachedBytes(item) }
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.detail_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.detail_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(modifier = Modifier.heightIn(max = 420.dp)) {
                     if (thumb != null) {
-                        Box(
-                                modifier =
-                                        Modifier.padding(bottom = 10.dp)
-                                                .clip(MaterialTheme.shapes.small)
-                                                .clickable(onClick = onZoom),
-                        ) {
+                        Box(modifier = Modifier.padding(bottom = 10.dp).clickable(onClick = onZoom)) {
                             Image(
                                     bitmap = thumb,
                                     contentDescription = stringResource(Res.string.cd_zoom_image),
@@ -501,10 +425,7 @@ internal fun DetailDialog(
                             modifier =
                                     Modifier.fillMaxWidth()
                                             .weight(1f, fill = false)
-                                            .background(
-                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                    MaterialTheme.shapes.small,
-                                            )
+                                            .background(c.well, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                                             .padding(10.dp)
                                             .verticalScroll(rememberScrollState()),
                     ) {
@@ -514,13 +435,8 @@ internal fun DetailDialog(
                                 } else {
                                     item.text
                                 }
-                        Text(
-                                body,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
-                        )
+                        OinkText(body, style = OinkTheme.textStyles.mono)
                     }
-
                     val meta = buildList {
                         add(relTime(item.ts, now))
                         add(stringResource(Res.string.from_sender, item.senderName))
@@ -533,42 +449,39 @@ internal fun DetailDialog(
                         }
                         if (item.pinned) add(stringResource(Res.string.pinned))
                     }
-                    Text(
+                    OinkText(
                             meta.joinToString(" · "),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                             modifier = Modifier.padding(top = 10.dp),
                     )
-
                     if (item.note.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         SectionLabel(Res.string.detail_note)
-                        Text(item.note, style = MaterialTheme.typography.bodySmall)
+                        OinkText(item.note, style = OinkTheme.textStyles.caption)
                     }
-
                     Spacer(Modifier.height(10.dp))
                     SectionLabel(Res.string.detail_id)
-                    Text(item.id, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
+                    OinkText(item.id, style = OinkTheme.textStyles.mono)
                 }
             },
             confirmButton = {
                 val copyAsFile = file != null && file.localPath != null && model.supportsClipboardFiles
                 val copyAsImage = file != null && isImage(file.mime) && model.supportsClipboardImage
                 if (!isFile || copyAsImage || copyAsFile) {
-                    TextButton(onClick = onCopy) {
-                        Text(
-                                stringResource(
-                                        when {
-                                            copyAsImage -> Res.string.cd_copy_image
-                                            copyAsFile -> Res.string.cd_copy_file
-                                            else -> Res.string.cd_copy_text
-                                        }
-                                )
-                        )
-                    }
+                    Ghost(
+                            stringResource(
+                                    when {
+                                        copyAsImage -> Res.string.cd_copy_image
+                                        copyAsFile -> Res.string.cd_copy_file
+                                        else -> Res.string.cd_copy_text
+                                    }
+                            ),
+                            onCopy,
+                    )
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
@@ -577,14 +490,11 @@ internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> U
     val file = item.file
     val path = file?.localPath?.takeIf { isImage(file.mime) }
     val bitmap = rememberImageBitmap(path, ZOOM_MAX_SIDE) { model.cachedBytes(item) }
-    Dialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
                 modifier =
                         Modifier.fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.88f))
+                                .background(Color.Black.copy(alpha = 0.9f))
                                 .clickable(onClick = onDismiss),
                 contentAlignment = Alignment.Center,
         ) {
@@ -597,35 +507,18 @@ internal fun ImageViewDialog(item: ClipItem, model: AppModel, onDismiss: () -> U
                                 modifier = Modifier.fillMaxSize().padding(28.dp),
                         )
                 path == null ->
-                        Text(
-                                stringResource(Res.string.not_downloaded),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White,
-                        )
-                else ->
-                        CircularProgressIndicator(
-                                Modifier.size(28.dp),
-                                color = Color.White,
-                                strokeWidth = 2.5.dp,
-                        )
+                        OinkText(stringResource(Res.string.not_downloaded), style = OinkTheme.textStyles.body, color = Color.White)
+                else -> OinkSpinner(modifier = Modifier.size(28.dp), color = Color.White)
             }
             Row(modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)) {
                 if (model.supportsSaveToDownloads) {
-                    IconButton(onClick = { model.saveToDownloads(item) }) {
-                        Icon(
-                                AppIcons.Download,
-                                contentDescription = stringResource(Res.string.act_save_to_downloads),
-                                tint = Color.White,
-                        )
-                    }
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                            AppIcons.Close,
-                            contentDescription = stringResource(Res.string.cd_close_image),
-                            tint = Color.White,
+                    OinkIconButton(
+                            icon = AppIcons.Download,
+                            onClick = { model.saveToDownloads(item) },
+                            contentDescription = stringResource(Res.string.act_save_to_downloads),
                     )
                 }
+                OinkIconButton(icon = AppIcons.Close, onClick = onDismiss, contentDescription = stringResource(Res.string.cd_close_image))
             }
         }
     }
@@ -639,13 +532,10 @@ internal fun DeleteHistoryDialog(
 ) {
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.delete_history_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.delete_history_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column {
-                    Text(
-                            stringResource(Res.string.delete_history_body),
-                            style = MaterialTheme.typography.bodySmall,
-                    )
+                    OinkText(stringResource(Res.string.delete_history_body), style = OinkTheme.textStyles.caption)
                     Spacer(Modifier.height(10.dp))
                     val rows =
                             listOf(
@@ -668,7 +558,7 @@ internal fun DeleteHistoryDialog(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
@@ -682,36 +572,28 @@ private fun DeleteRangeRow(label: String, count: Int, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Text(
-                stringResource(Res.string.delete_count, count),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        OinkText(label, style = OinkTheme.textStyles.body)
+        OinkText(stringResource(Res.string.delete_count, count), style = OinkTheme.textStyles.caption, color = OinkTheme.colors.text3)
     }
 }
 
 @Composable
 internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val c = OinkTheme.colors
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.leave_room_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.leave_room_title), style = OinkTheme.textStyles.h4) },
             text = {
-                Text(
-                        stringResource(Res.string.leave_room_body, room),
-                        style = MaterialTheme.typography.bodySmall,
-                )
+                OinkText(stringResource(Res.string.leave_room_body, room), style = OinkTheme.textStyles.caption)
             },
             confirmButton = {
-                TextButton(onClick = onConfirm) {
-                    Text(
-                            stringResource(Res.string.action_leave_room),
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                OinkButton(
+                        text = stringResource(Res.string.action_leave_room),
+                        onClick = onConfirm,
+                        variant = OinkButtonVariant.Danger,
+                )
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }
 
@@ -720,15 +602,16 @@ internal fun DevicesDialog(
         devices: List<String>,
         onDismiss: () -> Unit,
 ) {
+    val c = OinkTheme.colors
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.devices_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.devices_title), style = OinkTheme.textStyles.h4) },
             text = {
                 if (devices.isEmpty()) {
-                    Text(
+                    OinkText(
                             stringResource(Res.string.devices_empty),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                     )
                 } else {
                     Column(
@@ -739,43 +622,27 @@ internal fun DevicesDialog(
                             Row(
                                     modifier =
                                             Modifier.fillMaxWidth()
-                                                    .background(
-                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                                                            MaterialTheme.shapes.small,
-                                                    )
+                                                    .background(c.well, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(
-                                        AppIcons.Devices,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp),
-                                )
+                                OinkIcon(AppIcons.Devices, contentDescription = null, tint = c.text2, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(10.dp))
-                                Text(
+                                OinkText(
                                         name,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = OinkTheme.textStyles.body,
                                         maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f),
                                 )
-                                // 列表第一项是本机（进房后拼在 peers 前面）
                                 if (index == 0) {
-                                    Text(
-                                            stringResource(Res.string.devices_this),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                    )
+                                    OinkText(stringResource(Res.string.devices_this), style = OinkTheme.textStyles.caption, color = c.accent)
                                 }
                             }
                         }
                     }
                 }
             },
-            confirmButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.safety_close)) }
-            },
+            confirmButton = { Ghost(stringResource(Res.string.safety_close), onDismiss) },
     )
 }
 
@@ -787,9 +654,10 @@ internal fun SafetyDialog(
         onDismiss: () -> Unit,
         onCopy: () -> Unit,
 ) {
+    val c = OinkTheme.colors
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.safety_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.safety_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(
                         modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
@@ -798,98 +666,64 @@ internal fun SafetyDialog(
                     Box(
                             modifier =
                                     Modifier.fillMaxWidth()
-                                            .background(
-                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                    MaterialTheme.shapes.small,
-                                            )
+                                            .background(c.well, androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                                             .padding(horizontal = 10.dp, vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                     ) {
-                        Text(
+                        OinkText(
                                 safety,
-                                style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 1.4.sp),
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 19.sp,
-                                textAlign = TextAlign.Center,
+                                style =
+                                        OinkTheme.textStyles.h2.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                textAlign = TextAlign.Center,
+                                        ),
+                                color = c.text,
                         )
                     }
-
                     SafetyPoint(1, Res.string.safety_point_what)
                     SafetyPoint(2, Res.string.safety_point_verify)
                     SafetyPoint(3, Res.string.safety_point_mismatch)
-
                     if (peers.isNotEmpty() || mismatch.isNotEmpty()) {
                         SectionLabel(Res.string.safety_peers)
                         Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             peers.forEach { peer ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                            AppIcons.Check,
-                                            contentDescription = stringResource(Res.string.safety_match),
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(14.dp),
-                                    )
+                                    OinkIcon(AppIcons.Check, contentDescription = stringResource(Res.string.safety_match), tint = c.success, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(
-                                            peer.name,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            modifier = Modifier.weight(1f),
-                                    )
-                                    Text(
-                                            stringResource(Res.string.safety_match),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                    )
+                                    OinkText(peer.name, style = OinkTheme.textStyles.caption, maxLines = 1, modifier = Modifier.weight(1f))
+                                    OinkText(stringResource(Res.string.safety_match), style = OinkTheme.textStyles.caption, color = c.success)
                                 }
                             }
                             mismatch.forEach { label ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                            AppIcons.Warning,
-                                            contentDescription = stringResource(Res.string.safety_diff),
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(14.dp),
-                                    )
+                                    OinkIcon(AppIcons.Warning, contentDescription = stringResource(Res.string.safety_diff), tint = c.danger, modifier = Modifier.size(14.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text(
-                                            label,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                            modifier = Modifier.weight(1f),
-                                    )
-                                    Text(
-                                            stringResource(Res.string.safety_diff),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.error,
-                                    )
+                                    OinkText(label, style = OinkTheme.textStyles.caption, maxLines = 1, modifier = Modifier.weight(1f))
+                                    OinkText(stringResource(Res.string.safety_diff), style = OinkTheme.textStyles.caption, color = c.dangerText)
                                 }
                             }
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = onCopy) { Text(stringResource(Res.string.cd_copy_safety)) } },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.safety_close)) } },
+            confirmButton = { Ghost(stringResource(Res.string.cd_copy_safety), onCopy) },
+            dismissButton = { Ghost(stringResource(Res.string.safety_close), onDismiss) },
     )
 }
 
 @Composable
 private fun SafetyPoint(index: Int, resource: StringResource) {
     Row(verticalAlignment = Alignment.Top) {
-        Text(
+        OinkText(
                 "$index",
-                style = MaterialTheme.typography.labelSmall,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
+                style = OinkTheme.textStyles.mono,
+                color = OinkTheme.colors.accent,
                 modifier = Modifier.padding(top = 3.dp, end = 8.dp),
         )
-        Text(
+        OinkText(
                 stringResource(resource),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = OinkTheme.textStyles.caption,
+                color = OinkTheme.colors.text2,
                 modifier = Modifier.weight(1f),
         )
     }
@@ -900,6 +734,7 @@ private const val REPO_URL = "https://github.com/aacai/ClipSync"
 @Composable
 internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
     val uriHandler = LocalUriHandler.current
+    val c = OinkTheme.colors
     GlassAlertDialog(
             onDismissRequest = onDismiss,
             confirmButton = {},
@@ -911,24 +746,20 @@ internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
                             modifier = Modifier.size(72.dp),
                     )
                     Spacer(Modifier.height(13.dp))
-                    Text("ClipSync", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    OinkText("ClipSync", style = OinkTheme.textStyles.h2.copy(fontWeight = FontWeight.Bold))
                     Spacer(Modifier.height(3.dp))
-                    Text(
+                    OinkText(
                             "${stringResource(Res.string.setting_version)} ${model.appVersion}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.body,
+                            color = c.text2,
                     )
                     Spacer(Modifier.height(18.dp))
-                    Text(
-                            stringResource(Res.string.about_copyright),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    OinkText(stringResource(Res.string.about_copyright), style = OinkTheme.textStyles.body, color = c.text2)
                     Spacer(Modifier.height(10.dp))
-                    Text(
+                    OinkText(
                             REPO_URL.removePrefix("https://"),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            style = OinkTheme.textStyles.label,
+                            color = c.accent,
                             modifier = Modifier.clickable { uriHandler.openUri(REPO_URL) },
                     )
                 }
@@ -951,56 +782,53 @@ internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
 
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(Res.string.share_title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(Res.string.share_title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column {
                     SectionLabel(Res.string.room_code)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
+                        OinkTextField(
                                 value = roomCode,
                                 onValueChange = model::updateRoomCode,
+                                placeholder = stringResource(Res.string.room_code),
                                 singleLine = true,
                                 enabled = !connecting,
-                                leadingIcon = { FieldIcon(AppIcons.Key) },
+                                leadingIcon = AppIcons.Key,
                                 keyboardOptions =
                                         KeyboardOptions(
                                                 keyboardType = KeyboardType.Ascii,
                                                 capitalization = KeyboardCapitalization.Characters,
                                         ),
-                                shape = MaterialTheme.shapes.small,
                                 modifier = Modifier.weight(1f).focusRequester(codeFocus),
                         )
                         Tip(stringResource(Res.string.cd_random_room)) {
-                            IconButton(onClick = model::regenerateRoomCode, enabled = !connecting) {
-                                Icon(
-                                        AppIcons.Refresh,
-                                        contentDescription = stringResource(Res.string.cd_random_room),
-                                )
-                            }
+                            OinkIconButton(
+                                    icon = AppIcons.Refresh,
+                                    onClick = model::regenerateRoomCode,
+                                    enabled = !connecting,
+                                    contentDescription = stringResource(Res.string.cd_random_room),
+                            )
                         }
                     }
-                    Text(
+                    OinkText(
                             stringResource(Res.string.room_code_hint),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = OinkTheme.colors.text3,
                             modifier = Modifier.padding(top = 4.dp),
                     )
-
                     Spacer(Modifier.height(14.dp))
                     SectionLabel(Res.string.room_password)
-                    OutlinedTextField(
+                    OinkTextField(
                             value = password,
                             onValueChange = model::updatePassword,
+                            placeholder = stringResource(Res.string.room_password_placeholder),
                             singleLine = true,
                             enabled = !connecting,
-                            placeholder = { Text(stringResource(Res.string.room_password_placeholder)) },
-                            leadingIcon = { FieldIcon(AppIcons.Lock) },
+                            leadingIcon = AppIcons.Lock,
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            shape = MaterialTheme.shapes.small,
                             modifier = Modifier.fillMaxWidth(),
                     )
-
                     if (!failureText.isNullOrBlank()) {
                         InlineMessage(
                                 AppIcons.Warning,
@@ -1012,24 +840,13 @@ internal fun ShareDialog(model: AppModel, onDismiss: () -> Unit) {
                 }
             },
             confirmButton = {
-                Button(
+                OinkButton(
+                        text = stringResource(if (connecting) Res.string.connecting else Res.string.enter_room),
                         onClick = model::connect,
                         enabled = !connecting && roomCode.isNotBlank(),
-                        shape = MaterialTheme.shapes.small,
-                ) {
-                    if (connecting) {
-                        CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Spacer(Modifier.width(9.dp))
-                        Text(stringResource(Res.string.connecting))
-                    } else {
-                        Text(stringResource(Res.string.enter_room), fontWeight = FontWeight.SemiBold)
-                    }
-                }
+                        variant = OinkButtonVariant.Accent,
+                )
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+            dismissButton = { Ghost(stringResource(Res.string.cancel), onDismiss) },
     )
 }

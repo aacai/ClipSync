@@ -14,63 +14,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import zhiqiu.applewidgets.kmp.oink.theme.OinkAccent
+import zhiqiu.applewidgets.kmp.oink.theme.OinkColors
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
+import zhiqiu.applewidgets.kmp.oink.theme.oinkAppleColors
+import zhiqiu.applewidgets.kmp.oink.theme.oinkAppleTextStyles
+import zhiqiu.applewidgets.kmp.oink.theme.oinkDarkColors
+import zhiqiu.applewidgets.kmp.oink.theme.oinkLightColors
+import zhiqiu.applewidgets.kmp.theme.AppleWidgetsTheme
 import zhiqiu.app.cs.core.ThemeMode
-
-internal val LightColors =
-        lightColorScheme(
-                primary = Color(0xFFC0426B),
-                onPrimary = Color(0xFFFFFFFF),
-                primaryContainer = Color(0xFFFBDCE4),
-                onPrimaryContainer = Color(0xFF6E1235),
-                secondary = Color(0xFF7C9A82),
-                onSecondary = Color(0xFFFFFFFF),
-                secondaryContainer = Color(0xFFE3EFE5),
-                onSecondaryContainer = Color(0xFF2C4A34),
-                onBackground = Color(0xFF241A1E),
-                background = Color(0xFFFBF3F5),
-                surface = Color(0xFFFFFBFB),
-                onSurface = Color(0xFF241A1E),
-                surfaceVariant = Color(0xFFF4E7EB),
-                onSurfaceVariant = Color(0xFF6B5560),
-                surfaceContainer = Color(0xFFF9EDF0),
-                surfaceContainerHigh = Color(0xFFF3E2E8),
-                outline = Color(0xFFA08794),
-                outlineVariant = Color(0xFFE7D5DD),
-                error = Color(0xFFC2453F),
-                onError = Color(0xFFFFFFFF),
-                errorContainer = Color(0xFFFCE9E7),
-                onErrorContainer = Color(0xFF7A1B18),
-                inverseSurface = Color(0xFF2A1F24),
-                inverseOnSurface = Color(0xFFFBEEF1),
-        )
-
-internal val DarkColors =
-        darkColorScheme(
-                primary = Color(0xFFF4A8C0),
-                onPrimary = Color(0xFF3D0F20),
-                primaryContainer = Color(0xFF6B2440),
-                onPrimaryContainer = Color(0xFFFFD9E4),
-                secondary = Color(0xFFA3C7AC),
-                onSecondary = Color(0xFF16301C),
-                secondaryContainer = Color(0xFF35503A),
-                onSecondaryContainer = Color(0xFFD5EBD9),
-                onBackground = Color(0xFFF0E4E9),
-                background = Color(0xFF100A0E),
-                surface = Color(0xFF1A1218),
-                onSurface = Color(0xFFF0E4E9),
-                surfaceVariant = Color(0xFF261B21),
-                onSurfaceVariant = Color(0xFFBFA5B0),
-                surfaceContainer = Color(0xFF1E151B),
-                surfaceContainerHigh = Color(0xFF2A1D25),
-                outline = Color(0xFF7A5F6B),
-                outlineVariant = Color(0xFF3A2A33),
-                error = Color(0xFFF87171),
-                onError = Color(0xFF450A0A),
-                errorContainer = Color(0xFF4C1D1D),
-                onErrorContainer = Color(0xFFFFC9C9),
-                inverseSurface = Color(0xFFF0E4E9),
-                inverseOnSurface = Color(0xFF1A1218),
-        )
 
 internal val AppShapes =
         Shapes(
@@ -90,7 +42,6 @@ internal val AuroraSakura = Color(0xFFF472B6)
 internal val AuroraPeach = Color(0xFFFBA68C)
 internal val AuroraWisteria = Color(0xFFB79BE8)
 
-// 与 HouseStudy 对齐的配色对象（毛玻璃方案 Glass.kt 使用 Background 作底色）。
 object Palette {
     val Background = Color(0xFF0E1014)
     val Surface = Color(0xFF161A21)
@@ -125,7 +76,6 @@ internal fun isAppDarkTheme(): Boolean =
 internal fun glassBorder(): Color =
         if (isAppDarkTheme()) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
 
-/** 对话框圆角，跟顶栏 GlassCard 同一档。 */
 internal val GlassDialogShape = RoundedCornerShape(22.dp)
 
 private fun Typography.tuned(): Typography =
@@ -138,6 +88,63 @@ private fun Typography.tuned(): Typography =
                 labelLarge = labelLarge.copy(fontWeight = FontWeight.Medium),
         )
 
+private fun oinkColorScheme(c: OinkColors, dark: Boolean) =
+        if (dark) {
+            darkColorScheme(
+                    primary = c.accent,
+                    onPrimary = c.onAccent,
+                    primaryContainer = c.accentSoft,
+                    onPrimaryContainer = c.accentText,
+                    secondary = c.accentDeep,
+                    onSecondary = c.onAccent,
+                    secondaryContainer = c.accentTint,
+                    onSecondaryContainer = c.accentText,
+                    background = c.bg,
+                    onBackground = c.text,
+                    surface = c.surface,
+                    onSurface = c.text,
+                    surfaceVariant = c.well,
+                    onSurfaceVariant = c.text2,
+                    surfaceContainer = c.card,
+                    surfaceContainerHigh = c.raised,
+                    outline = c.line,
+                    outlineVariant = c.line2,
+                    error = c.danger,
+                    onError = c.onInverse,
+                    errorContainer = c.dangerSoft,
+                    onErrorContainer = c.dangerText,
+                    inverseSurface = c.inverse,
+                    inverseOnSurface = c.onInverse,
+            )
+        } else {
+            lightColorScheme(
+                    primary = c.accent,
+                    onPrimary = c.onAccent,
+                    primaryContainer = c.accentSoft,
+                    onPrimaryContainer = c.accentText,
+                    secondary = c.accentDeep,
+                    onSecondary = c.onAccent,
+                    secondaryContainer = c.accentTint,
+                    onSecondaryContainer = c.accentText,
+                    background = c.bg,
+                    onBackground = c.text,
+                    surface = c.surface,
+                    onSurface = c.text,
+                    surfaceVariant = c.well,
+                    onSurfaceVariant = c.text2,
+                    surfaceContainer = c.card,
+                    surfaceContainerHigh = c.raised,
+                    outline = c.line,
+                    outlineVariant = c.line2,
+                    error = c.danger,
+                    onError = c.onInverse,
+                    errorContainer = c.dangerSoft,
+                    onErrorContainer = c.dangerText,
+                    inverseSurface = c.inverse,
+                    inverseOnSurface = c.onInverse,
+            )
+        }
+
 @Composable
 fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () -> Unit) {
     val dark =
@@ -146,12 +153,21 @@ fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () ->
                 ThemeMode.Light -> false
                 ThemeMode.Dark -> true
             }
+    val accent = OinkAccent.Pink
+    val oinkColors = if (dark) oinkDarkColors(accent) else oinkLightColors(accent)
     CompositionLocalProvider(LocalThemeMode provides themeMode) {
-        MaterialTheme(
-                colorScheme = if (dark) DarkColors else LightColors,
-                shapes = AppShapes,
-                typography = Typography(fontFamily = appFontFamily()).tuned(),
-                content = content,
-        )
+        OinkTheme(colors = oinkColors) {
+            AppleWidgetsTheme(
+                    colors = oinkAppleColors(OinkTheme.colors),
+                    textStyles = oinkAppleTextStyles(OinkTheme.textStyles),
+            ) {
+                MaterialTheme(
+                        colorScheme = oinkColorScheme(OinkTheme.colors, dark),
+                        shapes = AppShapes,
+                        typography = Typography(fontFamily = appFontFamily()).tuned(),
+                        content = content,
+                )
+            }
+        }
     }
 }

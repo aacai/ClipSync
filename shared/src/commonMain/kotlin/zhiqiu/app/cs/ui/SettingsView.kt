@@ -68,6 +68,19 @@ import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkCard
+import zhiqiu.applewidgets.kmp.oink.basic.OinkGroup
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
+import zhiqiu.applewidgets.kmp.oink.basic.OinkRadio
+import zhiqiu.applewidgets.kmp.oink.basic.OinkRow
+import zhiqiu.applewidgets.kmp.oink.basic.OinkRowDefaults
+import zhiqiu.applewidgets.kmp.oink.basic.OinkSlider
+import zhiqiu.applewidgets.kmp.oink.basic.OinkSwitch
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.layout.OinkDivider
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.core.AppLanguage
 import zhiqiu.app.cs.core.AppLanguageSupport
 import zhiqiu.app.cs.core.AppSettings
@@ -490,26 +503,19 @@ internal fun SettingsView(
                     }
                 }
 
-                GlassCard(
+                OinkCard(
                         modifier =
                                 Modifier.align(Alignment.TopStart)
                                         .fillMaxWidth()
                                         .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = RoundedCornerShape(20.dp),
                 ) {
                     Row(
-                            modifier =
-                                    Modifier.fillMaxWidth()
-                                            .padding(start = 8.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
+                            modifier = Modifier.fillMaxWidth().padding(start = 6.dp, end = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RowAction(AppIcons.ArrowBack, stringResource(Res.string.cd_back), onClick = onBack)
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                                stringResource(Res.string.settings_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                        )
+                        OinkText(stringResource(Res.string.settings_title), style = OinkTheme.textStyles.h4)
                     }
                 }
             }
@@ -667,36 +673,25 @@ private fun UpdateRow(model: AppModel) {
     val state by model.update.collectAsState()
     val busy = state is UpdateState.Checking || state is UpdateState.Downloading
     val asset = (state as? UpdateState.Available)?.asset
-    RowScaffold(onClick = null) {
-        Text(
-                stringResource(Res.string.setting_update),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-                updateLabel(state),
-                style = MaterialTheme.typography.labelMedium,
-                color = updateColor(state),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 220.dp),
-        )
-        Spacer(Modifier.width(2.dp))
-        if (asset != null) {
-            RowAction(AppIcons.Download, stringResource(Res.string.cd_download_update), enabled = !busy) {
-                model.downloadUpdate()
-            }
-        }
-        if (model.updateBrowseUrl.isNotBlank()) {
-            RowAction(AppIcons.OpenInNew, stringResource(Res.string.update_open_browser)) {
-                model.openUpdateInBrowser()
-            }
-        }
-        RowAction(AppIcons.Refresh, stringResource(Res.string.setting_update), enabled = !busy) {
-            model.checkUpdates()
-        }
-    }
+    OinkRow(
+            title = stringResource(Res.string.setting_update),
+            description = updateLabel(state),
+            trailing = {
+                if (asset != null) {
+                    RowAction(AppIcons.Download, stringResource(Res.string.cd_download_update), enabled = !busy) {
+                        model.downloadUpdate()
+                    }
+                }
+                if (model.updateBrowseUrl.isNotBlank()) {
+                    RowAction(AppIcons.OpenInNew, stringResource(Res.string.update_open_browser)) {
+                        model.openUpdateInBrowser()
+                    }
+                }
+                RowAction(AppIcons.Refresh, stringResource(Res.string.setting_update), enabled = !busy) {
+                    model.checkUpdates()
+                }
+            },
+    )
     if (state is UpdateState.Available && asset == null) {
         GroupFootnote(Res.string.update_no_asset)
     }
@@ -740,55 +735,29 @@ private fun updateColor(state: UpdateState): Color {
 
 @Composable
 private fun SettingGroup(title: StringResource, rows: @Composable ColumnScope.() -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-                stringResource(title),
-                style = MaterialTheme.typography.labelMedium,
-                color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 14.dp, bottom = 6.dp),
-        )
-        GlassCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-            Column(Modifier.fillMaxWidth()) { rows() }
-        }
+    OinkGroup(title = stringResource(title)) {
+        rows()
     }
 }
 
 @Composable
 private fun RowDivider() {
-    HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 14.dp),
-            thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
-    )
+    OinkDivider(modifier = Modifier.padding(horizontal = 14.dp))
 }
 
 @Composable
 private fun GroupFootnote(resource: StringResource) {
-    Text(
+    OinkText(
             stringResource(resource),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
+            style = OinkTheme.textStyles.caption,
+            color = OinkTheme.colors.text3,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
     )
 }
 
-private val RowHeight = 48.dp
-
 @Composable
-private fun RowScaffold(
-        onClick: (() -> Unit)?,
-        content: @Composable RowScope.() -> Unit,
-) {
-    Row(
-            modifier =
-                    Modifier.fillMaxWidth()
-                            .heightIn(min = RowHeight)
-                            .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            content = content,
-    )
+private fun Chevron() {
+    OinkIcon(AppIcons.ChevronRight, contentDescription = null, tint = OinkTheme.colors.text3, modifier = Modifier.size(18.dp))
 }
 
 @Composable
@@ -797,21 +766,12 @@ private fun NavRow(
         value: String,
         onClick: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    RowScaffold(onClick) {
-        Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp))
-        Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = scheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 200.dp),
-        )
-        Spacer(Modifier.width(2.dp))
-        Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))
-    }
+    OinkRow(
+            title = stringResource(title),
+            description = value,
+            onClick = onClick,
+            trailing = { Chevron() },
+    )
 }
 
 @Composable
@@ -820,25 +780,18 @@ private fun BackgroundDimRow(
         onValueChange: (Float) -> Unit,
         onClear: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(Res.string.background_dim), style = MaterialTheme.typography.bodyLarge)
-        Slider(
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OinkText(stringResource(Res.string.background_dim), style = OinkTheme.textStyles.rowTitle, modifier = Modifier.weight(1f))
+            OinkButton(text = stringResource(Res.string.background_clear), onClick = onClear, variant = OinkButtonVariant.Ghost)
+        }
+        OinkSlider(
                 value = dim,
                 onValueChange = onValueChange,
                 valueRange = 0f..AppSettings.MAX_BACKGROUND_DIM,
-                colors =
-                        SliderDefaults.colors(
-                                thumbColor = scheme.primary,
-                                activeTrackColor = scheme.primary,
-                                inactiveTrackColor = scheme.surfaceVariant,
-                        ),
-                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                showBubble = false,
+                modifier = Modifier.fillMaxWidth(),
         )
-        TextButton(onClick = onClear) { Text(stringResource(Res.string.background_clear)) }
     }
 }
 
@@ -851,28 +804,12 @@ private fun ValueRow(
         valueColor: Color? = null,
         onClick: (() -> Unit)? = null,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    RowScaffold(onClick = onClick) {
-        Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp))
-        if (detail != null) {
-            Text(detail, style = MaterialTheme.typography.labelMedium, color = valueColor ?: scheme.onSurfaceVariant)
-            Spacer(Modifier.width(9.dp))
-        }
-        Text(
-                value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = valueColor ?: scheme.onSurfaceVariant,
-                fontFamily = if (monospace) FontFamily.Monospace else null,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 200.dp),
-        )
-        if (onClick != null) {
-            Spacer(Modifier.width(2.dp))
-            Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))
-        }
-    }
+    OinkRow(
+            title = stringResource(title),
+            description = listOfNotNull(value, detail).joinToString(" · "),
+            onClick = onClick,
+            trailing = { if (onClick != null) Chevron() },
+    )
 }
 
 @Composable
@@ -880,16 +817,12 @@ private fun ActionRow(
         title: StringResource,
         onClick: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    RowScaffold(onClick) {
-        Text(
-                stringResource(title),
-                style = MaterialTheme.typography.bodyLarge,
-                color = scheme.error,
-                modifier = Modifier.weight(1f),
-        )
-        Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))
-    }
+    OinkRow(
+            title = stringResource(title),
+            onClick = onClick,
+            colors = OinkRowDefaults.colors().copy(title = OinkTheme.colors.dangerText),
+            trailing = { Chevron() },
+    )
 }
 
 @Composable
@@ -899,24 +832,11 @@ private fun SwitchRow(
         checked: Boolean,
         onCheckedChange: (Boolean) -> Unit,
 ) {
-    Column(
-            modifier =
-                    Modifier.fillMaxWidth()
-                            .heightIn(min = RowHeight)
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(12.dp))
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
-        }
-        Spacer(Modifier.height(2.dp))
-        Text(
-                stringResource(summary),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
-        )
-    }
+    OinkRow(
+            title = stringResource(title),
+            description = stringResource(summary),
+            trailing = { OinkSwitch(checked = checked, onCheckedChange = onCheckedChange) },
+    )
 }
 
 /** 当前录音设备名；存着的设备拔掉了就按系统默认显示，和原生层的回退一致。 */
@@ -938,37 +858,26 @@ private fun <T> ChoiceDialog(
 ) {
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(
                         modifier = Modifier.verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     options.forEachIndexed { index, option ->
-                        val active = option == selected
-                        Row(
-                                modifier =
-                                        Modifier.fillMaxWidth()
-                                                .clip(MaterialTheme.shapes.small)
-                                                .clickable { onSelect(option) }
-                                                .padding(vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = active, onClick = null)
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                    labels[index],
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f),
-                            )
-                        }
+                        OinkRow(
+                                title = labels[index],
+                                onClick = { onSelect(option) },
+                                trailing = {
+                                    OinkRadio(selected = option == selected, onClick = { onSelect(option) })
+                                },
+                        )
                     }
                 }
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+                OinkButton(text = stringResource(Res.string.cancel), onClick = onDismiss, variant = OinkButtonVariant.Ghost)
             },
     )
 }
@@ -989,7 +898,7 @@ private fun HotkeyDialog(
 
     GlassAlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text(stringResource(title), fontSize = 17.sp) },
+            title = { OinkText(stringResource(title), style = OinkTheme.textStyles.h4) },
             text = {
                 Column(
                         modifier =
@@ -1003,7 +912,6 @@ private fun HotkeyDialog(
                                                         onDismiss()
                                                         true
                                                 } else {
-                                                        // 每按一次都先把两条提示清空：否则上一次的失败会一直挂在这儿
                                                         val spec = chordOf(event)
                                                         rejected = null
                                                         invalid = spec == null
@@ -1016,28 +924,24 @@ private fun HotkeyDialog(
                                                 }
                                         },
                 ) {
-                    Text(current, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+                    OinkText(current, style = OinkTheme.textStyles.h3)
                     Spacer(Modifier.height(10.dp))
                     val rejectedSpec = rejected
                     val failed = rejectedSpec != null || invalid
-                    Text(
+                    OinkText(
                             when {
-                                rejectedSpec != null ->
-                                        stringResource(Res.string.fb_hotkey_failed, rejectedSpec)
-                                invalid ->
-                                        stringResource(Res.string.setting_screenshot_record_invalid)
+                                rejectedSpec != null -> stringResource(Res.string.fb_hotkey_failed, rejectedSpec)
+                                invalid -> stringResource(Res.string.setting_screenshot_record_invalid)
                                 else -> stringResource(Res.string.setting_screenshot_record_hint)
                             },
-                            style = MaterialTheme.typography.labelSmall,
-                            color =
-                                    if (failed) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = if (failed) OinkTheme.colors.dangerText else OinkTheme.colors.text3,
                     )
                 }
             },
             confirmButton = {},
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
+                OinkButton(text = stringResource(Res.string.cancel), onClick = onDismiss, variant = OinkButtonVariant.Ghost)
             },
     )
 }

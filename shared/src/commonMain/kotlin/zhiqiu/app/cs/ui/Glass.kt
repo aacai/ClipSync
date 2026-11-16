@@ -45,6 +45,7 @@ import com.kashif_e.backdrop.drawBackdrop
 import com.kashif_e.backdrop.backdrops.layerBackdrop
 import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
 import com.kashif_e.backdrop.effects.blur
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 
 val LocalBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
@@ -200,8 +201,7 @@ internal fun GlassAlertDialog(
                             onClick = {},
                         ),
                 shape = GlassDialogShape,
-                // 近不透明 + 强 blur：磨砂面板，不当透层
-                surface = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                surface = OinkTheme.colors.pop.copy(alpha = 0.96f),
                 blurRadius = 28.dp,
             ) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {

@@ -36,3 +36,8 @@ include(":desktopApp")
 include(":shared")
 include(":webApp")
 include(":crypto:crypto-core")
+
+include(":applewidgets-ui")
+project(":applewidgets-ui").projectDir = file("okui/applewidgets-ui")
+include(":oink")
+project(":oink").projectDir = file("okui/oink")

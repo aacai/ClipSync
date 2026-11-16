@@ -85,6 +85,16 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkCard
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
+import zhiqiu.applewidgets.kmp.oink.basic.OinkProgress
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.form.OinkTextField
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenu
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenuItem
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.formatResidentMemory
 import zhiqiu.app.cs.core.platformResidentMemory
@@ -718,19 +728,19 @@ private fun Banners(
                     } else {
                         stringResource(Res.string.progress_download)
                     }
-            GlassCard(shape = RoundedCornerShape(14.dp)) {
+            OinkCard {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp)) {
-                    Text(
+                    OinkText(
                             stringResource(
                                     Res.string.progress_line,
                                     kind,
                                     progress.name,
                                     "${(progress.fraction * 100).toInt()}%",
                             ),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = OinkTheme.textStyles.caption,
                     )
-                    LinearProgressIndicator(
-                            progress = { progress.fraction },
+                    OinkProgress(
+                            progress = progress.fraction,
                             modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
                     )
                 }
@@ -804,8 +814,8 @@ private fun Header(
                             when {
                                 online -> if (dark) SuccessGreenDark else SuccessGreen
                                 connecting -> if (dark) PinAmberDark else PinAmber
-                                roomCode == null -> MaterialTheme.colorScheme.outlineVariant
-                                else -> MaterialTheme.colorScheme.error
+                                roomCode == null -> OinkTheme.colors.text3
+                                else -> OinkTheme.colors.danger
                             },
                     animationSpec = tween(M3.MEDIUM_2, easing = M3.STANDARD),
                     label = "statusDot",
@@ -823,40 +833,35 @@ private fun Header(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val code = roomCode
                 if (code == null) {
-                    Text(
+                    OinkText(
                             stringResource(Res.string.local_history),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = OinkTheme.textStyles.h4,
                     )
                 } else {
                     Tip(stringResource(Res.string.cd_copy_room)) {
                         Row(
                                 modifier =
-                                        Modifier.clip(MaterialTheme.shapes.extraSmall)
-                                                .background(
-                                                        MaterialTheme.colorScheme.surfaceVariant,
-                                                        MaterialTheme.shapes.extraSmall,
-                                                )
+                                        Modifier.clip(RoundedCornerShape(10.dp))
+                                                .background(OinkTheme.colors.accentSoft, RoundedCornerShape(10.dp))
                                                 .border(
                                                         1.dp,
-                                                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                                                        MaterialTheme.shapes.extraSmall,
+                                                        OinkTheme.colors.line,
+                                                        RoundedCornerShape(10.dp),
                                                 )
                                                 .clickable(onClick = onCopyRoom)
                                                 .padding(horizontal = 7.dp, vertical = 3.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(
+                            OinkIcon(
                                     AppIcons.Key,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = OinkTheme.colors.accent,
                                     modifier = Modifier.size(12.dp),
                             )
                             Spacer(Modifier.width(5.dp))
-                            Text(
+                            OinkText(
                                     code,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontFamily = FontFamily.Monospace,
+                                    style = OinkTheme.textStyles.mono,
                             )
                         }
                     }
@@ -870,29 +875,28 @@ private fun Header(
                             else -> stringResource(Res.string.status_disconnected)
                         }
                 val bytes = memory
-                val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                val labelColor = OinkTheme.colors.text3
                 if (bytes == null) {
-                    Text(
+                    OinkText(
                             statusText,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = OinkTheme.textStyles.caption,
                             color = labelColor,
                     )
                 } else {
                     Tip(stringResource(Res.string.cd_resident_memory)) {
-                        Text(
+                        OinkText(
                                 stringResource(
                                         Res.string.resident_memory,
                                         statusText,
                                         formatResidentMemory(bytes),
                                 ),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = OinkTheme.textStyles.caption,
                                 color = labelColor,
                         )
                     }
                 }
             }
             val safety = (status as? ClipSyncEngine.Status.Online)?.safetyNumber
-            // 设备名单改由右侧设备图标点开；这里只留安全码入口
             if (safety != null) {
                 Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -900,17 +904,17 @@ private fun Header(
                                 Modifier.clickable { onSafety(safety) }
                                         .padding(top = 3.dp, bottom = 3.dp, end = 8.dp),
                 ) {
-                    Icon(
+                    OinkIcon(
                             AppIcons.Shield,
                             contentDescription = stringResource(Res.string.cd_safety_detail),
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = OinkTheme.colors.accent,
                             modifier = Modifier.size(13.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(
+                    OinkText(
                             stringResource(Res.string.safety_number, safety),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = OinkTheme.colors.text3,
                             maxLines = 1,
                     )
                 }
@@ -924,14 +928,14 @@ private fun Header(
                                 Modifier.clickable(onClick = onDevices)
                                         .padding(horizontal = 4.dp, vertical = 4.dp),
                 ) {
-                    Icon(
+                    OinkIcon(
                             AppIcons.Devices,
                             contentDescription = stringResource(Res.string.cd_devices),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = OinkTheme.colors.text2,
                             modifier = Modifier.size(17.dp),
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("${deviceNames.size}", style = MaterialTheme.typography.labelMedium)
+                    OinkText("${deviceNames.size}", style = OinkTheme.textStyles.label)
                 }
             }
             Spacer(Modifier.width(6.dp))
@@ -954,7 +958,7 @@ private fun SendFileDialog(
         onPaths: (List<String>) -> Unit,
 ) {
     var hovering by remember { mutableStateOf(false) }
-    val scheme = MaterialTheme.colorScheme
+    val c = OinkTheme.colors
     val zone = RoundedCornerShape(14.dp)
     Box(
             modifier =
@@ -977,11 +981,11 @@ private fun SendFileDialog(
                                         onClick = {},
                                 ),
                 shape = GlassDialogShape,
-                surface = scheme.surface.copy(alpha = 0.92f),
+                surface = c.pop.copy(alpha = 0.96f),
                 blurRadius = 28.dp,
         ) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
-                Text(stringResource(Res.string.send_file), fontSize = 17.sp)
+                OinkText(stringResource(Res.string.send_file), style = OinkTheme.textStyles.h4)
                 Spacer(Modifier.height(12.dp))
                 Box(
                         modifier =
@@ -994,20 +998,19 @@ private fun SendFileDialog(
                                         )
                                         .border(
                                                 width = if (hovering) 2.dp else 1.5.dp,
-                                                color = scheme.primary.copy(alpha = if (hovering) 0.9f else 0.45f),
+                                                color = c.accent.copy(alpha = if (hovering) 0.9f else 0.45f),
                                                 shape = zone,
                                         )
                                         .background(
-                                                scheme.primary.copy(alpha = if (hovering) 0.12f else 0.05f),
+                                                c.accent.copy(alpha = if (hovering) 0.12f else 0.05f),
                                                 zone,
                                         )
                                         .padding(16.dp),
                         contentAlignment = Alignment.Center,
                 ) {
-                    Text(
+                    OinkText(
                             stringResource(Res.string.send_file_drop_hint),
-                            color = scheme.onSurface,
-                            fontSize = 14.sp,
+                            style = OinkTheme.textStyles.body,
                     )
                 }
                 Spacer(Modifier.height(16.dp))
@@ -1015,8 +1018,8 @@ private fun SendFileDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
-                    Button(onClick = onBrowse) { Text(stringResource(Res.string.send_file_browse)) }
+                    OinkButton(text = stringResource(Res.string.cancel), onClick = onDismiss, variant = OinkButtonVariant.Ghost)
+                    OinkButton(text = stringResource(Res.string.send_file_browse), onClick = onBrowse)
                 }
             }
         }
@@ -1043,13 +1046,13 @@ private fun Toolbar(
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
     val recording by model.recording.collectAsState()
-    OutlinedTextField(
+    OinkTextField(
             value = query,
             onValueChange = model::updateQuery,
-            placeholder = { Text(stringResource(Res.string.search_hint)) },
+            placeholder = stringResource(Res.string.search_hint),
             singleLine = true,
-            leadingIcon = { FieldIcon(AppIcons.Search) },
-            trailingIcon = {
+            leadingIcon = AppIcons.Search,
+            trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ToggleChip(Res.string.cd_case, label = "Aa", active = caseSensitive) {
                         model.toggleCaseSensitive()
@@ -1064,7 +1067,6 @@ private fun Toolbar(
                     }
                 }
             },
-            shape = MaterialTheme.shapes.small,
             modifier =
                     Modifier.fillMaxWidth()
                             .padding(horizontal = 14.dp)
@@ -1095,7 +1097,7 @@ private fun Toolbar(
                     AppIcons.Delete,
                     stringResource(Res.string.cd_clear_history),
                     enabled = canClear,
-                    tinted = MaterialTheme.colorScheme.error,
+                    tinted = OinkTheme.colors.danger,
                     onClick = onClear,
             )
             if (showCaptureInline) {
@@ -1113,17 +1115,17 @@ private fun Toolbar(
             } else {
                 Box {
                     RowAction(AppIcons.More, stringResource(Res.string.tools)) { toolsOpen = true }
-                    DropdownMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
-                        DropdownMenuItem(
-                                text = { Text(stringResource(Res.string.tools_screenshot)) },
+                    OinkMenu(expanded = toolsOpen, onDismissRequest = { toolsOpen = false }) {
+                        OinkMenuItem(
+                                text = stringResource(Res.string.tools_screenshot),
                                 enabled = model.supportsScreenshot,
                                 onClick = {
                                     toolsOpen = false
                                     model.takeScreenshot()
                                 },
                         )
-                        DropdownMenuItem(
-                                text = { Text(recordLabel) },
+                        OinkMenuItem(
+                                text = recordLabel,
                                 enabled = model.supportsRecording,
                                 onClick = {
                                     toolsOpen = false
@@ -1135,10 +1137,10 @@ private fun Toolbar(
             }
             if (total > 0) {
                 Spacer(Modifier.weight(1f))
-                Text(
+                OinkText(
                         text = stringResource(Res.string.list_total, total),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp,
+                        color = OinkTheme.colors.text3,
+                        style = OinkTheme.textStyles.caption,
                         modifier = Modifier.padding(end = 8.dp),
                 )
             }
@@ -1167,31 +1169,32 @@ private fun chordKey(name: String): Key? =
 
 @Composable
 private fun ToggleChip(description: StringResource, label: String, active: Boolean, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
+    val c = OinkTheme.colors
+    val shape = RoundedCornerShape(10.dp)
     val spec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
     val fill by animateColorAsState(
-            if (active) scheme.primary.copy(alpha = 0.18f) else Color.Transparent,
+            if (active) c.accentSoft else Color.Transparent,
             spec,
             label = "chipFill",
     )
     val edge by animateColorAsState(
-            if (active) scheme.primary.copy(alpha = 0.6f) else scheme.outlineVariant.copy(alpha = 0.6f),
+            if (active) c.accent.copy(alpha = 0.6f) else c.line.copy(alpha = 0.6f),
             spec,
             label = "chipEdge",
     )
-    val ink by animateColorAsState(if (active) scheme.primary else scheme.onSurfaceVariant, spec, label = "chipInk")
+    val ink by animateColorAsState(if (active) c.accent else c.text2, spec, label = "chipInk")
     val cd = stringResource(description)
     Tip(cd) {
         Box(
                 modifier =
                         Modifier.size(width = 30.dp, height = 26.dp)
-                                .background(fill, MaterialTheme.shapes.extraSmall)
-                                .border(1.dp, edge, MaterialTheme.shapes.extraSmall)
+                                .background(fill, shape)
+                                .border(1.dp, edge, shape)
                                 .semantics { contentDescription = cd }
                                 .clickable(onClick = onClick),
                 contentAlignment = Alignment.Center,
         ) {
-            Text(label, fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = ink)
+            OinkText(label, style = OinkTheme.textStyles.mono, color = ink)
         }
     }
 }
@@ -1207,14 +1210,14 @@ private fun SelectionBar(
         onDelete: () -> Unit,
         onClose: () -> Unit,
 ) {
-    GlassCard(modifier = modifier, shape = RoundedCornerShape(22.dp)) {
+    OinkCard(modifier = modifier) {
         Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
+            OinkText(
                     stringResource(Res.string.selection_count, count),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = OinkTheme.textStyles.label,
                     modifier = Modifier.padding(horizontal = 6.dp),
             )
             RowAction(AppIcons.Copy, stringResource(Res.string.cd_copy_text), enabled = count > 0, onClick = onCopy)
@@ -1230,7 +1233,7 @@ private fun SelectionBar(
                     AppIcons.Delete,
                     stringResource(Res.string.act_delete),
                     enabled = count > 0,
-                    tinted = MaterialTheme.colorScheme.error,
+                    tinted = OinkTheme.colors.danger,
                     onClick = onDelete,
             )
             RowAction(AppIcons.Close, stringResource(Res.string.cd_exit_select), onClick = onClose)
@@ -1259,62 +1262,44 @@ private fun EmptyState(
                 Box(
                         modifier =
                                 Modifier.size(62.dp)
-                                        .background(
-                                                Brush.linearGradient(
-                                                        listOf(
-                                                                MaterialTheme.colorScheme.primary.copy(
-                                                                        alpha = 0.18f
-                                                                ),
-                                                                MaterialTheme.colorScheme.secondary.copy(
-                                                                        alpha = 0.10f
-                                                                ),
-                                                        )
-                                                ),
-                                                MaterialTheme.shapes.extraLarge,
-                                        )
-                                        .border(1.dp, glassBorder(), MaterialTheme.shapes.extraLarge),
+                                        .background(OinkTheme.colors.accentSoft, RoundedCornerShape(22.dp))
+                                        .border(1.dp, OinkTheme.colors.line, RoundedCornerShape(22.dp)),
                         contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
+                    OinkIcon(
                             if (query.isBlank()) AppIcons.Clipboard else AppIcons.Search,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = OinkTheme.colors.accent,
                             modifier = Modifier.size(26.dp),
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                Text(
+                OinkText(
                         if (query.isBlank()) {
                             stringResource(Res.string.empty_state_title)
                         } else {
                             stringResource(Res.string.empty_no_match, query)
                         },
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        style = OinkTheme.textStyles.h4,
+                        color = OinkTheme.colors.text,
                 )
                 Spacer(Modifier.height(6.dp))
-                Text(
+                OinkText(
                         if (query.isBlank()) {
                             stringResource(Res.string.empty_state_hint)
                         } else {
                             stringResource(Res.string.empty_no_match_hint)
                         },
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = OinkTheme.textStyles.caption,
+                        color = OinkTheme.colors.text3,
                 )
                 if (online && query.isBlank()) {
                     Spacer(Modifier.height(20.dp))
-                    Button(
+                    OinkButton(
+                            text = stringResource(Res.string.new_entry),
                             onClick = onNew,
-                            shape = MaterialTheme.shapes.small,
-                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 11.dp),
-                    ) {
-                        Icon(AppIcons.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text(stringResource(Res.string.new_entry), fontWeight = FontWeight.Medium)
-                    }
+                            leadingIcon = AppIcons.Add,
+                    )
                 }
             }
         }

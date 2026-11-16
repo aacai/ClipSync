@@ -9,17 +9,14 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,17 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,12 +40,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.applewidgets.kmp.oink.basic.OinkBadge
+import zhiqiu.applewidgets.kmp.oink.basic.OinkBadgeVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonVariant
+import zhiqiu.applewidgets.kmp.oink.basic.OinkCheckbox
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIcon
+import zhiqiu.applewidgets.kmp.oink.basic.OinkIconButton
+import zhiqiu.applewidgets.kmp.oink.basic.OinkText
+import zhiqiu.applewidgets.kmp.oink.basic.OinkButtonSize
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenu
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenuItem
+import zhiqiu.applewidgets.kmp.oink.overlay.OinkMenuSeparator
+import zhiqiu.applewidgets.kmp.oink.theme.OinkTheme
 import zhiqiu.app.cs.files.ClipItem
 import zhiqiu.app.cs.files.ClipRepository
 import zhiqiu.app.cs.files.MoveInfo
@@ -69,12 +67,8 @@ import zhiqiu.app.cs.resources.*
 
 internal val ROW_HORIZONTAL_PADDING = 14.dp
 
-/** 左侧编号栏：右对齐，三位数也放得下。 */
 private val NUMBER_WIDTH = 24.dp
-
-/** 正文整段显示，行高跟着内容走；只给超长内容留个兜底上限。 */
 private const val MAX_BODY_LINES = 24
-
 private val IMAGE_PREVIEW_HEIGHT = 140.dp
 private val IMAGE_PREVIEW_MAX_WIDTH = 220.dp
 private const val IMAGE_PREVIEW_MAX_SIDE = 512
@@ -103,6 +97,7 @@ internal fun ClipRow(
         onMoveTo: () -> Unit,
         modifier: Modifier = Modifier,
 ) {
+    val c = OinkTheme.colors
     val isFile = item.kind == ClipRepository.KIND_FILE
     val file = item.file
     val cached = isFile && file?.localPath != null
@@ -122,23 +117,18 @@ internal fun ClipRow(
     val colorSpec = tween<Color>(M3.SHORT_4, easing = M3.STANDARD)
     val background by animateColorAsState(rowBackground(cursor, picked), colorSpec, label = "rowBg")
     val edge by animateColorAsState(rowBorder(cursor, picked), colorSpec, label = "rowEdge")
-    // 窄屏（WindowSizeClass.Compact）：行内不放快捷操作，全部收进「更多」菜单，列表更干净。
     val compact = LocalWindowSize.current.isCompact
     val rowInteraction = remember { MutableInteractionSource() }
     val hovered by rowInteraction.collectIsHoveredAsState()
     val revealQuick = !model.hoverRevealsActions || hovered || cursor
-    val badge by
+    val badgeColor by
             animateColorAsState(
-                    if (item.pinned) {
-                        if (isAppDarkTheme()) PinAmberDark else PinAmber
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    if (item.pinned) c.warning else c.text3,
                     tween(M3.MEDIUM_1, easing = M3.STANDARD),
                     label = "rowBadge",
             )
 
-    val shape = MaterialTheme.shapes.medium
+    val shape = RoundedCornerShape(20.dp)
     Box(
             modifier =
                     modifier
@@ -149,24 +139,21 @@ internal fun ClipRow(
                             .background(background, shape)
                             .border(1.dp, edge, shape)
     ) {
-        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-            Box {
-                Box(
-                        Modifier.fillMaxWidth()
-                                .height(1.dp)
-                                .background(rimHighlight(isAppDarkTheme()))
-                )
-            }
-            Row(
-                    modifier =
-                            Modifier.clickable(
-                                            interactionSource = rowInteraction,
-                                            indication = LocalIndication.current,
-                                            onClick = onActivate,
-                                    )
-                                    .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-            ) {
+        Box(
+                Modifier.fillMaxWidth()
+                        .height(1.dp)
+                        .background(c.hi)
+        )
+        Row(
+                modifier =
+                        Modifier.clickable(
+                                        interactionSource = rowInteraction,
+                                        indication = LocalIndication.current,
+                                        onClick = onActivate,
+                                )
+                                .padding(start = 10.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+        ) {
             AnimatedVisibility(
                     visible = selectionActive,
                     enter =
@@ -177,7 +164,7 @@ internal fun ClipRow(
                                     shrinkHorizontally(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    PickBox(picked = picked, onToggle = onTogglePick)
+                    OinkCheckbox(checked = picked, onCheckedChange = { onTogglePick() })
                     Spacer(Modifier.width(10.dp))
                 }
             }
@@ -188,12 +175,10 @@ internal fun ClipRow(
                     modifier = Modifier.width(if (compact) 20.dp else NUMBER_WIDTH),
                     contentAlignment = if (compact) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
-                Text(
+                OinkText(
                         text = position.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = if (cursor) FontWeight.SemiBold else FontWeight.Normal,
-                        color = badge,
+                        style = OinkTheme.textStyles.mono,
+                        color = badgeColor,
                 )
             }
             val meta =
@@ -236,13 +221,7 @@ internal fun ClipRow(
                             modifier =
                                     Modifier.size(previewSize)
                                             .clip(RoundedCornerShape(10.dp))
-                                            .then(
-                                                    if (thumb != null) {
-                                                        Modifier.clickable(onClick = onZoom)
-                                                    } else {
-                                                        Modifier
-                                                    }
-                                            ),
+                                            .then(if (thumb != null) Modifier.clickable(onClick = onZoom) else Modifier),
                             contentAlignment = Alignment.Center,
                     ) {
                         if (thumb != null) {
@@ -256,45 +235,39 @@ internal fun ClipRow(
                             Box(
                                     modifier =
                                             Modifier.fillMaxSize()
-                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                    .background(c.well.copy(alpha = 0.5f))
                             )
-                            Icon(
-                                    AppIcons.Attach,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(26.dp),
-                            )
+                            OinkIcon(AppIcons.Attach, contentDescription = null, tint = c.text3, modifier = Modifier.size(26.dp))
                         }
                     }
                     Spacer(Modifier.width(14.dp))
-                    Text(
+                    OinkText(
                             meta,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                     )
                 }
             } else {
                 Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(
+                    OinkText(
                             text =
                                     when {
                                         isFile && file != null -> displayTitle(file)
                                         else -> item.text.ifBlank { stringResource(Res.string.empty_text) }
                                     },
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (cursor) FontWeight.Medium else FontWeight.Normal,
+                            style =
+                                    if (cursor) OinkTheme.textStyles.body.copy(fontWeight = FontWeight.Medium)
+                                    else OinkTheme.textStyles.body,
+                            color = c.text,
                             maxLines = MAX_BODY_LINES,
-                            overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
+                    OinkText(
                             meta,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = OinkTheme.textStyles.caption,
+                            color = c.text3,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
@@ -307,16 +280,11 @@ internal fun ClipRow(
             )
             val actionsEnabled = !fadeSupported || revealQuick
             if (!compact) {
-                Row(
-                        modifier = Modifier.alpha(actionsAlpha),
-                        verticalAlignment = Alignment.CenterVertically,
-                ) {
+                Row(modifier = Modifier.alpha(actionsAlpha), verticalAlignment = Alignment.CenterVertically) {
                     if (!isFile) {
-                        RowAction(
-                                AppIcons.Send,
-                                stringResource(Res.string.cd_send),
-                                enabled = actionsEnabled && online,
-                        ) { model.sendText(item.text) }
+                        RowAction(AppIcons.Send, stringResource(Res.string.cd_send), enabled = actionsEnabled && online) {
+                            model.sendText(item.text)
+                        }
                     }
                     if (!isFile || copyAsImage || copyAsFile) {
                         RowAction(AppIcons.Copy, copyLabel, enabled = actionsEnabled) { model.copy(item) }
@@ -326,11 +294,9 @@ internal fun ClipRow(
                             model.open(item)
                         }
                     } else if (isFile && !cached && model.supportsLocalFiles) {
-                        RowAction(
-                                AppIcons.Download,
-                                stringResource(Res.string.cd_download),
-                                enabled = actionsEnabled,
-                        ) { model.download(item) }
+                        RowAction(AppIcons.Download, stringResource(Res.string.cd_download), enabled = actionsEnabled) {
+                            model.download(item)
+                        }
                     }
                     RowAction(
                             AppIcons.Pin,
@@ -341,228 +307,110 @@ internal fun ClipRow(
                 }
             }
             Box {
-                    RowAction(AppIcons.More, stringResource(Res.string.cd_more), onClick = { menu = true })
-                    DropdownMenu(
-                            expanded = menu,
-                            onDismissRequest = { menu = false },
-                            shape = MaterialTheme.shapes.small,
-                            tonalElevation = 3.dp,
-                            shadowElevation = 8.dp,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
-                            modifier = Modifier.width(216.dp),
-                    ) {
-                        if (compact) {
-                            if (!isFile) {
-                                MenuAction(AppIcons.Send, Res.string.cd_send, enabled = online) {
-                                    menu = false
-                                    model.sendText(item.text)
-                                }
-                            }
-                            if (!isFile || copyAsImage || copyAsFile) {
-                                MenuAction(
-                                        AppIcons.Copy,
-                                        when {
-                                            copyAsImage -> Res.string.cd_copy_image
-                                            copyAsFile -> Res.string.cd_copy_file
-                                            else -> Res.string.cd_copy_text
-                                        },
-                                ) {
-                                    menu = false
-                                    model.copy(item)
-                                }
-                            }
-                            MenuAction(AppIcons.Pin, if (item.pinned) Res.string.cd_unpin else Res.string.cd_pin) {
+                RowAction(AppIcons.More, stringResource(Res.string.cd_more), onClick = { menu = true })
+                OinkMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    if (compact) {
+                        if (!isFile) {
+                            OMenu(stringResource(Res.string.cd_send), enabled = online, leadingIcon = AppIcons.Send) {
                                 menu = false
-                                model.togglePin(item)
+                                model.sendText(item.text)
                             }
-                            if (isFile && cached && model.supportsLocalFiles) {
-                                MenuAction(AppIcons.OpenInNew, Res.string.cd_open) {
-                                    menu = false
-                                    model.open(item)
-                                }
-                            } else if (isFile && !cached && model.supportsLocalFiles) {
-                                MenuAction(AppIcons.Download, Res.string.cd_download) {
-                                    menu = false
-                                    model.download(item)
-                                }
-                            }
-                            MenuDivider()
                         }
-                        if (item.isText) {
-                            MenuAction(AppIcons.Edit, Res.string.act_edit) {
+                        if (!isFile || copyAsImage || copyAsFile) {
+                            OMenu(copyLabel, leadingIcon = AppIcons.Copy) {
                                 menu = false
-                                onEdit()
+                                model.copy(item)
                             }
                         }
-                        MenuAction(AppIcons.Note, Res.string.act_note) {
+                        OMenu(
+                                stringResource(if (item.pinned) Res.string.cd_unpin else Res.string.cd_pin),
+                                leadingIcon = AppIcons.Pin,
+                        ) {
                             menu = false
-                            onNote()
+                            model.togglePin(item)
                         }
-                        if (item.isText) {
-                            MenuAction(AppIcons.Transform, Res.string.act_transform) {
+                        if (isFile && cached && model.supportsLocalFiles) {
+                            OMenu(stringResource(Res.string.cd_open), leadingIcon = AppIcons.OpenInNew) {
                                 menu = false
-                                onTransform()
+                                model.open(item)
                             }
-                            MenuAction(AppIcons.Translate, Res.string.act_translate) {
+                        } else if (isFile && !cached && model.supportsLocalFiles) {
+                            OMenu(stringResource(Res.string.cd_download), leadingIcon = AppIcons.Download) {
                                 menu = false
-                                onTranslate()
+                                model.download(item)
                             }
                         }
-                        MenuAction(AppIcons.Duplicate, Res.string.act_duplicate) {
+                        OinkMenuSeparator()
+                    }
+                    if (item.isText) {
+                        OMenu(stringResource(Res.string.act_edit), leadingIcon = AppIcons.Edit) {
                             menu = false
-                            model.duplicate(item)
-                        }
-                        if (model.supportsSaveToDownloads) {
-                            MenuAction(AppIcons.Download, Res.string.act_save_to_downloads) {
-                                menu = false
-                                model.saveToDownloads(item)
-                            }
-                        }
-                        if (model.canResend(item)) {
-                            MenuAction(AppIcons.Send, Res.string.act_resend, enabled = online) {
-                                menu = false
-                                model.resend(item)
-                            }
-                        }
-                        MenuAction(AppIcons.Info, Res.string.act_detail) {
-                            menu = false
-                            onDetail()
-                        }
-                        MenuDivider()
-                        MenuAction(AppIcons.Up, Res.string.act_move_up, enabled = canUp) {
-                            menu = false
-                            model.move(item, -1)
-                        }
-                        MenuAction(AppIcons.Down, Res.string.act_move_down, enabled = canDown) {
-                            menu = false
-                            model.move(item, 1)
-                        }
-                        MenuAction(AppIcons.Top, Res.string.act_move_top, enabled = canUp) {
-                            menu = false
-                            onMoveTop()
-                        }
-                        MenuAction(AppIcons.Bottom, Res.string.act_move_bottom, enabled = canDown) {
-                            menu = false
-                            onMoveBottom()
-                        }
-                        MenuAction(AppIcons.Position, Res.string.act_move_to, enabled = canUp || canDown) {
-                            menu = false
-                            onMoveTo()
-                        }
-                        MenuDivider()
-                        MenuAction(AppIcons.Delete, Res.string.act_delete, tinted = true) {
-                            menu = false
-                            model.remove(item)
+                            onEdit()
                         }
                     }
+                    OMenu(stringResource(Res.string.act_note), leadingIcon = AppIcons.Note) {
+                        menu = false
+                        onNote()
+                    }
+                    if (item.isText) {
+                        OMenu(stringResource(Res.string.act_transform), leadingIcon = AppIcons.Transform) {
+                            menu = false
+                            onTransform()
+                        }
+                        OMenu(stringResource(Res.string.act_translate), leadingIcon = AppIcons.Translate) {
+                            menu = false
+                            onTranslate()
+                        }
+                    }
+                    OMenu(stringResource(Res.string.act_duplicate), leadingIcon = AppIcons.Duplicate) {
+                        menu = false
+                        model.duplicate(item)
+                    }
+                    if (model.supportsSaveToDownloads) {
+                        OMenu(stringResource(Res.string.act_save_to_downloads), leadingIcon = AppIcons.Download) {
+                            menu = false
+                            model.saveToDownloads(item)
+                        }
+                    }
+                    if (model.canResend(item)) {
+                        OMenu(stringResource(Res.string.act_resend), enabled = online, leadingIcon = AppIcons.Send) {
+                            menu = false
+                            model.resend(item)
+                        }
+                    }
+                    OMenu(stringResource(Res.string.act_detail), leadingIcon = AppIcons.Info) {
+                        menu = false
+                        onDetail()
+                    }
+                    OinkMenuSeparator()
+                    OMenu(stringResource(Res.string.act_move_up), enabled = canUp, leadingIcon = AppIcons.Up) {
+                        menu = false
+                        model.move(item, -1)
+                    }
+                    OMenu(stringResource(Res.string.act_move_down), enabled = canDown, leadingIcon = AppIcons.Down) {
+                        menu = false
+                        model.move(item, 1)
+                    }
+                    OMenu(stringResource(Res.string.act_move_top), enabled = canUp, leadingIcon = AppIcons.Top) {
+                        menu = false
+                        onMoveTop()
+                    }
+                    OMenu(stringResource(Res.string.act_move_bottom), enabled = canDown, leadingIcon = AppIcons.Bottom) {
+                        menu = false
+                        onMoveBottom()
+                    }
+                    OMenu(stringResource(Res.string.act_move_to), enabled = canUp || canDown, leadingIcon = AppIcons.Position) {
+                        menu = false
+                        onMoveTo()
+                    }
+                    OinkMenuSeparator()
+                    OMenu(stringResource(Res.string.act_delete), leadingIcon = AppIcons.Delete, destructive = true) {
+                        menu = false
+                        model.remove(item)
+                    }
                 }
+            }
         }
-        }
-    }
-}
-
-@Composable
-private fun MenuDivider() {
-    HorizontalDivider(
-            thickness = 0.7.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
-    )
-}
-
-@Composable
-private fun MenuAction(
-        icon: ImageVector,
-        label: StringResource,
-        enabled: Boolean = true,
-        tinted: Boolean = false,
-        onClick: () -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val fade = if (enabled) 1f else 0.38f
-    val ink = (if (tinted) scheme.error else scheme.onSurface).copy(alpha = fade)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val hovered by interaction.collectIsHoveredAsState()
-    val highlight by
-            animateColorAsState(
-                    if (enabled && (pressed || hovered)) scheme.onSurface.copy(alpha = 0.07f) else Color.Transparent,
-                    tween(M3.SHORT_4, easing = M3.STANDARD),
-                    label = "menuHighlight",
-            )
-    Row(
-            modifier =
-                    Modifier.padding(horizontal = 5.dp)
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .background(highlight)
-                            .clickable(enabled = enabled, interactionSource = interaction, indication = null, onClick = onClick)
-                            .height(32.dp)
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = (if (tinted) scheme.error else scheme.onSurfaceVariant).copy(alpha = fade),
-        )
-        Spacer(Modifier.width(11.dp))
-        Text(stringResource(label), fontSize = 12.5.sp, maxLines = 1, color = ink)
-    }
-}
-
-@Composable
-private fun PickBox(picked: Boolean, onToggle: () -> Unit) {
-    val fill by
-            animateColorAsState(
-                    if (picked) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    tween(M3.SHORT_4, easing = M3.STANDARD),
-                    label = "pickFill",
-            )
-    Box(
-            modifier =
-                    Modifier.size(20.dp)
-                            .background(fill, RoundedCornerShape(6.dp))
-                            .clickable(onClick = onToggle),
-            contentAlignment = Alignment.Center,
-    ) {
-        if (picked) {
-            Icon(
-                    AppIcons.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(15.dp),
-            )
-        } else {
-            Box(
-                    modifier =
-                            Modifier.size(16.dp)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(5.dp))
-            )
-        }
-    }
-}
-
-@Composable
-private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
-    val scheme = MaterialTheme.colorScheme
-    return when {
-        picked -> scheme.primary.copy(alpha = 0.22f)
-        cursor -> scheme.primary.copy(alpha = 0.12f)
-        isAppDarkTheme() -> Color.White.copy(alpha = 0.06f)
-        else -> Color.White.copy(alpha = 0.46f)
-    }
-}
-
-@Composable
-private fun rowBorder(cursor: Boolean, picked: Boolean): Color {
-    val scheme = MaterialTheme.colorScheme
-    return when {
-        picked -> scheme.primary.copy(alpha = 0.55f)
-        cursor -> scheme.primary.copy(alpha = 0.32f)
-        isAppDarkTheme() -> Color.White.copy(alpha = 0.14f)
-        else -> Color.White.copy(alpha = 0.62f)
     }
 }
 
@@ -575,33 +423,29 @@ internal fun RowAction(
         tinted: Color? = null,
         onClick: () -> Unit,
 ) {
-    val ink by
-            animateColorAsState(
-                    targetValue =
-                            when {
-                                !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                                tinted != null -> tinted
-                                active -> if (isAppDarkTheme()) PinAmberDark else PinAmber
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    animationSpec = tween(M3.SHORT_4, easing = M3.STANDARD),
-                    label = "actionInk",
-            )
+    val c = OinkTheme.colors
+    val ink =
+            when {
+                !enabled -> c.text3
+                tinted != null -> tinted
+                active -> c.warning
+                else -> c.text2
+            }
     Tip(description) {
-        IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(33.dp)) {
-            Icon(
-                    icon,
-                    contentDescription = description,
-                    tint = ink,
-                    modifier = Modifier.size(18.dp),
-            )
-        }
+        OinkIconButton(
+                icon = icon,
+                onClick = onClick,
+                enabled = enabled,
+                contentDescription = description,
+                size = OinkButtonSize.Sm,
+                modifier = Modifier.size(33.dp),
+        )
     }
 }
 
 @Composable
 internal fun FieldIcon(icon: ImageVector) {
-    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+    OinkIcon(icon, contentDescription = null, tint = OinkTheme.colors.text2, modifier = Modifier.size(18.dp))
 }
 
 @Composable
@@ -614,47 +458,71 @@ internal fun InlineMessage(
         actionLabel: String? = null,
         actionIcon: ImageVector = AppIcons.Refresh,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val container = if (isError) scheme.errorContainer.copy(alpha = 0.9f) else scheme.surface.copy(alpha = 0.8f)
-    val content = if (isError) scheme.onErrorContainer else scheme.onSurface
+    val c = OinkTheme.colors
     Row(
             modifier =
                     modifier
                             .fillMaxWidth()
-                            .background(container, MaterialTheme.shapes.small)
-                            .border(1.dp, scheme.outlineVariant.copy(alpha = 0.6f), MaterialTheme.shapes.small)
+                            .background(if (isError) c.dangerSoft else c.well, RoundedCornerShape(14.dp))
+                            .border(1.dp, c.line, RoundedCornerShape(14.dp))
                             .padding(11.dp),
             verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(16.dp))
+        OinkIcon(icon, contentDescription = null, tint = if (isError) c.dangerText else c.text, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text(text, color = content, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        OinkText(text, style = OinkTheme.textStyles.caption, color = if (isError) c.dangerText else c.text, modifier = Modifier.weight(1f))
         if (action != null && actionLabel != null) {
             Spacer(Modifier.width(8.dp))
-            Button(
-                    onClick = action,
-                    colors = ButtonDefaults.textButtonColors(contentColor = content),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                    shape = MaterialTheme.shapes.extraSmall,
-            ) {
-                Icon(actionIcon, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(actionLabel, fontSize = 12.sp)
-            }
+            OinkButton(text = actionLabel, onClick = action, variant = OinkButtonVariant.Ghost, size = OinkButtonSize.Sm)
         } else if (action != null) {
-            IconButton(onClick = action, modifier = Modifier.size(26.dp)) {
-                Icon(AppIcons.Close, contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
-            }
+            OinkIconButton(icon = AppIcons.Close, onClick = action, size = OinkButtonSize.Sm, modifier = Modifier.size(26.dp))
         }
     }
 }
 
 @Composable
 internal fun SectionLabel(resource: StringResource) {
-    Text(
+    OinkText(
             stringResource(resource),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = OinkTheme.textStyles.caption,
+            color = OinkTheme.colors.text3,
             modifier = Modifier.padding(bottom = 5.dp),
     )
+}
+
+@Composable
+private fun OMenu(
+        text: String,
+        enabled: Boolean = true,
+        leadingIcon: ImageVector? = null,
+        destructive: Boolean = false,
+        onClick: () -> Unit,
+) {
+    OinkMenuItem(
+            text = text,
+            onClick = onClick,
+            enabled = enabled,
+            leadingIcon = leadingIcon,
+            destructive = destructive,
+    )
+}
+
+@Composable
+private fun rowBackground(cursor: Boolean, picked: Boolean): Color {
+    val c = OinkTheme.colors
+    return when {
+        picked -> c.accentSoft
+        cursor -> c.accentTint
+        else -> c.card
+    }
+}
+
+@Composable
+private fun rowBorder(cursor: Boolean, picked: Boolean): Color {
+    val c = OinkTheme.colors
+    return when {
+        picked -> c.accent
+        cursor -> c.accent.copy(alpha = 0.5f)
+        else -> c.line
+    }
 }
