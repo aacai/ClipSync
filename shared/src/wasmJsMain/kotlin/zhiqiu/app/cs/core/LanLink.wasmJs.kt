@@ -8,7 +8,9 @@ internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean = fals
 @Suppress("UNUSED_PARAMETER")
 internal actual fun createLanServer(
     port: Int,
+    identity: LanIdentity,
     roomHash: String,
     blobDir: String,
     onClip: (String) -> Unit,
+    onPeer: (LanBeacon) -> Unit,
 ): LanServer? = null

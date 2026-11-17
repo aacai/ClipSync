@@ -15,8 +15,21 @@ data class LanInfo(
     val nonce: String,
 )
 
+@Serializable
+data class LanBeacon(
+    val id: String,
+    val name: String,
+    val os: String,
+    val port: Int,
+    val addrs: List<String>,
+    val roomHash: String,
+    val nonce: String,
+)
+
 data class LanPeer(
     val id: String,
+    val name: String,
+    val os: String,
     val addrs: List<String>,
     val port: Int,
 ) {
@@ -30,10 +43,18 @@ internal interface LanServer {
 
 internal expect fun createLanServer(
     port: Int,
+    identity: LanIdentity,
     roomHash: String,
     blobDir: String,
     onClip: (String) -> Unit,
+    onPeer: (LanBeacon) -> Unit,
 ): LanServer?
+
+data class LanIdentity(
+    val id: String,
+    val name: String,
+    val os: String,
+)
 
 internal expect fun lanBlobDir(): String
 

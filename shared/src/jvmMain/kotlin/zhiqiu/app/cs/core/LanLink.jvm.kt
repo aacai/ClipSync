@@ -5,16 +5,22 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketException
 import kotlin.concurrent.thread
 import kotlin.random.Random
 
 private const val MAX_HEAD = 16 * 1024
 private const val MAX_BODY = 64 * 1024 * 1024 + 4096
+private const val BEACON_INTERVAL_MS = 1500L
+private const val BEACON_MAX_AGE_MS = 6000L
 
 internal actual fun lanBlobDir(): String =
     File(System.getProperty("java.io.tmpdir"), "clipsync-lan-blobs").absolutePath
@@ -30,18 +36,23 @@ internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean {
 
 internal actual fun createLanServer(
     port: Int,
+    identity: LanIdentity,
     roomHash: String,
     blobDir: String,
     onClip: (String) -> Unit,
+    onPeer: (LanBeacon) -> Unit,
 ): LanServer? = runCatching {
     val socket = ServerSocket()
     socket.reuseAddress = true
     socket.bind(InetSocketAddress(port))
     val dir = File(blobDir).also { it.mkdirs() }
     val nonce = ByteArray(8).also { Random.nextBytes(it) }.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+    val info = LanInfo(socket.localPort, localLanAddresses(), nonce)
+    val discovery = startDiscovery(info, identity, roomHash, onPeer)
     val server = object : LanServer {
-        override val info = LanInfo(socket.localPort, localLanAddresses(), nonce)
+        override val info = info
         override fun close() {
+            discovery.close()
             socket.close()
         }
     }
@@ -57,6 +68,68 @@ internal actual fun createLanServer(
     }
     server
 }.getOrNull()
+
+private fun startDiscovery(
+    info: LanInfo,
+    identity: LanIdentity,
+    roomHash: String,
+    onPeer: (LanBeacon) -> Unit,
+): AutoCloseable {
+    val socket = DatagramSocket(null)
+    socket.reuseAddress = true
+    socket.broadcast = true
+    socket.bind(InetSocketAddress(ClipProtocol.LAN_DISCOVERY_PORT))
+    val beacon =
+            ClipProtocol.encode(
+                    LanBeacon(
+                            id = identity.id,
+                            name = identity.name,
+                            os = identity.os,
+                            port = info.port,
+                            addrs = info.addrs,
+                            roomHash = roomHash,
+                            nonce = info.nonce,
+                    ),
+            )
+    val seen = HashMap<String, Long>()
+    thread(name = "clipsync-lan-discovery-send", isDaemon = true) {
+        while (!socket.isClosed) {
+            val payload = beacon.toByteArray()
+            for (target in broadcastAddresses()) {
+                runCatching {
+                    socket.send(DatagramPacket(payload, payload.size, target, ClipProtocol.LAN_DISCOVERY_PORT))
+                }
+            }
+            Thread.sleep(BEACON_INTERVAL_MS)
+        }
+    }
+    thread(name = "clipsync-lan-discovery-recv", isDaemon = true) {
+        val buffer = ByteArray(8 * 1024)
+        while (!socket.isClosed) {
+            val packet = DatagramPacket(buffer, buffer.size)
+            val received = runCatching { socket.receive(packet); true }.getOrDefault(false)
+            if (!received) break
+            val raw = String(packet.data, 0, packet.length, Charsets.UTF_8)
+            val found = runCatching { ClipProtocol.decode<LanBeacon>(raw) }.getOrNull() ?: continue
+            if (found.roomHash != roomHash || found.id == identity.id) continue
+            val now = System.currentTimeMillis()
+            val host = packet.address.hostAddress
+            val addrs = (listOf(host) + found.addrs).distinct()
+            seen[found.id] = now
+            seen.entries.removeIf { now - it.value > BEACON_MAX_AGE_MS }
+            onPeer(found.copy(addrs = addrs, port = found.port))
+        }
+    }
+    return AutoCloseable { socket.close() }
+}
+
+private fun broadcastAddresses(): List<InetAddress> = runCatching {
+    NetworkInterface.getNetworkInterfaces().toList()
+        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+        .flatMap { it.interfaceAddresses.mapNotNull { config -> config.broadcast } }
+        .distinct()
+        .ifEmpty { listOf(InetAddress.getByName("255.255.255.255")) }
+}.getOrDefault(listOf(InetAddress.getByName("255.255.255.255")))
 
 private fun localLanAddresses(): List<String> = runCatching {
     NetworkInterface.getNetworkInterfaces().toList()

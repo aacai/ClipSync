@@ -65,6 +65,7 @@ object ClipProtocol {
     const val CH_PRESENCE = "presence"
     const val CH_SYNC = "sync"
     const val LAN_PORT = 43871
+    const val LAN_DISCOVERY_PORT = 43879
     const val BLOB_SEGMENT = "blob"
 
     fun lanBlobPath(roomHash: String, name: String): String = "$ROOT/$roomHash/$BLOB_SEGMENT/$name"

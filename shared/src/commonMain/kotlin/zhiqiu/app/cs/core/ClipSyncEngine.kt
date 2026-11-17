@@ -85,6 +85,8 @@ internal class ClipSyncEngine(
     private val roster = mutableMapOf<String, DevicePresence>()
 
     private val pairedLan = mutableMapOf<String, LanPeer>()
+    private val lanSeen = mutableMapOf<String, Long>()
+    private var lanPruneJob: Job? = null
 
     private var lanServer: LanServer? = null
     private var lanSender: LanSender? = null
@@ -153,9 +155,16 @@ internal class ClipSyncEngine(
             fileCrypto = FileCrypto(roomCrypto, ClipProtocol.clipTopic(hash))
             if (lanEnabled) {
                 lanSender = LanSender(createSharedHttpClient(), hash)
-                lanServer = createLanServer(ClipProtocol.LAN_PORT, hash, lanBlobDir()) { wire ->
-                    scope.launch { onMessage(ClipProtocol.clipTopic(hash), wire) }
-                }
+                lanServer =
+                        createLanServer(
+                                ClipProtocol.LAN_PORT,
+                                LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
+                                hash,
+                                lanBlobDir(),
+                                { wire -> scope.launch { onMessage(ClipProtocol.clipTopic(hash), wire) } },
+                                { beacon -> scope.launch { onLanPeer(beacon) } },
+                        )
+                startLanPrune()
             }
             config.repository?.load()
             safety = roomCrypto.safetyNumber()
@@ -240,8 +249,14 @@ internal class ClipSyncEngine(
     }
 
     private suspend fun deliver(topic: String, wire: String) {
-        lanSender?.publish(pairedLan.values, wire)
-        link?.publish(topic = topic, payload = wire)
+        val mqtt = link
+        if (pairedLan.isNotEmpty()) {
+            lanSender?.publish(pairedLan.values, wire)
+        }
+        if (mqtt == null || mqtt.connectionState.value !is ConnectionState.Connected) {
+            return
+        }
+        mqtt.publish(topic = topic, payload = wire)
     }
 
     /**
@@ -327,8 +342,9 @@ internal class ClipSyncEngine(
         }
 
         val uploadName = FileCrypto.uploadFileName()
-        val lanBase = pairedLan.values.firstNotNullOfOrNull { it.base() }
-        val record = if (lanBase != null && writeLanBlob(uploadName, encrypted.cipher)) {
+        val selfInfo = lanServer?.info
+        val lanBase = selfInfo?.addrs?.firstOrNull()?.let { "http://$it:${selfInfo.port}" }
+        val record = if (lanBase != null && pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)) {
             val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$uploadName"
             Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
         } else {
@@ -444,10 +460,23 @@ internal class ClipSyncEngine(
             runCatching { publishPresence(online = false) }
         }
         closeLink()
+        closeLan()
         crypto?.wipe()
         crypto = null
         safety = ""
         _status.value = Status.Idle
+    }
+
+    private fun closeLan() {
+        lanPruneJob?.cancel()
+        lanPruneJob = null
+        lanServer?.close()
+        lanServer = null
+        lanSender?.close()
+        lanSender = null
+        pairedLan.clear()
+        lanSeen.clear()
+        publishLanPeers()
     }
 
     private suspend fun closeLink() {
@@ -461,10 +490,6 @@ internal class ClipSyncEngine(
         val current = link
         link = null
         runCatching { current?.close() }
-        lanServer?.close()
-        lanServer = null
-        lanSender?.close()
-        lanSender = null
     }
 
     /**
@@ -614,12 +639,11 @@ internal class ClipSyncEngine(
             presenceTs.remove(payload.dev)
             unknownKey.remove(payload.dev)
         }
-        if (payload.online && payload.lan != null) {
-            pairedLan[payload.dev] = LanPeer(payload.dev, payload.lan.addrs, payload.lan.port)
-        } else {
+        if (!payload.online) {
+            lanSeen.remove(payload.dev)
             pairedLan.remove(payload.dev)
+            publishLanPeers()
         }
-        publishLanPeers()
         pruneRoster()
         publishRoster()
         // 头一回见到就自报一次：新来的这才刚订阅上，错过我们上次的心跳就看不见彼此。
@@ -638,14 +662,38 @@ internal class ClipSyncEngine(
             )
         }.getOrNull()
 
+    private suspend fun onLanPeer(beacon: LanBeacon) {
+        val seenAt = now()
+        lanSeen[beacon.id] = seenAt
+        pairedLan[beacon.id] =
+                LanPeer(beacon.id, beacon.name, beacon.os, beacon.addrs, beacon.port)
+        publishLanPeers()
+    }
+
+    private fun startLanPrune() {
+        lanPruneJob?.cancel()
+        lanPruneJob =
+                scope.launch {
+                    while (isActive) {
+                        delay(LAN_PEER_TTL_MS / 2)
+                        if (!isActive) break
+                        val cutoff = now() - LAN_PEER_TTL_MS
+                        val gone = lanSeen.filterValues { it < cutoff }.keys.toList()
+                        if (gone.isNotEmpty()) {
+                            gone.forEach { lanSeen.remove(it) }
+                            gone.forEach { pairedLan.remove(it) }
+                            publishLanPeers()
+                        }
+                    }
+                }
+    }
+
     private fun publishLanPeers() {
         if (lanEnabled) _lanPeers.value = pairedLan.values.sortedBy { it.id }
     }
 
     private fun clearRoster() {
         roster.clear()
-        pairedLan.clear()
-        publishLanPeers()
         presenceTs.clear()
         unknownKey.clear()
         publishRoster()
@@ -800,6 +848,7 @@ internal class ClipSyncEngine(
         private const val LINK_GRACE_MS = 60_000L
         private const val MAX_LIVE_UPLOADS = 32
         private const val LAN_LINK_TTL_MS = 24L * 3_600_000L
+        private const val LAN_PEER_TTL_MS = 6_000L
     }
 }
 @OptIn(ExperimentalTime::class)

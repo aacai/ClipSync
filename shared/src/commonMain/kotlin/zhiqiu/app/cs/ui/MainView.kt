@@ -117,8 +117,11 @@ internal fun MainView(
     val unknownKeys by model.keyMismatch.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
     val lanIds = lanPeers.map { it.id }.toSet()
+    val mqttIds = devices.map { it.id }.toSet()
+    val lanOnly = lanPeers.filter { it.id !in mqttIds }
     val inRoom = devices.map { deviceLabel(it.name, it.os) + if (it.id in lanIds) " · LAN" else "" }
-            .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
+            .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it } +
+            lanOnly.map { deviceLabel(it.name, it.os) + " · LAN" }
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
