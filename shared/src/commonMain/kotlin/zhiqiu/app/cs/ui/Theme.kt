@@ -151,7 +151,10 @@ fun AppTheme(themeMode: ThemeMode = ThemeMode.System, content: @Composable () ->
                 colorScheme = if (dark) DarkColors else LightColors,
                 shapes = AppShapes,
                 typography = Typography(fontFamily = appFontFamily()).tuned(),
-                content = content,
-        )
+        ) {
+            zhiqiu.applewidgets.kmp.oink.theme.OinkTheme(darkTheme = dark) {
+                content()
+            }
+        }
     }
 }

@@ -14,6 +14,7 @@
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Offline</string>
     <string name="status_idle">Not sharing</string>
+    <string name="lan_chip">LAN</string>
     <string name="resident_memory">%1$s · %2$s</string>
     <string name="cd_resident_memory">Physical memory this process holds, sampled every 5 seconds</string>
     <string name="local_history">Local history</string>
@@ -362,6 +363,8 @@
     <string name="setting_remember_room_hint">Rejoin the last room when the app opens again. The room code stays in plain text so the field can be refilled; the derived key and the password you typed are encrypted before they go into this device's settings, and leaving the room erases them</string>
     <string name="setting_launch_at_login">Launch at login</string>
     <string name="setting_launch_at_login_hint">Start watching the clipboard as soon as you sign in, kept in the tray with no window. Click the tray icon when you want the window</string>
+    <string name="setting_lan_first">Prefer LAN for files</string>
+    <string name="setting_lan_first_hint">Send files directly to peers on the same LAN instead of uploading to the internet</string>
     <string name="setting_watch_clipboard">Watch clipboard</string>
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
     <string name="setting_watch_images">Keep screenshots</string>
@@ -375,6 +378,7 @@
     <string name="setting_delete_expired">Delete expired entries</string>
     <string name="setting_delete_expired_hint">Entries older than the retention window are dropped together with their local cache. Pinned entries are kept</string>
     <string name="setting_retention">Keep for</string>
+    <string name="setting_cleanup_temp">Clean up temporary files</string>
     <string name="setting_room">Room</string>
     <string name="action_leave_room">Leave room</string>
     <string name="leave_room_title">Leave this room?</string>

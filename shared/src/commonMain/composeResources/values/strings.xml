@@ -14,6 +14,7 @@
     <string name="status_connected">已连接</string>
     <string name="status_disconnected">未连接</string>
     <string name="status_idle">未共享</string>
+    <string name="lan_chip">局域网</string>
     <string name="resident_memory">%1$s · %2$s</string>
     <string name="cd_resident_memory">这个进程当前占的物理内存，每 5 秒取一次</string>
     <string name="local_history">本地记录</string>
@@ -357,6 +358,8 @@
     <string name="setting_remember_room_hint">重开时自动回到上次的房间。房间码明文存着方便重填，派生密钥和你输入的密码加密后存在本机设置里；离开房间即清除</string>
     <string name="setting_launch_at_login">开机自动启动</string>
     <string name="setting_launch_at_login_hint">登录后自动开始守剪贴板，先收进托盘不弹主窗口；要界面就点托盘图标</string>
+    <string name="setting_lan_first">优先用局域网发文件</string>
+    <string name="setting_lan_first_hint">同一局域网且有在线设备时，文件直传给对方，不经公网托管</string>
     <string name="setting_watch_clipboard">记录剪贴板</string>
     <string name="setting_watch_clipboard_hint">不进房间也会自动把你复制过的内容留进列表，仅保存在本机；关闭后只记录手动发送的条目</string>
     <string name="setting_watch_images">记录截图</string>
@@ -370,6 +373,7 @@
     <string name="setting_delete_expired">删除过期条目</string>
     <string name="setting_delete_expired_hint">开启后，超过保留时长的条目连同本机缓存一起清掉；置顶的条目不参与</string>
     <string name="setting_retention">保留时长</string>
+    <string name="setting_cleanup_temp">清理临时文件</string>
     <string name="setting_room">房间</string>
     <string name="action_leave_room">退出房间</string>
     <string name="leave_room_title">退出房间？</string>

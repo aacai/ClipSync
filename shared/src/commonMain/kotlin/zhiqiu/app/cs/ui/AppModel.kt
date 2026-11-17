@@ -26,6 +26,7 @@ import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.GithubReleases
 import zhiqiu.app.cs.core.LanPeer
+import zhiqiu.app.cs.core.cleanupTempFiles
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
 import zhiqiu.app.cs.core.RecordMode
@@ -244,6 +245,12 @@ class AppModel internal constructor(
             settings.watchClipboard.collect { watching ->
                 if (watching) startClipboardWatch() else stopClipboardWatch()
             }
+        }
+        scope.launch {
+            settings.lanFirst.collect { engine.lanFirst = it }
+        }
+        scope.launch {
+            withContext(Dispatchers.Default) { cleanupTempFiles(24 * 60 * 60 * 1000L) }
         }
         // 截屏快捷键得排在别的 app 前面，只能装成全局热键；装不上的平台整组设置都是空的
         if (supportsScreenshot) {
@@ -687,6 +694,16 @@ class AppModel internal constructor(
     private suspend fun cacheLocally(id: String, name: String, bytes: ByteArray) {
         val path = platform.store.writeCache(id, name, bytes) ?: return
         repository.markCached(id, path)
+    }
+
+    /** 手动清理临时文件：LAN 中转与拖出的残留，按保留天数删。 */
+    fun cleanupTemp() {
+        scope.launch {
+            val count = withContext(Dispatchers.Default) {
+                cleanupTempFiles(settings.retentionDays.value * MILLIS_PER_DAY)
+            }
+            if (count > 0) _info.value = Feedback.Pruned(count)
+        }
     }
 
     /** 过期清理：置顶的条目是用户点名要留的，天数到了也不动。 */

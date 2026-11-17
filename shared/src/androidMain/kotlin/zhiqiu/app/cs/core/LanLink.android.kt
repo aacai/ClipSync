@@ -34,6 +34,18 @@ internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean {
     }.isSuccess
 }
 
+internal actual fun cleanupTempFiles(maxAgeMs: Long): Int {
+    val cutoff = System.currentTimeMillis() - maxAgeMs
+    val tmp = File(System.getProperty("java.io.tmpdir"))
+    return listOf("clipsync-lan-blobs", "clipsync-drag-out")
+        .sumOf { name -> deleteOldFiles(File(tmp, name), cutoff) }
+}
+
+private fun deleteOldFiles(dir: File, cutoff: Long): Int {
+    val files = dir.listFiles() ?: return 0
+    return files.count { file -> file.isFile && file.lastModified() < cutoff && file.delete() }
+}
+
 internal actual fun createLanServer(
     port: Int,
     identity: LanIdentity,
@@ -131,13 +143,47 @@ private fun broadcastAddresses(): List<InetAddress> = runCatching {
         .ifEmpty { listOf(InetAddress.getByName("255.255.255.255")) }
 }.getOrDefault(listOf(InetAddress.getByName("255.255.255.255")))
 
-private fun localLanAddresses(): List<String> = runCatching {
-    NetworkInterface.getNetworkInterfaces().toList()
-        .flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>()
-        .filter { !it.isLoopbackAddress }
-        .map { it.hostAddress }
-}.getOrDefault(emptyList())
+private fun localLanAddresses(): List<String> {
+    val all = runCatching {
+        NetworkInterface.getNetworkInterfaces().toList()
+            .filter { it.isUp && !it.isVirtual && !it.isLoopback }
+            .flatMap { it.inetAddresses.toList() }
+            .filterIsInstance<Inet4Address>()
+            .filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }
+            .map { it.hostAddress }
+    }.getOrDefault(emptyList())
+    val usable = all.filter { isLanAddress(it) }
+    val via = runCatching {
+        val socket = java.net.DatagramSocket()
+        socket.connect(java.net.InetAddress.getByName("8.8.8.8"), 80)
+        val host = socket.localAddress.hostAddress
+        socket.close()
+        host
+    }.getOrNull()
+    return if (via != null && via in usable) listOf(via) + usable.filter { it != via }
+    else usable.sortedByDescending { addressRank(it) }
+}
+
+private fun isLanAddress(host: String): Boolean {
+    val p = host.split('.').mapNotNull { it.toIntOrNull() }
+    if (p.size != 4) return false
+    return when {
+        p[0] == 10 -> true
+        p[0] == 192 && p[1] == 168 -> true
+        p[0] == 172 -> p[1] in 16..31 && p[1] != 17
+        else -> false
+    }
+}
+
+private fun addressRank(host: String): Int {
+    val p = host.split('.').mapNotNull { it.toIntOrNull() }
+    return when {
+        p.size != 4 -> -1
+        p[0] == 192 && p[1] == 168 -> 2
+        p[0] == 10 -> 1
+        else -> 0
+    }
+}
 
 private fun serveLan(socket: Socket, roomHash: String, dir: File, onClip: (String) -> Unit) {
     socket.soTimeout = 10_000

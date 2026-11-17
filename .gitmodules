@@ -1,0 +1,3 @@
+[submodule "okui"]
+	path = okui
+	url = https://github.com/aacai/okui.git

@@ -85,6 +85,7 @@ internal class ClipSyncEngine(
     private val roster = mutableMapOf<String, DevicePresence>()
 
     private val pairedLan = mutableMapOf<String, LanPeer>()
+    var lanFirst: Boolean = true
     private val lanSeen = mutableMapOf<String, Long>()
     private var lanPruneJob: Job? = null
 
@@ -344,7 +345,7 @@ internal class ClipSyncEngine(
         val uploadName = FileCrypto.uploadFileName()
         val selfInfo = lanServer?.info
         val lanBase = selfInfo?.addrs?.firstOrNull()?.let { "http://$it:${selfInfo.port}" }
-        val record = if (lanBase != null && pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)) {
+        val record = if (lanFirst && lanBase != null && pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)) {
             val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$uploadName"
             Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
         } else {

@@ -93,6 +93,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(project(":crypto:crypto-core"))
+            implementation(project(":oink"))
             implementation(libs.mqtt.client.core)
             implementation(libs.mqtt.client.transport.ws)
             implementation(libs.cryptography.core)

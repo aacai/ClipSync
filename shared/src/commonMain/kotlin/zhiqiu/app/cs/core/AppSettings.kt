@@ -105,6 +105,14 @@ class AppSettings(
         store.putBoolean(KEY_WATCH_CLIPBOARD, enabled)
     }
 
+    private val _lanFirst = MutableStateFlow(store.getBoolean(KEY_LAN_FIRST, true))
+    val lanFirst: StateFlow<Boolean> = _lanFirst.asStateFlow()
+
+    fun setLanFirst(enabled: Boolean) {
+        _lanFirst.value = enabled
+        store.putBoolean(KEY_LAN_FIRST, enabled)
+    }
+
     private val _launchAtLogin = MutableStateFlow(store.getBoolean(KEY_LAUNCH_AT_LOGIN, false))
     val launchAtLogin: StateFlow<Boolean> = _launchAtLogin.asStateFlow()
 
@@ -315,6 +323,7 @@ class AppSettings(
         const val MAX_GLASS_FROST = 1f
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
+        private const val KEY_LAN_FIRST = "lan.first"
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
         private const val KEY_AUTO_COPY_FILE = "clipboard.autoCopyFile"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"

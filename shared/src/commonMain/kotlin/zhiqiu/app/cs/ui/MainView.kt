@@ -434,6 +434,7 @@ internal fun MainView(
                                         status,
                                         roomCode,
                                         inRoom,
+                                        lanActive = lanPeers.isNotEmpty(),
                                         onLeave,
                                         onShare = { shareOpen = true },
                                         onSettings = onOpenSettings,
@@ -851,6 +852,7 @@ private fun Header(
         status: ClipSyncEngine.Status,
         roomCode: String?,
         deviceNames: List<String>,
+        lanActive: Boolean,
         onLeave: () -> Unit,
         onShare: () -> Unit,
         onSettings: () -> Unit,
@@ -959,6 +961,14 @@ private fun Header(
                                 color = labelColor,
                         )
                     }
+                }
+                if (lanActive) {
+                    Spacer(Modifier.width(7.dp))
+                    zhiqiu.applewidgets.kmp.oink.basic.OinkBadge(
+                            text = stringResource(Res.string.lan_chip),
+                            dot = true,
+                            variant = zhiqiu.applewidgets.kmp.oink.basic.OinkBadgeVariant.Success,
+                    )
                 }
             }
             val safety = (status as? ClipSyncEngine.Status.Online)?.safetyNumber

@@ -99,6 +99,7 @@ internal fun SettingsView(
     val language by settings.language.collectAsState()
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
+    val lanFirst by settings.lanFirst.collectAsState()
     val watchImages by settings.watchImages.collectAsState()
     val watchFiles by settings.watchFiles.collectAsState()
     val autoCopyIncoming by settings.autoCopyIncoming.collectAsState()
@@ -441,6 +442,13 @@ internal fun SettingsView(
                                             model::setLaunchAtLogin,
                                     )
                                 }
+                                RowDivider()
+                                SwitchRow(
+                                        Res.string.setting_lan_first,
+                                        Res.string.setting_lan_first_hint,
+                                        lanFirst,
+                                        settings::setLanFirst,
+                                )
                             }
                         }
 
@@ -531,6 +539,8 @@ internal fun SettingsView(
                                             onClick = { pickingRetention = true },
                                     )
                                 }
+                                RowDivider()
+                                ActionRow(Res.string.setting_cleanup_temp, model::cleanupTemp)
                                 RowDivider()
                                 NavRow(
                                         title = Res.string.setting_nickname,

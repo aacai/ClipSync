@@ -60,6 +60,9 @@ internal expect fun lanBlobDir(): String
 
 internal expect fun writeLanBlob(name: String, bytes: ByteArray): Boolean
 
+/** 删除临时目录里超过 maxAgeMs 的文件，返回删除个数。 */
+internal expect fun cleanupTempFiles(maxAgeMs: Long): Int
+
 internal class LanSender(
     private val http: HttpClient,
     private val roomHash: String,
