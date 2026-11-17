@@ -95,6 +95,7 @@ internal fun SettingsView(
     val themeMode by settings.themeMode.collectAsState()
     val backgroundPath by model.backgroundPath.collectAsState()
     val backgroundDim by model.backgroundDim.collectAsState()
+    val glassFrost by model.glassFrost.collectAsState()
     val language by settings.language.collectAsState()
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
@@ -170,6 +171,8 @@ internal fun SettingsView(
         onDispose(removeChords)
     }
 
+    val settingsChromePad =
+            Modifier.fillMaxSize().padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top)
     AppBackground(
             model = model,
             modifier =
@@ -196,14 +199,65 @@ internal fun SettingsView(
                                                     true
                                             }
                             },
+            overlay = {
+                Box(
+                        modifier =
+                                Modifier.align(Alignment.TopCenter)
+                                        .fillMaxWidth()
+                                        .widthIn(max = 640.dp)
+                                        .then(settingsChromePad),
+                ) {
+                    GlassCard(
+                            modifier =
+                                    Modifier.align(Alignment.TopStart)
+                                            .fillMaxWidth()
+                                            .onSizeChanged {
+                                                barHeight = with(density) { it.height.toDp() }
+                                            },
+                            shape = RoundedCornerShape(20.dp),
+                            forBar = true,
+                    ) {
+                        Row(
+                                modifier =
+                                        Modifier.fillMaxWidth()
+                                                .padding(
+                                                        start = 8.dp,
+                                                        end = 16.dp,
+                                                        top = 9.dp,
+                                                        bottom = 9.dp,
+                                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RowAction(
+                                    AppIcons.ArrowBack,
+                                    stringResource(Res.string.cd_back),
+                                    onClick = onBack,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                    stringResource(Res.string.settings_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                    "v${model.appVersion}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            },
     ) {
         Box(
                 modifier =
                         Modifier.align(Alignment.TopCenter)
                                 .fillMaxWidth()
                                 .widthIn(max = 640.dp)
-                                .fillMaxSize()
-                                .padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top),
+                                .then(settingsChromePad),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                     LazyColumn(
@@ -231,6 +285,11 @@ internal fun SettingsView(
                                         }
                                     }
                                 }
+                                RowDivider()
+                                GlassFrostRow(
+                                        frost = glassFrost,
+                                        onValueChange = model::setGlassFrost,
+                                )
                                 if (model.supportsBackground) {
                                     RowDivider()
                                     NavRow(
@@ -437,7 +496,12 @@ internal fun SettingsView(
 
                         item(key = "about") {
                             SettingGroup(Res.string.settings_group_about) {
-                                ValueRow(title = Res.string.setting_version, value = model.appVersion)
+                                ValueRow(
+                                        title = Res.string.setting_version,
+                                        value = model.appVersion,
+                                        monospace = true,
+                                        valueColor = MaterialTheme.colorScheme.onSurface,
+                                )
                                 if (model.supportsUpdate) {
                                     RowDivider()
                                     UpdateRow(model)
@@ -487,29 +551,6 @@ internal fun SettingsView(
                                 }
                             }
                         }
-                    }
-                }
-
-                GlassCard(
-                        modifier =
-                                Modifier.align(Alignment.TopStart)
-                                        .fillMaxWidth()
-                                        .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = RoundedCornerShape(20.dp),
-                ) {
-                    Row(
-                            modifier =
-                                    Modifier.fillMaxWidth()
-                                            .padding(start = 8.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RowAction(AppIcons.ArrowBack, stringResource(Res.string.cd_back), onClick = onBack)
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                                stringResource(Res.string.settings_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                        )
                     }
                 }
             }
@@ -839,6 +880,32 @@ private fun BackgroundDimRow(
                 modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
         )
         TextButton(onClick = onClear) { Text(stringResource(Res.string.background_clear)) }
+    }
+}
+
+@Composable
+private fun GlassFrostRow(
+        frost: Float,
+        onValueChange: (Float) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(Res.string.setting_glass_frost), style = MaterialTheme.typography.bodyLarge)
+        Slider(
+                value = frost,
+                onValueChange = onValueChange,
+                valueRange = 0f..AppSettings.MAX_GLASS_FROST,
+                colors =
+                        SliderDefaults.colors(
+                                thumbColor = scheme.primary,
+                                activeTrackColor = scheme.primary,
+                                inactiveTrackColor = scheme.surfaceVariant,
+                        ),
+                modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+        )
     }
 }
 

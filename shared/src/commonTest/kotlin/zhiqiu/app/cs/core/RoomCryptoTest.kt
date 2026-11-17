@@ -175,7 +175,7 @@ class RoomCryptoTest {
     fun presence_json_is_byte_identical_to_rust() {
         assertEquals("""{"v":1,"ct":"abc"}""", ClipProtocol.encode(PresenceEnvelope(ct = "abc")))
         assertEquals(
-            """{"dev":"d1","name":"Pixel","os":"Android","online":true,"ts":1700000000000,"answer":false}""",
+            """{"dev":"d1","name":"Pixel","os":"Android","online":true,"ts":1700000000000,"answer":false,"lan":null}""",
             ClipProtocol.encode(
                 PresencePayload(
                     dev = "d1",

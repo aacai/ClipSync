@@ -13,9 +13,9 @@
 -keep interface zhiqiu.app.cs.ui.RecordNative { *; }
 
 # 库对着别的 skiko / 可选依赖编出来的引用，ProGuard 一律当错误拦下来，运行时走不到就没影响。
-# backdrop 是对着旧版 skiko 编的（ColorMatrix、ColorFilter.makeMatrix、RuntimeShaderBuilder.makeShader 签名都动过）；
 # cryptography-provider-jdk 里的 BouncyCastleBridge 是可选适配，本工程没引 BC。
--dontwarn com.kashif_e.backdrop.**
+-keep class com.kyant.backdrop.** { *; }
+-dontwarn com.kyant.backdrop.**
 -dontwarn org.bouncycastle.**
 
 # ProGuard 的静态图不认 JNI 绑定：native 方法在 Java 侧没人显式调用就会被删，

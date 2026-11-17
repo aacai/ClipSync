@@ -95,6 +95,7 @@ internal fun ClipRow(
         onEdit: () -> Unit,
         onNote: () -> Unit,
         onDetail: () -> Unit,
+        onQr: () -> Unit,
         onZoom: () -> Unit,
         onTransform: () -> Unit,
         onTranslate: () -> Unit,
@@ -427,6 +428,10 @@ internal fun ClipRow(
                         MenuAction(AppIcons.Info, Res.string.act_detail) {
                             menu = false
                             onDetail()
+                        }
+                        MenuAction(AppIcons.Crop, Res.string.qr_action) {
+                            menu = false
+                            onQr()
                         }
                         MenuDivider()
                         MenuAction(AppIcons.Up, Res.string.act_move_up, enabled = canUp) {

@@ -101,6 +101,7 @@ internal fun MainView(
 ) {
     val status by model.status.collectAsState()
     val devices by model.devices.collectAsState()
+    val lanPeers by model.lanPeers.collectAsState()
     val nickname by model.deviceName.collectAsState()
     val items by model.items.collectAsState()
     val query by model.query.collectAsState()
@@ -115,7 +116,8 @@ internal fun MainView(
     val moveInfos by model.moveInfos.collectAsState()
     val unknownKeys by model.keyMismatch.collectAsState()
     val online = status is ClipSyncEngine.Status.Online
-    val inRoom = devices.map { deviceLabel(it.name, it.os) }
+    val lanIds = lanPeers.map { it.id }.toSet()
+    val inRoom = devices.map { deviceLabel(it.name, it.os) + if (it.id in lanIds) " · LAN" else "" }
             .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it }
 
     val listState = rememberLazyListState()
@@ -136,6 +138,7 @@ internal fun MainView(
     var transforming by remember { mutableStateOf<ClipItem?>(null) }
     var translating by remember { mutableStateOf<ClipItem?>(null) }
     var inspecting by remember { mutableStateOf<ClipItem?>(null) }
+    var qrItem by remember { mutableStateOf<ClipItem?>(null) }
     var zooming by remember { mutableStateOf<ClipItem?>(null) }
     var moving by remember { mutableStateOf<ClipItem?>(null) }
     var safetyNumber by remember { mutableStateOf<String?>(null) }
@@ -392,6 +395,7 @@ internal fun MainView(
     }
 
     CompositionLocalProvider(LocalWindowSize provides rememberWindowSize()) {
+        val chromePad = Modifier.fillMaxSize().padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top)
         AppBackground(
                 model = model,
                 modifier =
@@ -404,14 +408,103 @@ internal fun MainView(
                                         onHovering = { dropHovering = it },
                                         onPaths = model::ingestDroppedPaths,
                                 ),
+                overlay = {
+                    Box(
+                            modifier =
+                                    Modifier.align(Alignment.TopCenter)
+                                            .fillMaxWidth()
+                                            .widthIn(max = 940.dp)
+                                            .then(chromePad),
+                    ) {
+                        GlassCard(
+                                modifier =
+                                        Modifier.align(Alignment.TopStart)
+                                                .fillMaxWidth()
+                                                .onSizeChanged {
+                                                    barHeight = with(density) { it.height.toDp() }
+                                                },
+                                shape = RoundedCornerShape(20.dp),
+                                forBar = true,
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Header(
+                                        status,
+                                        roomCode,
+                                        inRoom,
+                                        onLeave,
+                                        onShare = { shareOpen = true },
+                                        onSettings = onOpenSettings,
+                                        onSafety = { safetyNumber = it },
+                                        onDevices = { devicesOpen = true },
+                                        onCopyRoom = { roomCode?.let(model::copyToClipboard) },
+                                )
+                                Toolbar(
+                                        model = model,
+                                        query = query,
+                                        regex = regex,
+                                        caseSensitive = caseSensitive,
+                                        online = online,
+                                        total = items.size,
+                                        canClear = items.isNotEmpty(),
+                                        undoDepth = undoDepth,
+                                        picking = picking,
+                                        searchFocus = searchFocus,
+                                        onSearchFocused = { searchFocused = it },
+                                        onToggleSelect = {
+                                            if (picking) endPicking() else picking = true
+                                        },
+                                        onNew = { composingNew = true },
+                                        onClear = { confirmClear = true },
+                                        onSendFile = { sendFileOpen = true },
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                                visible = picking,
+                                enter =
+                                        fadeIn(tween(M3.SHORT_4, easing = M3.EMPHASIZED_IN)) +
+                                                slideInVertically(
+                                                        tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)
+                                                ) { it },
+                                exit =
+                                        fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
+                                                slideOutVertically(
+                                                        tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)
+                                                ) { it },
+                                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
+                                label = "selectionBar",
+                        ) {
+                            val allPinned = targets.isNotEmpty() && targets.all { it.pinned }
+                            SelectionBar(
+                                    count = picked.size,
+                                    allPinned = allPinned,
+                                    modifier = Modifier,
+                                    onCopy = { model.copySelection(targets) },
+                                    onTogglePin = { model.setPinned(targets, !allPinned) },
+                                    onExport = { model.exportJson(targets) },
+                                    onDelete = {
+                                        model.remove(targets)
+                                        endPicking()
+                                    },
+                                    onClose = { endPicking() },
+                            )
+                        }
+
+                        ToastHost(
+                                model,
+                                bottom = 22.dp + barLift,
+                                modifier = Modifier.align(Alignment.BottomCenter),
+                        )
+                    }
+                },
         ) {
             Box(
                     modifier =
                             Modifier.align(Alignment.TopCenter)
                                     .fillMaxWidth()
                                     .widthIn(max = 940.dp)
-                                    .fillMaxSize()
-                                    .padding(start = 6.dp, end = 6.dp, top = MacChromeInset.top),
+                                    .then(chromePad),
             ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     AnimatedContent(
@@ -419,7 +512,10 @@ internal fun MainView(
                             transitionSpec = {
                                 fadeIn(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)) togetherWith
                                         fadeOut(tween(M3.SHORT_4, easing = M3.EMPHASIZED_OUT)) +
-                                        scaleOut(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_OUT), targetScale = 0.97f)
+                                        scaleOut(
+                                                tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_OUT),
+                                                targetScale = 0.97f,
+                                        )
                             },
                             modifier = Modifier.fillMaxSize(),
                             label = "body",
@@ -431,7 +527,16 @@ internal fun MainView(
                                     online = online,
                                     onNew = { composingNew = true },
                             ) {
-                                Banners(model, status, roomCode, transfer, connecting, online, invalidQuery, onShare = { shareOpen = true })
+                                Banners(
+                                        model,
+                                        status,
+                                        roomCode,
+                                        transfer,
+                                        connecting,
+                                        online,
+                                        invalidQuery,
+                                        onShare = { shareOpen = true },
+                                )
                             }
                         } else {
                             LazyColumn(
@@ -444,7 +549,16 @@ internal fun MainView(
                                             ),
                             ) {
                                 item(key = "banners") {
-                                    Banners(model, status, roomCode, transfer, connecting, online, invalidQuery, onShare = { shareOpen = true })
+                                    Banners(
+                                            model,
+                                            status,
+                                            roomCode,
+                                            transfer,
+                                            connecting,
+                                            online,
+                                            invalidQuery,
+                                            onShare = { shareOpen = true },
+                                    )
                                 }
                                 itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
                                     ClipRow(
@@ -465,6 +579,7 @@ internal fun MainView(
                                             onEdit = { editing = item },
                                             onNote = { noting = item },
                                             onDetail = { inspecting = item },
+                                            onQr = { qrItem = item },
                                             onZoom = { zooming = item },
                                             onTransform = { transforming = item },
                                             onTranslate = { translating = item },
@@ -473,8 +588,16 @@ internal fun MainView(
                                             onMoveTo = { moving = item },
                                             modifier =
                                                     Modifier.animateItem(
-                                                            placementSpec = tween(M3.MEDIUM_3, easing = M3.EMPHASIZED),
-                                                            fadeInSpec = tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN),
+                                                            placementSpec =
+                                                                    tween(
+                                                                            M3.MEDIUM_3,
+                                                                            easing = M3.EMPHASIZED,
+                                                                    ),
+                                                            fadeInSpec =
+                                                                    tween(
+                                                                            M3.MEDIUM_2,
+                                                                            easing = M3.EMPHASIZED_IN,
+                                                                    ),
                                                             fadeOutSpec = null,
                                                     ),
                                     )
@@ -483,92 +606,22 @@ internal fun MainView(
                         }
                     }
                 }
-
-                GlassCard(
-                        modifier =
-                                Modifier.align(Alignment.TopStart)
-                                        .fillMaxWidth()
-                                        .onSizeChanged { barHeight = with(density) { it.height.toDp() } },
-                        shape = RoundedCornerShape(20.dp),
-                ) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Header(
-                                status,
-                                roomCode,
-                                inRoom,
-                                onLeave,
-                                onShare = { shareOpen = true },
-                                onSettings = onOpenSettings,
-                                onSafety = { safetyNumber = it },
-                                onDevices = { devicesOpen = true },
-                                onCopyRoom = { roomCode?.let(model::copyToClipboard) },
-                        )
-                        Toolbar(
-                                model = model,
-                                query = query,
-                                regex = regex,
-                                caseSensitive = caseSensitive,
-                                online = online,
-                                total = items.size,
-                                canClear = items.isNotEmpty(),
-                                undoDepth = undoDepth,
-                                picking = picking,
-                                searchFocus = searchFocus,
-                                onSearchFocused = { searchFocused = it },
-                                onToggleSelect = {
-                                    if (picking) endPicking() else picking = true
-                                },
-                                onNew = { composingNew = true },
-                                onClear = { confirmClear = true },
-                                onSendFile = { sendFileOpen = true },
-                        )
-                    }
+                if (dropHovering) {
+                    FileDropOverlay()
                 }
-
-                AnimatedVisibility(
-                        visible = picking,
-                        enter =
-                                fadeIn(tween(M3.SHORT_4, easing = M3.EMPHASIZED_IN)) +
-                                        slideInVertically(tween(M3.MEDIUM_2, easing = M3.EMPHASIZED_IN)) { it },
-                        exit =
-                                fadeOut(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) +
-                                        slideOutVertically(tween(M3.SHORT_3, easing = M3.EMPHASIZED_OUT)) { it },
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 14.dp),
-                        label = "selectionBar",
-                ) {
-                    val allPinned = targets.isNotEmpty() && targets.all { it.pinned }
-                    SelectionBar(
-                            count = picked.size,
-                            allPinned = allPinned,
-                            modifier = Modifier,
-                            onCopy = { model.copySelection(targets) },
-                            onTogglePin = { model.setPinned(targets, !allPinned) },
-                            onExport = { model.exportJson(targets) },
-                            onDelete = {
-                                model.remove(targets)
-                                endPicking()
+                if (sendFileOpen) {
+                    SendFileDialog(
+                            onDismiss = { sendFileOpen = false },
+                            onBrowse = {
+                                sendFileOpen = false
+                                model.pickFiles()
                             },
-                            onClose = { endPicking() },
+                            onPaths = { paths ->
+                                sendFileOpen = false
+                                model.ingestDroppedPaths(paths)
+                            },
                     )
                 }
-
-                ToastHost(model, bottom = 22.dp + barLift, modifier = Modifier.align(Alignment.BottomCenter))
-            }
-            if (dropHovering) {
-                FileDropOverlay()
-            }
-            if (sendFileOpen) {
-                SendFileDialog(
-                        onDismiss = { sendFileOpen = false },
-                        onBrowse = {
-                            sendFileOpen = false
-                            model.pickFiles()
-                        },
-                        onPaths = { paths ->
-                            sendFileOpen = false
-                            model.ingestDroppedPaths(paths)
-                        },
-                )
             }
         }
     }
@@ -652,10 +705,24 @@ internal fun MainView(
         DetailDialog(
                 item = item,
                 model = model,
-                now = now,
                 onDismiss = { inspecting = null },
                 onCopy = { model.copy(item) },
                 onZoom = { zooming = item },
+        )
+    }
+    qrItem?.let { item ->
+        val result = remember(item) { qrPayloadFor(item) }
+        val payload = result.getOrNull()
+        QrCodeDialog(
+                payload = payload,
+                errorKey = result.exceptionOrNull()?.message,
+                onCopy =
+                        payload?.let { text ->
+                            {
+                                model.copyToClipboard(text)
+                            }
+                        },
+                onDismiss = { qrItem = null },
         )
     }
     zooming?.let { item ->
@@ -1207,7 +1274,7 @@ private fun SelectionBar(
         onDelete: () -> Unit,
         onClose: () -> Unit,
 ) {
-    GlassCard(modifier = modifier, shape = RoundedCornerShape(22.dp)) {
+    GlassCard(modifier = modifier, shape = RoundedCornerShape(22.dp), forBar = true) {
         Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,

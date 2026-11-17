@@ -66,6 +66,16 @@ class AppSettings(
         store.putFloat(KEY_BACKGROUND_DIM, dim)
     }
 
+    private val _glassFrost =
+        MutableStateFlow(frostOf(store.getFloat(KEY_GLASS_FROST, DEFAULT_GLASS_FROST)))
+    val glassFrost: StateFlow<Float> = _glassFrost.asStateFlow()
+
+    fun setGlassFrost(value: Float) {
+        val frost = frostOf(value)
+        _glassFrost.value = frost
+        store.putFloat(KEY_GLASS_FROST, frost)
+    }
+
     private val _rememberRoom = MutableStateFlow(store.getBoolean(KEY_REMEMBER_ROOM, true))
     val rememberRoom: StateFlow<Boolean> = _rememberRoom.asStateFlow()
 
@@ -298,8 +308,11 @@ class AppSettings(
         private const val KEY_LANGUAGE = "ui.language"
         private const val KEY_BACKGROUND_PATH = "ui.background.path"
         private const val KEY_BACKGROUND_DIM = "ui.background.dim"
+        private const val KEY_GLASS_FROST = "ui.glass.frost"
         const val DEFAULT_BACKGROUND_DIM = 0.45f
         const val MAX_BACKGROUND_DIM = 0.9f
+        const val DEFAULT_GLASS_FROST = 0.55f
+        const val MAX_GLASS_FROST = 1f
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
@@ -337,6 +350,9 @@ class AppSettings(
 
         private fun dimOf(raw: Float): Float =
             if (raw.isNaN()) DEFAULT_BACKGROUND_DIM else raw.coerceIn(0f, MAX_BACKGROUND_DIM)
+
+        private fun frostOf(raw: Float): Float =
+            if (raw.isNaN()) DEFAULT_GLASS_FROST else raw.coerceIn(0f, MAX_GLASS_FROST)
 
         private fun languageOf(name: String?): AppLanguage =
             AppLanguage.entries.firstOrNull { it.name == name } ?: AppLanguage.System

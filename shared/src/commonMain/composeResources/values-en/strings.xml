@@ -87,6 +87,12 @@
     <string name="detail_title">Entry details</string>
     <string name="detail_note">Note</string>
     <string name="detail_id">Entry ID</string>
+    <string name="qr_title">QR code</string>
+    <string name="qr_action">QR code</string>
+    <string name="qr_too_long">Content is too long for a scannable QR code</string>
+    <string name="qr_no_link">This file has no download link yet (upload may still be running)</string>
+    <string name="qr_empty">Nothing to encode</string>
+    <string name="qr_copy_payload">Copy payload</string>
     <string name="move_to_title">Move to position</string>
     <string name="move_to_position">Position</string>
     <string name="move_to_hint">Can move to position %1$d-%2$d, currently #%3$d</string>
@@ -344,6 +350,7 @@
     <string name="background_picked">Chosen</string>
     <string name="background_dim">Dim</string>
     <string name="background_clear">Remove</string>
+    <string name="setting_glass_frost">Frost</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

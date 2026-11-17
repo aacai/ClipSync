@@ -295,7 +295,7 @@ class ClipRepository(
     companion object {
         const val KIND_TEXT = "text"
         const val KIND_FILE = "file"
-        const val DEFAULT_MAX_ITEMS = 500
+        const val DEFAULT_MAX_ITEMS = 10_000
         const val MAX_UNDO = 20
         const val BACKGROUND_ID = "background"
 

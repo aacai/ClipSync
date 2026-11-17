@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import io.github.alexzhirkevich.qrose.rememberQrCodePainter
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -468,7 +470,6 @@ internal fun MoveToPositionDialog(info: MoveInfo, onDismiss: () -> Unit, onSubmi
 internal fun DetailDialog(
         item: ClipItem,
         model: AppModel,
-        now: Long,
         onDismiss: () -> Unit,
         onCopy: () -> Unit,
         onZoom: () -> Unit,
@@ -477,78 +478,75 @@ internal fun DetailDialog(
     val file = item.file
     val path = file?.localPath?.takeIf { isImage(file.mime) }
     val thumb = rememberImageBitmap(path, THUMB_MAX_SIDE) { model.cachedBytes(item) }
+    val qr = remember(item) { qrPayloadFor(item).getOrNull()?.takeIf { it.encodeToByteArray().size <= QR_MAX_BYTES } }
     GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.detail_title), fontSize = 17.sp) },
             text = {
-                Column(modifier = Modifier.heightIn(max = 420.dp)) {
-                    if (thumb != null) {
+                Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (qr != null) {
+                        Image(
+                                painter = rememberQrCodePainter(qr),
+                                contentDescription = stringResource(Res.string.qr_title),
+                                modifier =
+                                        Modifier.size(240.dp)
+                                                .background(Color.White, MaterialTheme.shapes.small)
+                                                .padding(4.dp),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        SelectionContainer {
+                            Text(
+                                    qr,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 6,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                            )
+                        }
+                    } else {
+                        if (thumb != null) {
+                            Box(
+                                    modifier =
+                                            Modifier.padding(bottom = 10.dp)
+                                                    .clip(MaterialTheme.shapes.small)
+                                                    .clickable(onClick = onZoom),
+                            ) {
+                                Image(
+                                        bitmap = thumb,
+                                        contentDescription = stringResource(Res.string.cd_zoom_image),
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp),
+                                )
+                            }
+                        }
                         Box(
                                 modifier =
-                                        Modifier.padding(bottom = 10.dp)
-                                                .clip(MaterialTheme.shapes.small)
-                                                .clickable(onClick = onZoom),
+                                        Modifier.fillMaxWidth()
+                                                .weight(1f, fill = false)
+                                                .background(
+                                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                        MaterialTheme.shapes.small,
+                                                )
+                                                .padding(10.dp)
+                                                .verticalScroll(rememberScrollState()),
                         ) {
-                            Image(
-                                    bitmap = thumb,
-                                    contentDescription = stringResource(Res.string.cd_zoom_image),
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 220.dp),
+                            val body =
+                                    if (isFile) {
+                                        file?.localPath ?: stringResource(Res.string.not_downloaded)
+                                    } else {
+                                        item.text
+                                    }
+                            Text(
+                                    body,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
                             )
                         }
                     }
-                    Box(
-                            modifier =
-                                    Modifier.fillMaxWidth()
-                                            .weight(1f, fill = false)
-                                            .background(
-                                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                    MaterialTheme.shapes.small,
-                                            )
-                                            .padding(10.dp)
-                                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        val body =
-                                if (isFile) {
-                                    file?.localPath ?: stringResource(Res.string.not_downloaded)
-                                } else {
-                                    item.text
-                                }
-                        Text(
-                                body,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
-                        )
-                    }
-
-                    val meta = buildList {
-                        add(relTime(item.ts, now))
-                        add(stringResource(Res.string.from_sender, item.senderName))
-                        if (isFile && file != null) {
-                            add(displayTitle(file))
-                            add(file.mime)
-                            add(humanSize(file.size))
-                            val left = file.expiresAt - now
-                            if (left > 0) add(stringResource(Res.string.expires_in, humanLeft(left)))
-                        }
-                        if (item.pinned) add(stringResource(Res.string.pinned))
-                    }
-                    Text(
-                            meta.joinToString(" · "),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 10.dp),
-                    )
-
-                    if (item.note.isNotBlank()) {
-                        Spacer(Modifier.height(10.dp))
-                        SectionLabel(Res.string.detail_note)
-                        Text(item.note, style = MaterialTheme.typography.bodySmall)
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-                    SectionLabel(Res.string.detail_id)
-                    Text(item.id, style = MaterialTheme.typography.labelSmall, fontFamily = FontFamily.Monospace)
                 }
             },
             confirmButton = {
@@ -915,8 +913,10 @@ internal fun AboutDialog(model: AppModel, onDismiss: () -> Unit) {
                     Spacer(Modifier.height(3.dp))
                     Text(
                             "${stringResource(Res.string.setting_version)} ${model.appVersion}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
                     )
                     Spacer(Modifier.height(18.dp))
                     Text(

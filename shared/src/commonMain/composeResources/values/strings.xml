@@ -87,6 +87,12 @@
     <string name="detail_title">条目详情</string>
     <string name="detail_note">备注</string>
     <string name="detail_id">记录 ID</string>
+    <string name="qr_title">二维码</string>
+    <string name="qr_action">二维码</string>
+    <string name="qr_too_long">内容过长，无法生成可扫码的二维码</string>
+    <string name="qr_no_link">文件还没有下载链接（可能尚未上传完成）</string>
+    <string name="qr_empty">没有可编码的内容</string>
+    <string name="qr_copy_payload">复制内容</string>
     <string name="move_to_title">移动到指定位置</string>
     <string name="move_to_position">位置</string>
     <string name="move_to_hint">可移动到第 %1$d–%2$d 位，当前第 %3$d 位</string>
@@ -339,6 +345,7 @@
     <string name="background_picked">已选择</string>
     <string name="background_dim">压暗</string>
     <string name="background_clear">移除</string>
+    <string name="setting_glass_frost">磨砂度</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>

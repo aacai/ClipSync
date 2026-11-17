@@ -102,6 +102,7 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.qrose)
         }
         jvmMain.dependencies {
             implementation(libs.mqtt.client.transport.tcp)

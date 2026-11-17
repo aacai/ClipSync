@@ -49,4 +49,16 @@ class AppSettingsBackgroundTest {
         raw["ui.background.dim"] = Float.NaN
         assertEquals(AppSettings.DEFAULT_BACKGROUND_DIM, newSettings().backgroundDim.value)
     }
+
+    @Test
+    fun glass_frost_is_clamped_and_persisted() {
+        val settings = newSettings()
+        assertEquals(AppSettings.DEFAULT_GLASS_FROST, settings.glassFrost.value)
+        settings.setGlassFrost(0.8f)
+        assertEquals(0.8f, newSettings().glassFrost.value)
+        settings.setGlassFrost(2f)
+        assertEquals(AppSettings.MAX_GLASS_FROST, settings.glassFrost.value)
+        settings.setGlassFrost(-1f)
+        assertEquals(0f, settings.glassFrost.value)
+    }
 }

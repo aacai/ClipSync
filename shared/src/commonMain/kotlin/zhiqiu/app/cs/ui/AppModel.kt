@@ -25,6 +25,7 @@ import zhiqiu.app.cs.core.DefaultReleaseSource
 import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.GithubReleases
+import zhiqiu.app.cs.core.LanPeer
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
 import zhiqiu.app.cs.core.RecordMode
@@ -74,11 +75,12 @@ class AppModel internal constructor(
     constructor(scope: CoroutineScope, platform: PlatformUi, settings: AppSettings) :
             this(scope, platform, settings, DefaultMqttLinks)
 
-    private val engine = ClipSyncEngine(scope, links)
+    private val engine = ClipSyncEngine(scope, links, lanEnabled = true)
     private val repository = ClipRepository(platform.store)
 
     internal val status: StateFlow<ClipSyncEngine.Status> = engine.status
     val devices: StateFlow<List<DevicePresence>> = engine.devices
+    val lanPeers: StateFlow<List<LanPeer>> = engine.lanPeers
     val keyMismatch: StateFlow<List<String>> = engine.keyMismatch
     internal val transfer: StateFlow<ClipSyncEngine.TransferProgress?> = engine.transfer
     val undoDepth: StateFlow<Int> = repository.undoDepth
@@ -136,6 +138,7 @@ class AppModel internal constructor(
 
     val backgroundPath: StateFlow<String> = settings.backgroundPath
     val backgroundDim: StateFlow<Float> = settings.backgroundDim
+    val glassFrost: StateFlow<Float> = settings.glassFrost
     val supportsBackground: Boolean get() = platform.picker.isAvailable
 
     /** 能截屏并且本机装了录屏组件时才露出录屏设置。 */
@@ -905,6 +908,8 @@ class AppModel internal constructor(
     }
 
     fun setBackgroundDim(value: Float) = settings.setBackgroundDim(value)
+
+    fun setGlassFrost(value: Float) = settings.setGlassFrost(value)
 
     fun pickBackground() {
         if (!platform.picker.isAvailable) return

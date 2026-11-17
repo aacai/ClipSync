@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import io.ktor.client.HttpClient
+import zhiqiu.app.cs.files.createSharedHttpClient
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import org.meshtastic.mqtt.ConnectionState
@@ -33,6 +35,7 @@ internal class ClipSyncEngine(
     private val scope: CoroutineScope,
     private val links: MqttLinkFactory = DefaultMqttLinks,
     private val transports: FileTransportFactory = DefaultFileTransports,
+    private val lanEnabled: Boolean = false,
     private val clock: () -> Long = { currentTimeMillis() },
 ) {
 
@@ -72,11 +75,19 @@ internal class ClipSyncEngine(
     private val _devices = MutableStateFlow<List<DevicePresence>>(emptyList())
     val devices: StateFlow<List<DevicePresence>> = _devices.asStateFlow()
 
+    private val _lanPeers = MutableStateFlow<List<LanPeer>>(emptyList())
+    val lanPeers: StateFlow<List<LanPeer>> = _lanPeers.asStateFlow()
+
     /** 解不开对方东西的那些：显示昵称，认不出人时退回设备号前缀。多半是某端房间密码打错，钥匙不是同一把。 */
     private val _keyMismatch = MutableStateFlow<List<String>>(emptyList())
     val keyMismatch: StateFlow<List<String>> = _keyMismatch.asStateFlow()
 
     private val roster = mutableMapOf<String, DevicePresence>()
+
+    private val pairedLan = mutableMapOf<String, LanPeer>()
+
+    private var lanServer: LanServer? = null
+    private var lanSender: LanSender? = null
 
     private val presenceTs = mutableMapOf<String, Long>()
 
@@ -140,6 +151,12 @@ internal class ClipSyncEngine(
             this.repository = config.repository
             transferClient = transports.create()
             fileCrypto = FileCrypto(roomCrypto, ClipProtocol.clipTopic(hash))
+            if (lanEnabled) {
+                lanSender = LanSender(createSharedHttpClient(), hash)
+                lanServer = createLanServer(ClipProtocol.LAN_PORT, hash, lanBlobDir()) { wire ->
+                    scope.launch { onMessage(ClipProtocol.clipTopic(hash), wire) }
+                }
+            }
             config.repository?.load()
             safety = roomCrypto.safetyNumber()
         } catch (e: Exception) {
@@ -218,8 +235,13 @@ internal class ClipSyncEngine(
         )
         // 先进历史再上线：连接正在死时 publish 会抛，那条复制不能因为发不出去就当没发生过。
         addToHistory(item)
-        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
+        deliver(ClipProtocol.clipTopic(roomHash), ClipProtocol.encode(envelope))
         return item
+    }
+
+    private suspend fun deliver(topic: String, wire: String) {
+        lanSender?.publish(pairedLan.values, wire)
+        link?.publish(topic = topic, payload = wire)
     }
 
     /**
@@ -305,17 +327,23 @@ internal class ClipSyncEngine(
         }
 
         val uploadName = FileCrypto.uploadFileName()
-        val uploaded = runCatching {
-            transfer.upload(uploadName, encrypted.cipher) { sent, total ->
-                _transfer.value = TransferProgress(TransferProgress.Direction.Upload, sent, total, safeName)
+        val lanBase = pairedLan.values.firstNotNullOfOrNull { it.base() }
+        val record = if (lanBase != null && writeLanBlob(uploadName, encrypted.cipher)) {
+            val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$uploadName"
+            Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
+        } else {
+            val uploaded = runCatching {
+                transfer.upload(uploadName, encrypted.cipher) { sent, total ->
+                    _transfer.value = TransferProgress(TransferProgress.Direction.Upload, sent, total, safeName)
+                }
+            }.getOrElse { e ->
+                _transfer.value = null
+                _fileIssues.emit(FileIssue.UploadFailed(safeName, e.message))
+                return null
             }
-        }.getOrElse { e ->
             _transfer.value = null
-            _fileIssues.emit(FileIssue.UploadFailed(safeName, e.message))
-            return null
+            Uploaded(safeName, mime, sha, uploaded.url, uploaded.expiresAt(now()))
         }
-        _transfer.value = null
-        val record = Uploaded(safeName, mime, sha, uploaded.url, uploaded.expiresAt(now()))
         liveUploads.remove(key)
         liveUploads[key] = record
         while (liveUploads.size > MAX_LIVE_UPLOADS) liveUploads.remove(liveUploads.keys.first())
@@ -399,7 +427,7 @@ internal class ClipSyncEngine(
             kind = ClipRepository.KIND_FILE,
             ct = FileCrypto.encodeCipher(wire),
         )
-        link?.publish(topic = ClipProtocol.clipTopic(roomHash), payload = ClipProtocol.encode(envelope))
+        deliver(ClipProtocol.clipTopic(roomHash), ClipProtocol.encode(envelope))
     }
 
     private suspend fun addToHistory(item: ClipItem) {
@@ -433,6 +461,10 @@ internal class ClipSyncEngine(
         val current = link
         link = null
         runCatching { current?.close() }
+        lanServer?.close()
+        lanServer = null
+        lanSender?.close()
+        lanSender = null
     }
 
     /**
@@ -582,6 +614,12 @@ internal class ClipSyncEngine(
             presenceTs.remove(payload.dev)
             unknownKey.remove(payload.dev)
         }
+        if (payload.online && payload.lan != null) {
+            pairedLan[payload.dev] = LanPeer(payload.dev, payload.lan.addrs, payload.lan.port)
+        } else {
+            pairedLan.remove(payload.dev)
+        }
+        publishLanPeers()
         pruneRoster()
         publishRoster()
         // 头一回见到就自报一次：新来的这才刚订阅上，错过我们上次的心跳就看不见彼此。
@@ -600,8 +638,14 @@ internal class ClipSyncEngine(
             )
         }.getOrNull()
 
+    private fun publishLanPeers() {
+        if (lanEnabled) _lanPeers.value = pairedLan.values.sortedBy { it.id }
+    }
+
     private fun clearRoster() {
         roster.clear()
+        pairedLan.clear()
+        publishLanPeers()
         presenceTs.clear()
         unknownKey.clear()
         publishRoster()
@@ -648,6 +692,7 @@ internal class ClipSyncEngine(
                 online = online,
                 ts = now(),
                 answer = answer,
+                lan = lanServer?.info,
             ),
         )
         return runCatching {
@@ -754,6 +799,7 @@ internal class ClipSyncEngine(
 
         private const val LINK_GRACE_MS = 60_000L
         private const val MAX_LIVE_UPLOADS = 32
+        private const val LAN_LINK_TTL_MS = 24L * 3_600_000L
     }
 }
 @OptIn(ExperimentalTime::class)

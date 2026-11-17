@@ -40,34 +40,60 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.kashif_e.backdrop.Backdrop
-import com.kashif_e.backdrop.drawBackdrop
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
-import com.kashif_e.backdrop.effects.blur
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.colorControls
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
 
+/** 卡片等普通玻璃：只采装饰背景。 */
 val LocalBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+/**
+ * 状态卡 / 底栏：装饰背景 + 页面内容。
+ * 浮层必须画在 scene 采样层之外，否则会采到自己。
+ */
+val LocalBarBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+/** 0..1，映射到 blur 半径。 */
+val LocalGlassFrost = staticCompositionLocalOf { 0.55f }
 
 private const val BACKGROUND_MAX_SIDE = 1024
 
+/**
+ * @param content 进 scene，供状态卡透视列表滑动
+ * @param overlay 浮层（状态卡等），用 [LocalBarBackdrop] 采背后页面
+ */
 @Composable
 fun AppBackground(
     model: AppModel,
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
+    overlay: @Composable BoxScope.() -> Unit = {},
+    content: @Composable BoxScope.() -> Unit,
 ) {
-    val backdrop = rememberLayerBackdrop()
     val path by model.backgroundPath.collectAsState()
     val dim by model.backgroundDim.collectAsState()
+    val frost by model.glassFrost.collectAsState()
     val image =
         rememberImageBitmap(path.takeIf { it.isNotBlank() }, BACKGROUND_MAX_SIDE) {
             model.backgroundBytes()
         }
+    val ambient = rememberLayerBackdrop {
+        drawRect(Palette.Background)
+        drawContent()
+    }
+    val scene = rememberLayerBackdrop()
+    val barBackdrop = rememberCombinedBackdrop(ambient, scene)
+
     Box(modifier.fillMaxSize()) {
         Box(
             Modifier
                 .fillMaxSize()
-                .layerBackdrop(backdrop)
+                .layerBackdrop(ambient)
                 .background(Palette.Background)
         ) {
             if (image != null) {
@@ -84,30 +110,38 @@ fun AppBackground(
                 BackdropBlob(Color(0xFF0EA5E9), 280.dp, 20.dp, 520.dp)
             }
         }
-        CompositionLocalProvider(LocalBackdrop provides backdrop) { content() }
+        CompositionLocalProvider(
+            LocalBackdrop provides ambient,
+            LocalBarBackdrop provides barBackdrop,
+            LocalGlassFrost provides frost,
+        ) {
+            Box(Modifier.fillMaxSize().layerBackdrop(scene)) {
+                content()
+            }
+            overlay()
+        }
     }
 }
 
-// ClipRow 行高光描边（ClipSync 原有辅助，HouseStudy 方案未含）。
 internal fun rimHighlight(dark: Boolean) =
-        Brush.verticalGradient(
-                colorStops =
-                        if (dark) {
-                            arrayOf(
-                                    0f to Color.White.copy(alpha = 0.20f),
-                                    0.15f to Color.White.copy(alpha = 0.04f),
-                                    1f to Color.White.copy(alpha = 0.0f),
-                            )
-                        } else {
-                            arrayOf(
-                                    0f to Color.White.copy(alpha = 0.65f),
-                                    0.15f to Color.White.copy(alpha = 0.10f),
-                                    1f to Color.White.copy(alpha = 0.0f),
-                            )
-                        },
-                startY = 0f,
-                endY = 240f,
-        )
+    Brush.verticalGradient(
+        colorStops =
+            if (dark) {
+                arrayOf(
+                    0f to Color.White.copy(alpha = 0.20f),
+                    0.15f to Color.White.copy(alpha = 0.04f),
+                    1f to Color.White.copy(alpha = 0.0f),
+                )
+            } else {
+                arrayOf(
+                    0f to Color.White.copy(alpha = 0.65f),
+                    0.15f to Color.White.copy(alpha = 0.10f),
+                    1f to Color.White.copy(alpha = 0.0f),
+                )
+            },
+        startY = 0f,
+        endY = 240f,
+    )
 
 @Composable
 private fun BackdropBlob(color: Color, size: Dp, x: Dp, y: Dp) {
@@ -119,29 +153,49 @@ private fun BackdropBlob(color: Color, size: Dp, x: Dp, y: Dp) {
     )
 }
 
+internal fun frostBlurDp(amount: Float, forBar: Boolean): Dp {
+    val t = amount.coerceIn(0f, 1f)
+    return if (forBar) (8f + t * 20f).dp else (10f + t * 18f).dp
+}
+
+/**
+ * @param forBar 用 [LocalBarBackdrop]，透视页面列表
+ */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(18.dp),
-    /** 叠在 blur 上的雾面；对话框用近不透明色做磨砂。 */
-    surface: Color = Color.White.copy(alpha = 0.05f),
-    blurRadius: Dp = 20.dp,
-    content: @Composable BoxScope.() -> Unit
+    forBar: Boolean = false,
+    surface: Color = Color.White.copy(alpha = 0.06f),
+    blurRadius: Dp? = null,
+    content: @Composable BoxScope.() -> Unit,
 ) {
-    val backdrop = LocalBackdrop.current
+    val backdrop = if (forBar) LocalBarBackdrop.current else LocalBackdrop.current
+    val frost = LocalGlassFrost.current
+    val blur = blurRadius ?: frostBlurDp(frost, forBar)
     Box(
-        if (backdrop != null) {
-            modifier.drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = { blur(blurRadius.toPx()) },
-                onDrawSurface = { drawRect(surface) },
-            )
-        } else {
-            modifier
-                .clip(shape)
-                .background(surface)
-                .border(1.dp, Color.White.copy(alpha = 0.09f), shape)
+        when {
+            backdrop != null -> {
+                modifier
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { shape },
+                        effects = {
+                            vibrancy()
+                            colorControls(brightness = 0.04f, contrast = 1.02f, saturation = 1.18f)
+                            blur(blur.toPx())
+                        },
+                        highlight = { Highlight.Plain },
+                        onDrawSurface = { drawRect(surface) },
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.07f), shape)
+            }
+            else -> {
+                modifier
+                    .clip(shape)
+                    .background(surface)
+                    .border(1.dp, Color.White.copy(alpha = 0.09f), shape)
+            }
         }
     ) {
         content()
@@ -200,7 +254,6 @@ internal fun GlassAlertDialog(
                             onClick = {},
                         ),
                 shape = GlassDialogShape,
-                // 近不透明 + 强 blur：磨砂面板，不当透层
                 surface = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 blurRadius = 28.dp,
             ) {

@@ -39,6 +39,7 @@ data class PresencePayload(
     val ts: Long,
     /** true = 点名，收到的人回一条 presence */
     val answer: Boolean = false,
+    val lan: LanInfo? = null,
 )
 
 data class DevicePresence(
@@ -63,6 +64,10 @@ object ClipProtocol {
     const val CH_CLIP = "clip"
     const val CH_PRESENCE = "presence"
     const val CH_SYNC = "sync"
+    const val LAN_PORT = 43871
+    const val BLOB_SEGMENT = "blob"
+
+    fun lanBlobPath(roomHash: String, name: String): String = "$ROOT/$roomHash/$BLOB_SEGMENT/$name"
 
     val json: Json = Json {
         ignoreUnknownKeys = true

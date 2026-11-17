@@ -1,0 +1,14 @@
+package zhiqiu.app.cs.core
+
+internal actual fun lanBlobDir(): String = ""
+
+@Suppress("UNUSED_PARAMETER")
+internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean = false
+
+@Suppress("UNUSED_PARAMETER")
+internal actual fun createLanServer(
+    port: Int,
+    roomHash: String,
+    blobDir: String,
+    onClip: (String) -> Unit,
+): LanServer? = null
