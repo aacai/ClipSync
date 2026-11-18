@@ -206,21 +206,17 @@ internal class ClipSyncEngine(
         lanPortValue = port
         lanTokenValue = nextToken
         if ((!changed && lanServer != null) || !lanEnabled) return
+        val config = desired ?: return
         closeLan()
-        val config = desired
-        val hash = if (roomHash.isNotBlank()) roomHash else lanTokenValue
-        lanSender = LanSender(createSharedHttpClient(), hash)
-        startLan(hash, config)
+        lanSender = LanSender(createSharedHttpClient(), roomHash)
+        startLan(roomHash, config)
     }
 
-    private fun startLan(hash: String, config: Config?) {
-        val deviceId = config?.deviceId ?: lanTokenValue
-        val deviceName = config?.deviceName ?: deviceId
-        val deviceOs = config?.deviceOs ?: "Device"
+    private fun startLan(hash: String, config: Config) {
         lanServer =
                 createLanServer(
                         lanPortValue,
-                        LanIdentity(deviceId, deviceName, deviceOs),
+                        LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
                         hash,
                         lanBlobDir(),
                         lanTokenValue,
@@ -296,13 +292,13 @@ internal class ClipSyncEngine(
     }
 
     private suspend fun deliver(topic: String, wire: String) {
-        if (pairedLan.isNotEmpty()) {
-            lanSender?.publish(pairedLan.values, wire)
+        var lanSent = false
+        if (pairedLan.isNotEmpty() && lanSender != null) {
+            lanSender!!.publish(pairedLan.values, wire)
+            lanSent = true
         }
-        if (lanOnlyEnabled) return
-        val mqtt = link ?: return
-        if (mqtt.connectionState.value !is ConnectionState.Connected) return
-        mqtt.publish(topic = topic, payload = wire)
+        if (lanOnlyEnabled && lanSent) return
+        link?.publish(topic = topic, payload = wire)
     }
 
     /**
@@ -685,6 +681,13 @@ internal class ClipSyncEngine(
                 os = payload.os,
                 seenAt = now(),
             )
+            payload.lan?.let { lan ->
+                val addrs = (listOfNotNull(lan.addrs.firstOrNull()) + lan.addrs).distinct()
+                pairedLan[payload.dev] =
+                        LanPeer(payload.dev, payload.name, payload.os, addrs, lan.port, lan.nonce)
+                lanSeen[payload.dev] = now()
+                publishLanPeers()
+            }
         } else {
             roster.remove(payload.dev)
             presenceTs.remove(payload.dev)
