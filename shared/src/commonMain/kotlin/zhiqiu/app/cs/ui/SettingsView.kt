@@ -100,6 +100,9 @@ internal fun SettingsView(
     val rememberRoom by settings.rememberRoom.collectAsState()
     val watchClipboard by settings.watchClipboard.collectAsState()
     val lanFirst by settings.lanFirst.collectAsState()
+    val lanShare by model.lanShare.collectAsState()
+    val lanOnly by model.lanOnly.collectAsState()
+    val lanRoots by model.lanRoots.collectAsState()
     val watchImages by settings.watchImages.collectAsState()
     val watchFiles by settings.watchFiles.collectAsState()
     val autoCopyIncoming by settings.autoCopyIncoming.collectAsState()
@@ -449,6 +452,52 @@ internal fun SettingsView(
                                         lanFirst,
                                         settings::setLanFirst,
                                 )
+                            }
+                        }
+
+                        item(key = "file_share") {
+                            SettingGroup(Res.string.settings_group_file_share) {
+                                SwitchRow(
+                                        Res.string.setting_lan_share,
+                                        Res.string.setting_lan_share_hint,
+                                        lanShare,
+                                        settings::setLanShare,
+                                )
+                                RowDivider()
+                                SwitchRow(
+                                        Res.string.setting_lan_only,
+                                        Res.string.setting_lan_only_hint,
+                                        lanOnly,
+                                        settings::setLanOnly,
+                                )
+                                if (lanShare) {
+                                    RowDivider()
+                                    NavRow(
+                                            title = Res.string.setting_lan_open_local,
+                                            value =
+                                                    model.localFileBrowseUrl
+                                                            ?: stringResource(Res.string.status_disconnected),
+                                            onClick = { model.localFileBrowseUrl?.let(model::openUrl) },
+                                    )
+                                    RowDivider()
+                                    lanRoots.forEach { root ->
+                                        NavRow(
+                                                title = Res.string.setting_lan_roots,
+                                                value = stringResource(Res.string.setting_lan_root_value, root.name, root.path),
+                                                onClick = { model.removeLanRoot(root) },
+                                        )
+                                        RowDivider()
+                                    }
+                                    if (model.supportsDirectoryPicker) {
+                                        ActionRow(
+                                                Res.string.setting_lan_add_root,
+                                                { model.pickShareDir() },
+                                                destructive = false,
+                                        )
+                                    } else {
+                                        GroupFootnote(Res.string.setting_lan_root_hint)
+                                    }
+                                }
                             }
                         }
 
@@ -956,13 +1005,14 @@ private fun ValueRow(
 private fun ActionRow(
         title: StringResource,
         onClick: () -> Unit,
+        destructive: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
     RowScaffold(onClick) {
         Text(
                 stringResource(title),
                 style = MaterialTheme.typography.bodyLarge,
-                color = scheme.error,
+                color = if (destructive) scheme.error else scheme.primary,
                 modifier = Modifier.weight(1f),
         )
         Icon(AppIcons.ChevronRight, contentDescription = null, tint = scheme.outline, modifier = Modifier.size(18.dp))

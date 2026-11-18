@@ -713,16 +713,23 @@ internal fun LeaveRoomDialog(room: String, onDismiss: () -> Unit, onConfirm: () 
     )
 }
 
+internal data class DeviceListItem(
+        val label: String,
+        val browseUrl: String? = null,
+        val isSelf: Boolean = false,
+)
+
 @Composable
 internal fun DevicesDialog(
-        devices: List<String>,
+        items: List<DeviceListItem>,
+        onBrowse: (String) -> Unit,
         onDismiss: () -> Unit,
 ) {
     GlassAlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(Res.string.devices_title), fontSize = 17.sp) },
             text = {
-                if (devices.isEmpty()) {
+                if (items.isEmpty()) {
                     Text(
                             stringResource(Res.string.devices_empty),
                             style = MaterialTheme.typography.bodySmall,
@@ -733,7 +740,7 @@ internal fun DevicesDialog(
                             modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        devices.forEachIndexed { index, name ->
+                        items.forEach { item ->
                             Row(
                                     modifier =
                                             Modifier.fillMaxWidth()
@@ -752,19 +759,22 @@ internal fun DevicesDialog(
                                 )
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                        name,
+                                        item.label,
                                         style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f),
                                 )
-                                // 列表第一项是本机（进房后拼在 peers 前面）
-                                if (index == 0) {
+                                if (item.isSelf) {
                                     Text(
                                             stringResource(Res.string.devices_this),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary,
                                     )
+                                } else if (item.browseUrl != null) {
+                                    TextButton(onClick = { onBrowse(item.browseUrl) }) {
+                                        Text(stringResource(Res.string.action_browse_files))
+                                    }
                                 }
                             }
                         }

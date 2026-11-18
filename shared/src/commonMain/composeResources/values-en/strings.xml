@@ -257,6 +257,7 @@
     <string name="issue_too_large_incoming">Ignored an incoming file over %1$dMB: %2$s</string>
     <string name="issue_encrypt">Encryption failed: %1$s</string>
     <string name="issue_upload">Upload failed: %1$s</string>
+    <string name="issue_lan_unavailable">LAN-only mode cannot send this file without a LAN peer: %1$s</string>
     <string name="issue_decrypt">Verification or decryption failed: %1$s</string>
     <string name="cd_settings">Settings</string>
     <string name="settings_title">Settings</string>
@@ -365,6 +366,17 @@
     <string name="setting_launch_at_login_hint">Start watching the clipboard as soon as you sign in, kept in the tray with no window. Click the tray icon when you want the window</string>
     <string name="setting_lan_first">Prefer LAN for files</string>
     <string name="setting_lan_first_hint">Send files directly to peers on the same LAN instead of uploading to the internet</string>
+    <string name="settings_group_file_share">File sharing</string>
+    <string name="setting_lan_share">Share files on this LAN</string>
+    <string name="setting_lan_share_hint">Other devices on the same LAN can browse your shared folders in a web page. The link carries an access token</string>
+    <string name="setting_lan_only">LAN only</string>
+    <string name="setting_lan_only_hint">Send clips and files over the LAN only. Nothing goes through the internet when no peer is available</string>
+    <string name="setting_lan_roots">Shared folders</string>
+    <string name="setting_lan_add_root">Add shared folder</string>
+    <string name="setting_lan_root_value">%1$s · %2$s</string>
+    <string name="setting_lan_root_hint">Tap a folder to remove it. The web page only exposes folders added here</string>
+    <string name="setting_lan_open_local">This device's file page</string>
+    <string name="action_browse_files">Browse files</string>
     <string name="setting_watch_clipboard">Watch clipboard</string>
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>
     <string name="setting_watch_images">Keep screenshots</string>

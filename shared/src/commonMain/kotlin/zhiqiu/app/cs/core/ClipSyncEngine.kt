@@ -91,6 +91,19 @@ internal class ClipSyncEngine(
 
     private var lanServer: LanServer? = null
     private var lanSender: LanSender? = null
+    private var lanShareEnabled = false
+    private var lanOnlyEnabled = false
+    private var lanRoots: List<SharedRoot> = emptyList()
+    private var lanTokenValue: String = ClipProtocol.randomMid()
+
+    val lanToken: String get() = lanTokenValue
+
+    val localFilesUrl: String?
+        get() {
+            val info = lanServer?.info ?: return null
+            val host = info.addrs.firstOrNull() ?: return null
+            return "http://$host:${info.port}${ClipProtocol.fsPath()}?token=$lanTokenValue"
+        }
 
     private val presenceTs = mutableMapOf<String, Long>()
 
@@ -156,16 +169,7 @@ internal class ClipSyncEngine(
             fileCrypto = FileCrypto(roomCrypto, ClipProtocol.clipTopic(hash))
             if (lanEnabled) {
                 lanSender = LanSender(createSharedHttpClient(), hash)
-                lanServer =
-                        createLanServer(
-                                ClipProtocol.LAN_PORT,
-                                LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
-                                hash,
-                                lanBlobDir(),
-                                { wire -> scope.launch { onMessage(ClipProtocol.clipTopic(hash), wire) } },
-                                { beacon -> scope.launch { onLanPeer(beacon) } },
-                        )
-                startLanPrune()
+                startLan(hash, config)
             }
             config.repository?.load()
             safety = roomCrypto.safetyNumber()
@@ -183,6 +187,42 @@ internal class ClipSyncEngine(
             armRecovery()
             throw e
         }
+    }
+
+    suspend fun updateLanConfig(
+        enabled: Boolean,
+        roots: List<SharedRoot>,
+        token: String = lanTokenValue,
+        only: Boolean = lanOnlyEnabled,
+    ) {
+        val nextToken = token.ifBlank { lanTokenValue }
+        val changed =
+                enabled != lanShareEnabled || roots != lanRoots || only != lanOnlyEnabled ||
+                        nextToken != lanTokenValue
+        lanShareEnabled = enabled
+        lanRoots = roots
+        lanOnlyEnabled = only
+        lanTokenValue = nextToken
+        if (!changed || !lanEnabled) return
+        val config = desired ?: return
+        closeLan()
+        lanSender = LanSender(createSharedHttpClient(), roomHash)
+        startLan(roomHash, config)
+    }
+
+    private fun startLan(hash: String, config: Config) {
+        lanServer =
+                createLanServer(
+                        ClipProtocol.LAN_PORT,
+                        LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
+                        hash,
+                        lanBlobDir(),
+                        lanTokenValue,
+                        if (lanShareEnabled) lanRoots else emptyList(),
+                        { wire -> scope.launch { onMessage(ClipProtocol.clipTopic(hash), wire) } },
+                        { beacon -> scope.launch { onLanPeer(beacon) } },
+                )
+        startLanPrune()
     }
 
     /**
@@ -250,13 +290,12 @@ internal class ClipSyncEngine(
     }
 
     private suspend fun deliver(topic: String, wire: String) {
-        val mqtt = link
         if (pairedLan.isNotEmpty()) {
             lanSender?.publish(pairedLan.values, wire)
         }
-        if (mqtt == null || mqtt.connectionState.value !is ConnectionState.Connected) {
-            return
-        }
+        if (lanOnlyEnabled) return
+        val mqtt = link ?: return
+        if (mqtt.connectionState.value !is ConnectionState.Connected) return
         mqtt.publish(topic = topic, payload = wire)
     }
 
@@ -345,9 +384,14 @@ internal class ClipSyncEngine(
         val uploadName = FileCrypto.uploadFileName()
         val selfInfo = lanServer?.info
         val lanBase = selfInfo?.addrs?.firstOrNull()?.let { "http://$it:${selfInfo.port}" }
-        val record = if (lanFirst && lanBase != null && pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)) {
+        val record = if ((lanFirst || lanOnlyEnabled) && lanBase != null &&
+                pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)
+        ) {
             val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$uploadName"
             Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
+        } else if (lanOnlyEnabled) {
+            _fileIssues.emit(FileIssue.LanUnavailable(safeName))
+            return null
         } else {
             val uploaded = runCatching {
                 transfer.upload(uploadName, encrypted.cipher) { sent, total ->
@@ -667,7 +711,7 @@ internal class ClipSyncEngine(
         val seenAt = now()
         lanSeen[beacon.id] = seenAt
         pairedLan[beacon.id] =
-                LanPeer(beacon.id, beacon.name, beacon.os, beacon.addrs, beacon.port)
+                LanPeer(beacon.id, beacon.name, beacon.os, beacon.addrs, beacon.port, beacon.nonce)
         publishLanPeers()
     }
 

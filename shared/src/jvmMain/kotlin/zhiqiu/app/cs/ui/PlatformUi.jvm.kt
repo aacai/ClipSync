@@ -31,6 +31,7 @@ import java.io.File
 import java.io.IOException
 import java.net.URI
 import javax.imageio.ImageIO
+import javax.swing.JFileChooser
 
 private const val TRAY_POLL_MS = 5_000L
 
@@ -182,6 +183,28 @@ private class MultiTransferable(
 }
 
 private object AwtFilePicker : PlatformFilePicker {
+    override val supportsDirectoryPicker: Boolean = true
+
+    override fun pickDirectory(onDone: (String?) -> Unit) {
+        Thread(
+            {
+                val result =
+                        runCatching {
+                            val chooser = JFileChooser()
+                            chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+                            chooser.isMultiSelectionEnabled = false
+                            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                chooser.selectedFile?.absolutePath
+                            } else {
+                                null
+                            }
+                        }.getOrNull()
+                onDone(result)
+            },
+            "clipsync-directory-picker",
+        ).apply { isDaemon = true }.start()
+    }
+
     override fun pick(onDone: (List<PickedSource>) -> Unit) {
         Thread(
             {

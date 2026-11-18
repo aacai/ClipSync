@@ -14,6 +14,8 @@ internal actual fun createLanServer(
     identity: LanIdentity,
     roomHash: String,
     blobDir: String,
+    fsToken: String,
+    fsRoots: List<SharedRoot>,
     onClip: (String) -> Unit,
     onPeer: (LanBeacon) -> Unit,
 ): LanServer? = null

@@ -113,6 +113,31 @@ class AppSettings(
         store.putBoolean(KEY_LAN_FIRST, enabled)
     }
 
+    private val _lanShare = MutableStateFlow(store.getBoolean(KEY_LAN_SHARE, false))
+    val lanShare: StateFlow<Boolean> = _lanShare.asStateFlow()
+
+    fun setLanShare(enabled: Boolean) {
+        _lanShare.value = enabled
+        store.putBoolean(KEY_LAN_SHARE, enabled)
+    }
+
+    private val _lanOnly = MutableStateFlow(store.getBoolean(KEY_LAN_ONLY, false))
+    val lanOnly: StateFlow<Boolean> = _lanOnly.asStateFlow()
+
+    fun setLanOnly(enabled: Boolean) {
+        _lanOnly.value = enabled
+        store.putBoolean(KEY_LAN_ONLY, enabled)
+    }
+
+    private val _lanRoots = MutableStateFlow(readLanRoots(store.getString(KEY_LAN_ROOTS, "")))
+    val lanRoots: StateFlow<List<SharedRoot>> = _lanRoots.asStateFlow()
+
+    fun setLanRoots(roots: List<SharedRoot>) {
+        val value = roots.distinctBy { it.path }
+        _lanRoots.value = value
+        store.putString(KEY_LAN_ROOTS, ClipProtocol.encode(value))
+    }
+
     private val _launchAtLogin = MutableStateFlow(store.getBoolean(KEY_LAUNCH_AT_LOGIN, false))
     val launchAtLogin: StateFlow<Boolean> = _launchAtLogin.asStateFlow()
 
@@ -324,6 +349,9 @@ class AppSettings(
         private const val KEY_REMEMBER_ROOM = "room.remember"
         private const val KEY_WATCH_CLIPBOARD = "clipboard.watch"
         private const val KEY_LAN_FIRST = "lan.first"
+        private const val KEY_LAN_SHARE = "lan.share"
+        private const val KEY_LAN_ONLY = "lan.only"
+        private const val KEY_LAN_ROOTS = "lan.roots"
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
         private const val KEY_AUTO_COPY_FILE = "clipboard.autoCopyFile"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"
@@ -365,6 +393,10 @@ class AppSettings(
 
         private fun languageOf(name: String?): AppLanguage =
             AppLanguage.entries.firstOrNull { it.name == name } ?: AppLanguage.System
+
+        private fun readLanRoots(raw: String): List<SharedRoot> =
+            if (raw.isBlank()) emptyList()
+            else runCatching { ClipProtocol.decode<List<SharedRoot>>(raw) }.getOrDefault(emptyList())
 
         private fun recordModeOf(name: String?): RecordMode =
             RecordMode.entries.firstOrNull { it.name == name } ?: RecordMode.Region

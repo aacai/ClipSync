@@ -26,6 +26,7 @@ import zhiqiu.app.cs.core.DevicePresence
 import zhiqiu.app.cs.core.FileIssue
 import zhiqiu.app.cs.core.GithubReleases
 import zhiqiu.app.cs.core.LanPeer
+import zhiqiu.app.cs.core.SharedRoot
 import zhiqiu.app.cs.core.cleanupTempFiles
 import zhiqiu.app.cs.core.MqttLinkFactory
 import zhiqiu.app.cs.core.ReleaseSource
@@ -130,6 +131,12 @@ class AppModel internal constructor(
     val supportsSaveToDownloads: Boolean = platform.downloads.isAvailable
     val supportsResidentSync: Boolean = platformSupportsResidentSync
     val supportsLaunchAtLogin: Boolean = platform.autostart.isAvailable
+    val supportsDirectoryPicker: Boolean get() = platform.picker.supportsDirectoryPicker
+
+    val lanShare: StateFlow<Boolean> = settings.lanShare
+    val lanOnly: StateFlow<Boolean> = settings.lanOnly
+    val lanRoots: StateFlow<List<SharedRoot>> = settings.lanRoots
+    val localFileBrowseUrl: String? get() = engine.localFilesUrl
 
     /** 截屏要同时有整屏抓取和全局快捷键：少了后者就只能在自己窗口里点，那不是截屏功能。 */
     val supportsScreenshot: Boolean
@@ -248,6 +255,13 @@ class AppModel internal constructor(
         }
         scope.launch {
             settings.lanFirst.collect { engine.lanFirst = it }
+        }
+        scope.launch {
+            combine(settings.lanShare, settings.lanRoots, settings.lanOnly) { share, roots, only ->
+                Triple(share, roots, only)
+            }.collect { (share, roots, only) ->
+                engine.updateLanConfig(share, roots, engine.lanToken, only)
+            }
         }
         scope.launch {
             withContext(Dispatchers.Default) { cleanupTempFiles(24 * 60 * 60 * 1000L) }
@@ -922,6 +936,29 @@ class AppModel internal constructor(
             if (sources.isEmpty()) return@pick
             ingestPickedSources(sources)
         }
+    }
+
+    fun pickShareDir(onDone: (String?) -> Unit = {}) {
+        if (!supportsDirectoryPicker) {
+            onDone(null)
+            return
+        }
+        platform.picker.pickDirectory { path ->
+            if (!path.isNullOrBlank()) {
+                val name = path.substringAfterLast('/').substringAfterLast('\\').ifBlank { path }
+                settings.setLanRoots(settings.lanRoots.value + SharedRoot(name, path))
+            }
+            onDone(path)
+        }
+    }
+
+    fun removeLanRoot(root: SharedRoot) {
+        settings.setLanRoots(settings.lanRoots.value - root)
+    }
+
+    fun openUrl(url: String) {
+        if (url.isBlank()) return
+        if (!platform.browser.open(url)) _failure.value = Feedback.BrowserMissing
     }
 
     fun setBackgroundDim(value: Float) = settings.setBackgroundDim(value)

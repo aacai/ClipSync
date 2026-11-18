@@ -13,6 +13,8 @@ sealed class FileIssue {
 
     data class UploadFailed(override val name: String, val detail: String?) : FileIssue()
 
+    data class LanUnavailable(override val name: String) : FileIssue()
+
     data class DownloadFailed(override val name: String, val detail: String?) : FileIssue()
 
     data class DecryptFailed(override val name: String, val detail: String?) : FileIssue()

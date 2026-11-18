@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import zhiqiu.app.cs.core.ClipProtocol
 import zhiqiu.app.cs.core.ClipSyncEngine
 import zhiqiu.app.cs.core.formatResidentMemory
 import zhiqiu.app.cs.core.platformResidentMemory
@@ -119,9 +120,33 @@ internal fun MainView(
     val lanIds = lanPeers.map { it.id }.toSet()
     val mqttIds = devices.map { it.id }.toSet()
     val lanOnly = lanPeers.filter { it.id !in mqttIds }
-    val inRoom = devices.map { deviceLabel(it.name, it.os) + if (it.id in lanIds) " · LAN" else "" }
-            .let { if (online) listOf(deviceLabel(nickname, model.deviceOs)) + it else it } +
-            lanOnly.map { deviceLabel(it.name, it.os) + " · LAN" }
+    fun browseUrl(peerId: String): String? {
+        val peer = lanPeers.firstOrNull { it.id == peerId } ?: return null
+        val base = peer.base() ?: return null
+        if (peer.nonce.isBlank()) return null
+        return base + ClipProtocol.fsPath() + "?token=" + peer.nonce
+    }
+    val deviceRows =
+            buildList {
+                if (online) add(DeviceListItem(label = deviceLabel(nickname, model.deviceOs), isSelf = true))
+                devices.forEach { device ->
+                    add(
+                            DeviceListItem(
+                                    label = deviceLabel(device.name, device.os) + if (device.id in lanIds) " · LAN" else "",
+                                    browseUrl = browseUrl(device.id),
+                            )
+                    )
+                }
+                lanOnly.forEach { peer ->
+                    add(
+                            DeviceListItem(
+                                    label = deviceLabel(peer.name, peer.os) + " · LAN",
+                                    browseUrl = browseUrl(peer.id),
+                            )
+                    )
+                }
+            }
+    val inRoom = deviceRows.map { it.label }
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -750,7 +775,11 @@ internal fun MainView(
         ShareDialog(model, onDismiss = { shareOpen = false })
     }
     if (devicesOpen) {
-        DevicesDialog(devices = inRoom, onDismiss = { devicesOpen = false })
+        DevicesDialog(
+                items = deviceRows,
+                onBrowse = model::openUrl,
+                onDismiss = { devicesOpen = false },
+        )
     }
     safetyNumber?.let { number ->
         SafetyDialog(

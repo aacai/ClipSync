@@ -163,6 +163,7 @@ internal fun fileIssueText(issue: FileIssue): String {
         is FileIssue.TooLargeIncoming -> stringResource(Res.string.issue_too_large_incoming, maxMb, issue.name)
         is FileIssue.EncryptFailed -> stringResource(Res.string.issue_encrypt, issue.detail.orEmpty())
         is FileIssue.UploadFailed -> stringResource(Res.string.issue_upload, issue.detail.orEmpty())
+        is FileIssue.LanUnavailable -> stringResource(Res.string.issue_lan_unavailable, issue.name)
         is FileIssue.DownloadFailed -> stringResource(Res.string.fb_download_failed, issue.detail.orEmpty())
         is FileIssue.DecryptFailed -> stringResource(Res.string.issue_decrypt, issue.detail.orEmpty())
     }

@@ -14,8 +14,8 @@ import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.net.URLDecoder
 import kotlin.concurrent.thread
-import kotlin.random.Random
 
 private const val MAX_HEAD = 16 * 1024
 private const val MAX_BODY = 64 * 1024 * 1024 + 4096
@@ -51,6 +51,8 @@ internal actual fun createLanServer(
     identity: LanIdentity,
     roomHash: String,
     blobDir: String,
+    fsToken: String,
+    fsRoots: List<SharedRoot>,
     onClip: (String) -> Unit,
     onPeer: (LanBeacon) -> Unit,
 ): LanServer? = runCatching {
@@ -58,8 +60,7 @@ internal actual fun createLanServer(
     socket.reuseAddress = true
     socket.bind(InetSocketAddress(port))
     val dir = File(blobDir).also { it.mkdirs() }
-    val nonce = ByteArray(8).also { Random.nextBytes(it) }.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
-    val info = LanInfo(socket.localPort, localLanAddresses(), nonce)
+    val info = LanInfo(socket.localPort, localLanAddresses(), fsToken)
     val discovery = startDiscovery(info, identity, roomHash, onPeer)
     val server = object : LanServer {
         override val info = info
@@ -75,7 +76,7 @@ internal actual fun createLanServer(
             } catch (_: IOException) {
                 break
             }
-            thread(isDaemon = true) { serveLan(client, roomHash, dir, onClip) }
+            thread(isDaemon = true) { serveLan(client, roomHash, dir, fsToken, fsRoots, onClip) }
         }
     }
     server
@@ -185,14 +186,23 @@ private fun addressRank(host: String): Int {
     }
 }
 
-private fun serveLan(socket: Socket, roomHash: String, dir: File, onClip: (String) -> Unit) {
+private fun serveLan(
+    socket: Socket,
+    roomHash: String,
+    dir: File,
+    fsToken: String,
+    fsRoots: List<SharedRoot>,
+    onClip: (String) -> Unit,
+) {
     socket.soTimeout = 10_000
     socket.use { client ->
         val request = readLanRequest(client.getInputStream()) ?: return@use
+        val path = lanPath(request.second)
+        val query = lanQuery(request.second)
         val clipPath = "/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.CH_CLIP}"
         val blobPrefix = "/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/"
         when {
-            request.first == "POST" && request.second == clipPath -> {
+            request.first == "POST" && path == clipPath -> {
                 onClip(String(request.third, Charsets.UTF_8))
                 respondLan(client.getOutputStream(), "200 OK", "ok".toByteArray())
             }
@@ -220,9 +230,137 @@ private fun serveLan(socket: Socket, roomHash: String, dir: File, onClip: (Strin
                 }
             }
 
+            request.first == "GET" && path == ClipProtocol.fsPath() -> {
+                if (!fsTokenOk(query, fsToken)) {
+                    respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                } else {
+                    respondLan(
+                            client.getOutputStream(),
+                            "200 OK",
+                            LAN_FS_HTML.toByteArray(Charsets.UTF_8),
+                            "text/html; charset=utf-8",
+                    )
+                }
+            }
+
+            request.first == "GET" && path == "${ClipProtocol.fsPath()}/roots" -> {
+                if (!fsTokenOk(query, fsToken)) {
+                    respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                } else {
+                    val entries = fsRoots.mapIndexed { index, root -> FsRootEntry(root.name, index) }
+                    respondLan(
+                            client.getOutputStream(),
+                            "200 OK",
+                            ClipProtocol.encode(entries).toByteArray(Charsets.UTF_8),
+                            "application/json; charset=utf-8",
+                    )
+                }
+            }
+
+            request.first == "GET" && path == "${ClipProtocol.fsPath()}/list" -> {
+                if (!fsTokenOk(query, fsToken)) {
+                    respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                } else {
+                    val root = query["root"]?.toIntOrNull()?.let { fsRoots.getOrNull(it) }
+                    val body = root?.let { fsListJson(it, query["path"].orEmpty(), query["q"]) }
+                    if (body == null) {
+                        respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                    } else {
+                        respondLan(
+                                client.getOutputStream(),
+                                "200 OK",
+                                body,
+                                "application/json; charset=utf-8",
+                        )
+                    }
+                }
+            }
+
+            request.first == "GET" && path == "${ClipProtocol.fsPath()}/file" -> {
+                if (!fsTokenOk(query, fsToken)) {
+                    respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                } else {
+                    val root = query["root"]?.toIntOrNull()?.let { fsRoots.getOrNull(it) }
+                    val file = root?.let { fsResolve(it.path, query["path"].orEmpty()) }
+                    if (file == null || !file.isFile) {
+                        respondLan(client.getOutputStream(), "403 Forbidden", ByteArray(0))
+                    } else {
+                        respondLan(
+                                client.getOutputStream(),
+                                "200 OK",
+                                file.readBytes(),
+                                "application/octet-stream",
+                        )
+                    }
+                }
+            }
+
             else -> respondLan(client.getOutputStream(), "404 Not Found", ByteArray(0))
         }
     }
+}
+
+private fun lanPath(raw: String): String = raw.substringBefore('?')
+
+private fun lanQuery(raw: String): Map<String, String> {
+    val start = raw.indexOf('?')
+    if (start < 0 || start == raw.lastIndex) return emptyMap()
+    return raw.substring(start + 1).split('&').mapNotNull { part ->
+        val split = part.indexOf('=')
+        if (split < 0) {
+            null
+        } else {
+            decodeLanParam(part.substring(0, split)) to decodeLanParam(part.substring(split + 1))
+        }
+    }.toMap()
+}
+
+private fun decodeLanParam(raw: String): String =
+    runCatching { URLDecoder.decode(raw.replace("+", " "), "UTF-8") }.getOrDefault(raw)
+
+private fun fsTokenOk(query: Map<String, String>, token: String): Boolean =
+    token.isNotBlank() && query["token"] == token
+
+private fun fsResolve(rootPath: String, relative: String): File? {
+    if (relative.contains("..") || File(relative).isAbsolute || Regex("^[A-Za-z]:").containsMatchIn(relative)) {
+        return null
+    }
+    return runCatching {
+        val root = File(rootPath).canonicalFile
+        val target = File(root, relative).canonicalFile
+        if (!root.isDirectory || (target != root && !target.path.startsWith(root.path + File.separator))) null else target
+    }.getOrNull()
+}
+
+private fun fsRelative(root: File, file: File): String =
+    file.canonicalFile.toRelativeString(root).replace(File.separatorChar, '/')
+
+private fun fsListJson(root: SharedRoot, relative: String, query: String?): ByteArray? {
+    val base = fsResolve(root.path, relative) ?: return null
+    if (!base.isDirectory) return null
+    val dirs = mutableListOf<FsDirEntry>()
+    val files = mutableListOf<FsFileEntry>()
+    if (query.isNullOrBlank()) {
+        (base.listFiles() ?: emptyArray())
+            .sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+            .forEach { file ->
+                val path = fsRelative(base, file)
+                if (file.isDirectory) dirs += FsDirEntry(file.name, path)
+                else if (file.isFile) files += FsFileEntry(file.name, file.length(), path)
+            }
+    } else {
+        base.walkTopDown()
+            .onFail { _, _ -> }
+            .forEach { file ->
+                if (file == base || !file.name.contains(query, ignoreCase = true)) return@forEach
+                val path = fsRelative(base, file)
+                if (file.isDirectory) dirs += FsDirEntry(file.name, path)
+                else if (file.isFile) files += FsFileEntry(file.name, file.length(), path)
+            }
+    }
+    return ClipProtocol.encode(
+            FsListEntry(dirs.sortedBy { it.path }, files.sortedBy { it.path })
+    ).toByteArray(Charsets.UTF_8)
 }
 
 private fun readLanRequest(input: InputStream): Triple<String, String, ByteArray>? {
@@ -253,8 +391,14 @@ private fun readLanRequest(input: InputStream): Triple<String, String, ByteArray
     return Triple(method, path, body.copyOf(read))
 }
 
-private fun respondLan(output: OutputStream, status: String, body: ByteArray) {
-    output.write("HTTP/1.1 $status\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray())
+private fun respondLan(
+    output: OutputStream,
+    status: String,
+    body: ByteArray,
+    contentType: String? = null,
+) {
+    val type = if (contentType == null) "" else "Content-Type: $contentType\r\n"
+    output.write(("HTTP/1.1 $status\r\nContent-Length: ${body.size}\r\n${type}Connection: close\r\n\r\n").toByteArray())
     output.write(body)
     output.flush()
 }

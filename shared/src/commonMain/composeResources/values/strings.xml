@@ -252,6 +252,7 @@
     <string name="issue_too_large_incoming">收到超过 %1$dMB 的文件，已忽略：%2$s</string>
     <string name="issue_encrypt">加密失败：%1$s</string>
     <string name="issue_upload">上传失败：%1$s</string>
+    <string name="issue_lan_unavailable">局域网模式下无法发送文件，当前没有可用的局域网设备：%1$s</string>
     <string name="issue_decrypt">文件校验/解密失败：%1$s</string>
     <string name="cd_settings">设置</string>
     <string name="settings_title">设置</string>
@@ -360,6 +361,17 @@
     <string name="setting_launch_at_login_hint">登录后自动开始守剪贴板，先收进托盘不弹主窗口；要界面就点托盘图标</string>
     <string name="setting_lan_first">优先用局域网发文件</string>
     <string name="setting_lan_first_hint">同一局域网且有在线设备时，文件直传给对方，不经公网托管</string>
+    <string name="settings_group_file_share">文件共享</string>
+    <string name="setting_lan_share">开启文件共享</string>
+    <string name="setting_lan_share_hint">同一局域网的其他设备可以通过网页浏览你添加的共享目录，链接带访问令牌</string>
+    <string name="setting_lan_only">仅用局域网</string>
+    <string name="setting_lan_only_hint">只通过局域网发送剪贴板和文件；没有局域网设备时不走公网</string>
+    <string name="setting_lan_roots">共享目录</string>
+    <string name="setting_lan_add_root">添加共享目录</string>
+    <string name="setting_lan_root_value">%1$s · %2$s</string>
+    <string name="setting_lan_root_hint">点击目录可移除；共享网页只暴露这里添加的目录</string>
+    <string name="setting_lan_open_local">本机文件网页</string>
+    <string name="action_browse_files">浏览文件</string>
     <string name="setting_watch_clipboard">记录剪贴板</string>
     <string name="setting_watch_clipboard_hint">不进房间也会自动把你复制过的内容留进列表，仅保存在本机；关闭后只记录手动发送的条目</string>
     <string name="setting_watch_images">记录截图</string>

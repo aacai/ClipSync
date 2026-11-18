@@ -88,6 +88,10 @@ fun interface PlatformFilePicker {
     fun pick(onDone: (List<PickedSource>) -> Unit)
 
     val isAvailable: Boolean get() = true
+
+    val supportsDirectoryPicker: Boolean get() = false
+
+    fun pickDirectory(onDone: (String?) -> Unit) = onDone(null)
 }
 
 /**
