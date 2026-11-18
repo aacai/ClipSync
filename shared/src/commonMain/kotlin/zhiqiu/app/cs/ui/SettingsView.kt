@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +64,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -803,7 +805,15 @@ private fun LanPortDialog(
                             value = text,
                             onValueChange = { text = it },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            keyboardOptions =
+                                    KeyboardOptions(
+                                            keyboardType = KeyboardType.Number,
+                                            imeAction = ImeAction.Done,
+                                    ),
+                            keyboardActions =
+                                    KeyboardActions(
+                                            onDone = { if (!invalid) port?.let(onSubmit) },
+                                    ),
                             isError = invalid,
                             shape = MaterialTheme.shapes.small,
                             modifier = Modifier.fillMaxWidth().focusRequester(focus),
