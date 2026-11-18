@@ -205,18 +205,22 @@ internal class ClipSyncEngine(
         lanOnlyEnabled = only
         lanPortValue = port
         lanTokenValue = nextToken
-        if (!changed || !lanEnabled) return
-        val config = desired ?: return
+        if ((!changed && lanServer != null) || !lanEnabled) return
         closeLan()
-        lanSender = LanSender(createSharedHttpClient(), roomHash)
-        startLan(roomHash, config)
+        val config = desired
+        val hash = if (roomHash.isNotBlank()) roomHash else lanTokenValue
+        lanSender = LanSender(createSharedHttpClient(), hash)
+        startLan(hash, config)
     }
 
-    private fun startLan(hash: String, config: Config) {
+    private fun startLan(hash: String, config: Config?) {
+        val deviceId = config?.deviceId ?: lanTokenValue
+        val deviceName = config?.deviceName ?: deviceId
+        val deviceOs = config?.deviceOs ?: "Device"
         lanServer =
                 createLanServer(
                         lanPortValue,
-                        LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
+                        LanIdentity(deviceId, deviceName, deviceOs),
                         hash,
                         lanBlobDir(),
                         lanTokenValue,
