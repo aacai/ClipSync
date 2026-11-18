@@ -371,6 +371,9 @@
     <string name="setting_lan_share_hint">Other devices on the same LAN can browse your shared folders in a web page. The link carries an access token</string>
     <string name="setting_lan_only">LAN only</string>
     <string name="setting_lan_only_hint">Send clips and files over the LAN only. Nothing goes through the internet when no peer is available</string>
+    <string name="setting_lan_port">LAN port</string>
+    <string name="setting_lan_port_hint">Port the LAN service listens on, between 1024 and 65535. Changing it restarts the service</string>
+    <string name="setting_lan_port_invalid">Enter a whole number between 1024 and 65535</string>
     <string name="setting_lan_roots">Shared folders</string>
     <string name="setting_lan_add_root">Add shared folder</string>
     <string name="setting_lan_root_value">%1$s · %2$s</string>

@@ -67,6 +67,13 @@ class RecordPreview(
     val clipId: String?,
 )
 
+private data class LanConfigInput(
+    val share: Boolean,
+    val roots: List<SharedRoot>,
+    val only: Boolean,
+    val port: Int,
+)
+
 class AppModel internal constructor(
     private val scope: CoroutineScope,
     private val platform: PlatformUi,
@@ -257,11 +264,23 @@ class AppModel internal constructor(
             settings.lanFirst.collect { engine.lanFirst = it }
         }
         scope.launch {
-            combine(settings.lanShare, settings.lanRoots, settings.lanOnly) { share, roots, only ->
-                Triple(share, roots, only)
-            }.collect { (share, roots, only) ->
-                engine.updateLanConfig(share, roots, engine.lanToken, only)
-            }
+            combine(
+                        settings.lanShare,
+                        settings.lanRoots,
+                        settings.lanOnly,
+                        settings.lanPort,
+                    ) { share, roots, only, port ->
+                        LanConfigInput(share, roots, only, port)
+                    }
+                    .collect { config ->
+                        engine.updateLanConfig(
+                                config.share,
+                                config.roots,
+                                engine.lanToken,
+                                config.only,
+                                config.port,
+                        )
+                    }
         }
         scope.launch {
             withContext(Dispatchers.Default) { cleanupTempFiles(24 * 60 * 60 * 1000L) }

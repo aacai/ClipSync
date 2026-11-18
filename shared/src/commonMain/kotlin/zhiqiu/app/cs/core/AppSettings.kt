@@ -138,6 +138,16 @@ class AppSettings(
         store.putString(KEY_LAN_ROOTS, ClipProtocol.encode(value))
     }
 
+    private val _lanPort =
+        MutableStateFlow(store.getInt(KEY_LAN_PORT, ClipProtocol.LAN_PORT).coerceIn(MIN_LAN_PORT, MAX_LAN_PORT))
+    val lanPort: StateFlow<Int> = _lanPort.asStateFlow()
+
+    fun setLanPort(port: Int) {
+        val value = port.coerceIn(MIN_LAN_PORT, MAX_LAN_PORT)
+        _lanPort.value = value
+        store.putInt(KEY_LAN_PORT, value)
+    }
+
     private val _launchAtLogin = MutableStateFlow(store.getBoolean(KEY_LAUNCH_AT_LOGIN, false))
     val launchAtLogin: StateFlow<Boolean> = _launchAtLogin.asStateFlow()
 
@@ -352,6 +362,9 @@ class AppSettings(
         private const val KEY_LAN_SHARE = "lan.share"
         private const val KEY_LAN_ONLY = "lan.only"
         private const val KEY_LAN_ROOTS = "lan.roots"
+        private const val KEY_LAN_PORT = "lan.port"
+        const val MIN_LAN_PORT = 1024
+        const val MAX_LAN_PORT = 65535
         private const val KEY_AUTO_COPY = "clipboard.autoCopy"
         private const val KEY_AUTO_COPY_FILE = "clipboard.autoCopyFile"
         private const val KEY_WATCH_IMAGES = "clipboard.watchImages"

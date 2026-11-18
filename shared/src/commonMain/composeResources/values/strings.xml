@@ -366,6 +366,9 @@
     <string name="setting_lan_share_hint">同一局域网的其他设备可以通过网页浏览你添加的共享目录，链接带访问令牌</string>
     <string name="setting_lan_only">仅用局域网</string>
     <string name="setting_lan_only_hint">只通过局域网发送剪贴板和文件；没有局域网设备时不走公网</string>
+    <string name="setting_lan_port">局域网端口</string>
+    <string name="setting_lan_port_hint">局域网服务的监听端口，范围 1024–65535；修改后服务会重启</string>
+    <string name="setting_lan_port_invalid">请输入 1024 到 65535 之间的整数</string>
     <string name="setting_lan_roots">共享目录</string>
     <string name="setting_lan_add_root">添加共享目录</string>
     <string name="setting_lan_root_value">%1$s · %2$s</string>

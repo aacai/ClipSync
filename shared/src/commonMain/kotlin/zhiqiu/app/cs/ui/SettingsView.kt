@@ -22,10 +22,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -61,6 +63,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,6 +106,7 @@ internal fun SettingsView(
     val lanShare by model.lanShare.collectAsState()
     val lanOnly by model.lanOnly.collectAsState()
     val lanRoots by model.lanRoots.collectAsState()
+    val lanPort by settings.lanPort.collectAsState()
     val watchImages by settings.watchImages.collectAsState()
     val watchFiles by settings.watchFiles.collectAsState()
     val autoCopyIncoming by settings.autoCopyIncoming.collectAsState()
@@ -135,6 +139,7 @@ internal fun SettingsView(
     var pickingRetention by remember { mutableStateOf(false) }
     var editingNickname by remember { mutableStateOf(false) }
     var editingRoom by remember { mutableStateOf(false) }
+    var editingLanPort by remember { mutableStateOf(false) }
     var recordingHotkey by remember { mutableStateOf(false) }
     var recordingRecordHotkey by remember { mutableStateOf(false) }
     var pickingRecordMode by remember { mutableStateOf(false) }
@@ -470,6 +475,12 @@ internal fun SettingsView(
                                         lanOnly,
                                         settings::setLanOnly,
                                 )
+                                RowDivider()
+                                NavRow(
+                                        title = Res.string.setting_lan_port,
+                                        value = lanPort.toString(),
+                                        onClick = { editingLanPort = true },
+                                )
                                 if (lanShare) {
                                     RowDivider()
                                     NavRow(
@@ -760,6 +771,65 @@ internal fun SettingsView(
                 },
         )
     }
+    if (editingLanPort) {
+        LanPortDialog(
+                current = lanPort,
+                onDismiss = { editingLanPort = false },
+                onSubmit = {
+                    settings.setLanPort(it)
+                    editingLanPort = false
+                },
+        )
+    }
+}
+
+@Composable
+private fun LanPortDialog(
+    current: Int,
+    onDismiss: () -> Unit,
+    onSubmit: (Int) -> Unit,
+) {
+    var text by remember { mutableStateOf(current.toString()) }
+    val port = text.toIntOrNull()
+    val invalid = port == null || port !in AppSettings.MIN_LAN_PORT..AppSettings.MAX_LAN_PORT
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    GlassAlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(Res.string.setting_lan_port), fontSize = 17.sp) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                            value = text,
+                            onValueChange = { text = it },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = invalid,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                    )
+                    Text(
+                            stringResource(
+                                    if (invalid) Res.string.setting_lan_port_invalid else Res.string.setting_lan_port_hint
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color =
+                                    if (invalid) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                        onClick = { port?.let(onSubmit) },
+                        enabled = !invalid,
+                ) {
+                    Text(stringResource(Res.string.save), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
+    )
 }
 
 @Composable

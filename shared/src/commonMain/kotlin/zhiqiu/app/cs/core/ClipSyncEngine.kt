@@ -94,6 +94,7 @@ internal class ClipSyncEngine(
     private var lanShareEnabled = false
     private var lanOnlyEnabled = false
     private var lanRoots: List<SharedRoot> = emptyList()
+    private var lanPortValue: Int = ClipProtocol.LAN_PORT
     private var lanTokenValue: String = ClipProtocol.randomMid()
 
     val lanToken: String get() = lanTokenValue
@@ -194,14 +195,16 @@ internal class ClipSyncEngine(
         roots: List<SharedRoot>,
         token: String = lanTokenValue,
         only: Boolean = lanOnlyEnabled,
+        port: Int = lanPortValue,
     ) {
         val nextToken = token.ifBlank { lanTokenValue }
         val changed =
                 enabled != lanShareEnabled || roots != lanRoots || only != lanOnlyEnabled ||
-                        nextToken != lanTokenValue
+                        nextToken != lanTokenValue || port != lanPortValue
         lanShareEnabled = enabled
         lanRoots = roots
         lanOnlyEnabled = only
+        lanPortValue = port
         lanTokenValue = nextToken
         if (!changed || !lanEnabled) return
         val config = desired ?: return
@@ -213,7 +216,7 @@ internal class ClipSyncEngine(
     private fun startLan(hash: String, config: Config) {
         lanServer =
                 createLanServer(
-                        ClipProtocol.LAN_PORT,
+                        lanPortValue,
                         LanIdentity(config.deviceId, config.deviceName, config.deviceOs),
                         hash,
                         lanBlobDir(),
