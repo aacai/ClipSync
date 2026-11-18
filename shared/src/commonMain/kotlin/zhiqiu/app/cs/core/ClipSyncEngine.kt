@@ -102,8 +102,7 @@ internal class ClipSyncEngine(
     val localFilesUrl: String?
         get() {
             val info = lanServer?.info ?: return null
-            val host = info.addrs.firstOrNull() ?: return null
-            return "http://$host:${info.port}${ClipProtocol.fsPath()}?token=$lanTokenValue"
+            return "http://127.0.0.1:${info.port}${ClipProtocol.fsPath()}?token=$lanTokenValue"
         }
 
     private val presenceTs = mutableMapOf<String, Long>()

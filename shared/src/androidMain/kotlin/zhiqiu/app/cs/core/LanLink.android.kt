@@ -61,7 +61,8 @@ internal actual fun createLanServer(
     socket.bind(InetSocketAddress(port))
     val dir = File(blobDir).also { it.mkdirs() }
     val info = LanInfo(socket.localPort, localLanAddresses(), fsToken)
-    val discovery = startDiscovery(info, identity, roomHash, onPeer)
+    val discovery = runCatching { startDiscovery(info, identity, roomHash, onPeer) }
+        .getOrElse { AutoCloseable { } }
     val server = object : LanServer {
         override val info = info
         override fun close() {
