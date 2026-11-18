@@ -194,6 +194,9 @@
     <string name="fb_connect_failed_generic">Could not join the room, check your network and try again</string>
     <string name="fb_download_failed_generic">Download failed, check your network and try again</string>
     <string name="fb_browser_missing">This machine has no browser to hand the link to</string>
+    <string name="fb_lan_share_off">Turn on File sharing first</string>
+    <string name="fb_lan_root_empty">Add a shared folder first</string>
+    <string name="fb_lan_service_not_ready">File service is not ready yet, try again shortly</string>
     <string name="fb_background_saved">Background swapped in</string>
     <string name="fb_background_rejected">That picture could not be decoded, try another</string>
     <string name="fb_room_required">Enter a room code first</string>
@@ -379,6 +382,10 @@
     <string name="setting_lan_root_value">%1$s · %2$s</string>
     <string name="setting_lan_root_hint">Tap a folder to remove it. The web page only exposes folders added here</string>
     <string name="setting_lan_open_local">This device's file page</string>
+    <string name="setting_lan_open_off">Sharing off</string>
+    <string name="setting_lan_open_no_root">Add a folder first</string>
+    <string name="setting_lan_open_starting">Starting…</string>
+    <string name="setting_lan_no_picker">This system cannot pick folders, so shared folders cannot be added. Use the desktop app to share files</string>
     <string name="action_browse_files">Browse files</string>
     <string name="setting_watch_clipboard">Watch clipboard</string>
     <string name="setting_watch_clipboard_hint">Copies are added to the list automatically even without a room, stored on this device only. Turn off to keep only entries you send by hand</string>

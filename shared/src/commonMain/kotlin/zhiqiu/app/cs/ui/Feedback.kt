@@ -59,6 +59,18 @@ sealed class Feedback {
         override val level get() = Level.Error
     }
 
+    data object LanShareOff : Feedback() {
+        override val level get() = Level.Warn
+    }
+
+    data object LanRootEmpty : Feedback() {
+        override val level get() = Level.Warn
+    }
+
+    data object LanServiceNotReady : Feedback() {
+        override val level get() = Level.Warn
+    }
+
     data object BackgroundSaved : Feedback() {
         override val level get() = Level.Info
     }

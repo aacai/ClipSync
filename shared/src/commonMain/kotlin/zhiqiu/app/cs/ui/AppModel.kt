@@ -980,6 +980,23 @@ class AppModel internal constructor(
         if (!platform.browser.open(url)) _failure.value = Feedback.BrowserMissing
     }
 
+    fun openLocalFiles() {
+        if (!settings.lanShare.value) {
+            _failure.value = Feedback.LanShareOff
+            return
+        }
+        if (settings.lanRoots.value.isEmpty()) {
+            _failure.value = Feedback.LanRootEmpty
+            return
+        }
+        val url = engine.localFilesUrl
+        if (url == null) {
+            _failure.value = Feedback.LanServiceNotReady
+            return
+        }
+        openUrl(url)
+    }
+
     fun setBackgroundDim(value: Float) = settings.setBackgroundDim(value)
 
     fun setGlassFrost(value: Float) = settings.setGlassFrost(value)

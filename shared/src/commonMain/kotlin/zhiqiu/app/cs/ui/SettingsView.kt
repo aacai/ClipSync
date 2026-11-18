@@ -470,6 +470,9 @@ internal fun SettingsView(
                                         lanShare,
                                         settings::setLanShare,
                                 )
+                                if (!model.supportsDirectoryPicker) {
+                                    GroupFootnote(Res.string.setting_lan_no_picker)
+                                }
                                 RowDivider()
                                 SwitchRow(
                                         Res.string.setting_lan_only,
@@ -483,15 +486,20 @@ internal fun SettingsView(
                                         value = lanPort.toString(),
                                         onClick = { editingLanPort = true },
                                 )
+                                RowDivider()
+                                val browseValue =
+                                        when {
+                                            !lanShare -> stringResource(Res.string.setting_lan_open_off)
+                                            lanRoots.isEmpty() -> stringResource(Res.string.setting_lan_open_no_root)
+                                            model.localFileBrowseUrl != null -> model.localFileBrowseUrl!!
+                                            else -> stringResource(Res.string.setting_lan_open_starting)
+                                        }
+                                NavRow(
+                                        title = Res.string.setting_lan_open_local,
+                                        value = browseValue,
+                                        onClick = model::openLocalFiles,
+                                )
                                 if (lanShare) {
-                                    RowDivider()
-                                    NavRow(
-                                            title = Res.string.setting_lan_open_local,
-                                            value =
-                                                    model.localFileBrowseUrl
-                                                            ?: stringResource(Res.string.status_disconnected),
-                                            onClick = { model.localFileBrowseUrl?.let(model::openUrl) },
-                                    )
                                     RowDivider()
                                     lanRoots.forEach { root ->
                                         NavRow(
