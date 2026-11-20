@@ -34,6 +34,12 @@ internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean {
     }.isSuccess
 }
 
+internal actual fun readLanBlob(name: String): ByteArray? {
+    if (!validLanBlobName(name)) return null
+    val file = File(lanBlobDir(), name)
+    return if (file.isFile) runCatching { file.readBytes() }.getOrNull() else null
+}
+
 internal actual fun cleanupTempFiles(maxAgeMs: Long): Int {
     val cutoff = System.currentTimeMillis() - maxAgeMs
     val tmp = File(System.getProperty("java.io.tmpdir"))
@@ -195,7 +201,7 @@ private fun serveLan(
     fsRoots: List<SharedRoot>,
     onClip: (String) -> Unit,
 ) {
-    socket.soTimeout = 10_000
+    socket.soTimeout = 600_000
     socket.use { client ->
         val request = readLanRequest(client.getInputStream()) ?: return@use
         val path = lanPath(request.second)
@@ -208,8 +214,8 @@ private fun serveLan(
                 respondLan(client.getOutputStream(), "200 OK", "ok".toByteArray())
             }
 
-            request.second.startsWith(blobPrefix) -> {
-                val name = request.second.removePrefix(blobPrefix)
+            path.startsWith(blobPrefix) -> {
+                val name = path.removePrefix(blobPrefix)
                 if (!validLanBlobName(name)) {
                     respondLan(client.getOutputStream(), "404 Not Found", ByteArray(0))
                 } else {
@@ -404,6 +410,3 @@ private fun respondLan(
     output.flush()
 }
 
-private fun validLanBlobName(name: String): Boolean =
-    name.isNotEmpty() && name.length <= 128 && !name.contains("..") &&
-        name.all { it.isLetterOrDigit() || it in ".-_" }

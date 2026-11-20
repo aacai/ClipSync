@@ -2,6 +2,7 @@ package zhiqiu.app.cs.core
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -246,8 +247,24 @@ internal expect fun lanBlobDir(): String
 
 internal expect fun writeLanBlob(name: String, bytes: ByteArray): Boolean
 
+internal expect fun readLanBlob(name: String): ByteArray?
+
 /** 删除临时目录里超过 maxAgeMs 的文件，返回删除个数。 */
 internal expect fun cleanupTempFiles(maxAgeMs: Long): Int
+
+internal fun validLanBlobName(name: String): Boolean =
+    name.isNotEmpty() && name.length <= 128 && !name.contains("..") &&
+        name.all { it.isLetterOrDigit() || it in ".-_" }
+
+internal fun lanBlobNameFromLink(link: String): String? {
+    val marker = "/${ClipProtocol.BLOB_SEGMENT}/"
+    val index = link.lastIndexOf(marker)
+    if (index < 0) return null
+    val name = link.substring(index + marker.length).substringBefore('?').trim()
+    return name.takeIf(::validLanBlobName)
+}
+
+internal fun lanBlobNameForSha(sha256: String): String = "cs-$sha256.bin"
 
 internal class LanSender(
     private val http: HttpClient,
@@ -263,6 +280,21 @@ internal class LanSender(
                     http.post("http://$host:${peer.port}$path") {
                         contentType(ContentType.Text.Plain)
                         setBody(wire)
+                    }.status.isSuccess()
+                }.getOrDefault(false)
+                if (ok) break
+            }
+        }
+    }
+
+    suspend fun pushBlob(peers: Collection<LanPeer>, name: String, bytes: ByteArray) {
+        if (!validLanBlobName(name) || peers.isEmpty()) return
+        val path = "/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$name"
+        for (peer in peers) {
+            for (host in peer.addrs) {
+                val ok = runCatching {
+                    http.put("http://$host:${peer.port}$path") {
+                        setBody(bytes)
                     }.status.isSuccess()
                 }.getOrDefault(false)
                 if (ok) break

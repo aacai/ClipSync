@@ -87,6 +87,7 @@ internal class ClipSyncEngine(
     private val pairedLan = mutableMapOf<String, LanPeer>()
     var lanFirst: Boolean = true
     private val lanSeen = mutableMapOf<String, Long>()
+    private val lanUdp = mutableSetOf<String>()
     private var lanPruneJob: Job? = null
 
     private var lanServer: LanServer? = null
@@ -384,12 +385,18 @@ internal class ClipSyncEngine(
         }
 
         val uploadName = FileCrypto.uploadFileName()
+        val lanBlobName = lanBlobNameForSha(sha)
         val selfInfo = lanServer?.info
         val lanBase = selfInfo?.addrs?.firstOrNull()?.let { "http://$it:${selfInfo.port}" }
-        val record = if ((lanFirst || lanOnlyEnabled) && lanBase != null &&
-                pairedLan.isNotEmpty() && writeLanBlob(uploadName, encrypted.cipher)
-        ) {
-            val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$uploadName"
+        val lanReady =
+                if (pairedLan.isNotEmpty() && writeLanBlob(lanBlobName, encrypted.cipher)) {
+                    lanSender?.pushBlob(pairedLan.values, lanBlobName, encrypted.cipher)
+                    true
+                } else {
+                    false
+                }
+        val record = if ((lanFirst || lanOnlyEnabled) && lanReady && lanBase != null) {
+            val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$lanBlobName"
             Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
         } else if (lanOnlyEnabled) {
             _fileIssues.emit(FileIssue.LanUnavailable(safeName))
@@ -441,14 +448,29 @@ internal class ClipSyncEngine(
             _fileIssues.emit(FileIssue.TooLargeIncoming(file.name))
             return null
         }
-        val cipher = runCatching {
-            transfer.download(file.link) { received, total ->
-                _transfer.value = TransferProgress(TransferProgress.Direction.Download, received, total, file.name)
+        val localCipher =
+                lanBlobNameFromLink(file.link)?.let { readLanBlob(it) }
+                        ?: readLanBlob(lanBlobNameForSha(file.sha256))
+        val cipher = if (localCipher != null) {
+            _transfer.value =
+                    TransferProgress(
+                            TransferProgress.Direction.Download,
+                            localCipher.size.toLong(),
+                            localCipher.size.toLong(),
+                            file.name,
+                    )
+            localCipher
+        } else {
+            runCatching {
+                transfer.download(file.link) { received, total ->
+                    _transfer.value =
+                            TransferProgress(TransferProgress.Direction.Download, received, total, file.name)
+                }
+            }.getOrElse { e ->
+                _transfer.value = null
+                _fileIssues.emit(FileIssue.DownloadFailed(file.name, e.message))
+                return null
             }
-        }.getOrElse { e ->
-            _transfer.value = null
-            _fileIssues.emit(FileIssue.DownloadFailed(file.name, e.message))
-            return null
         }
         _transfer.value = null
 
@@ -523,6 +545,7 @@ internal class ClipSyncEngine(
         lanSender = null
         pairedLan.clear()
         lanSeen.clear()
+        lanUdp.clear()
         publishLanPeers()
     }
 
@@ -692,9 +715,8 @@ internal class ClipSyncEngine(
             roster.remove(payload.dev)
             presenceTs.remove(payload.dev)
             unknownKey.remove(payload.dev)
-        }
-        if (!payload.online) {
             lanSeen.remove(payload.dev)
+            lanUdp.remove(payload.dev)
             pairedLan.remove(payload.dev)
             publishLanPeers()
         }
@@ -719,6 +741,7 @@ internal class ClipSyncEngine(
     private suspend fun onLanPeer(beacon: LanBeacon) {
         val seenAt = now()
         lanSeen[beacon.id] = seenAt
+        lanUdp.add(beacon.id)
         pairedLan[beacon.id] =
                 LanPeer(beacon.id, beacon.name, beacon.os, beacon.addrs, beacon.port, beacon.nonce)
         publishLanPeers()
@@ -729,12 +752,22 @@ internal class ClipSyncEngine(
         lanPruneJob =
                 scope.launch {
                     while (isActive) {
-                        delay(LAN_PEER_TTL_MS / 2)
+                        delay(LAN_UDP_TTL_MS / 2)
                         if (!isActive) break
-                        val cutoff = now() - LAN_PEER_TTL_MS
-                        val gone = lanSeen.filterValues { it < cutoff }.keys.toList()
+                        val nowMs = now()
+                        val gone =
+                                lanSeen
+                                        .filter { (id, seen) ->
+                                            val ttl =
+                                                    if (id in lanUdp) LAN_UDP_TTL_MS
+                                                    else PRESENCE_TTL_MS
+                                            seen + ttl < nowMs
+                                        }
+                                        .keys
+                                        .toList()
                         if (gone.isNotEmpty()) {
                             gone.forEach { lanSeen.remove(it) }
+                            gone.forEach { lanUdp.remove(it) }
                             gone.forEach { pairedLan.remove(it) }
                             publishLanPeers()
                         }
@@ -902,7 +935,7 @@ internal class ClipSyncEngine(
         private const val LINK_GRACE_MS = 60_000L
         private const val MAX_LIVE_UPLOADS = 32
         private const val LAN_LINK_TTL_MS = 24L * 3_600_000L
-        private const val LAN_PEER_TTL_MS = 6_000L
+        private const val LAN_UDP_TTL_MS = 6_000L
     }
 }
 @OptIn(ExperimentalTime::class)

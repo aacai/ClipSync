@@ -6,6 +6,9 @@ internal actual fun lanBlobDir(): String = ""
 internal actual fun writeLanBlob(name: String, bytes: ByteArray): Boolean = false
 
 @Suppress("UNUSED_PARAMETER")
+internal actual fun readLanBlob(name: String): ByteArray? = null
+
+@Suppress("UNUSED_PARAMETER")
 internal actual fun cleanupTempFiles(maxAgeMs: Long): Int = 0
 
 @Suppress("UNUSED_PARAMETER")
