@@ -36,13 +36,23 @@ internal object WindowsClipboard {
         }
         val placed =
                 try {
-                    user.EmptyClipboard()
-                    user.SetClipboardData(CF_UNICODETEXT, block) != null
+                    user.EmptyClipboard() != 0 &&
+                            user.SetClipboardData(CF_UNICODETEXT, block) != null
                 } finally {
                     user.CloseClipboard()
                 }
         if (!placed) kernel.GlobalFree(block)
         return placed
+    }
+
+    fun clear(): Boolean {
+        val user = user32 ?: return false
+        if (!open(user)) return false
+        return try {
+            user.EmptyClipboard() != 0
+        } finally {
+            user.CloseClipboard()
+        }
     }
 
     fun readText(): String? {

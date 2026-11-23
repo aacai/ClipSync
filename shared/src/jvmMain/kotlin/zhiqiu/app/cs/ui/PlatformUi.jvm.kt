@@ -114,7 +114,7 @@ private object AwtClipboard : PlatformClipboard {
                     withContext(Dispatchers.IO) {
                         WindowsClipboard.writeText(text) && WindowsClipboard.readText() == text
                     }
-            if (!placed) throw ClipboardUnavailable(code = "unavailable")
+            if (!placed) throw ClipboardUnavailable(code = "stale")
             return
         }
         val selection = StringSelection(text)
@@ -125,13 +125,21 @@ private object AwtClipboard : PlatformClipboard {
     override suspend fun writeFiles(paths: List<String>) {
         val files = paths.map { File(it) }.filter { it.isFile }
         if (files.isEmpty()) throw IOException("文件不在本机：${paths.joinToString()}")
+        prepareWindowsClipboard()
         val urls = files.joinToString("\n") { it.toURI().toString() }
         setContentsSafely(MultiTransferable(text = urls, files = files))
     }
 
     override suspend fun writeImage(bytes: ByteArray, mime: String) {
         val image = ImageIO.read(ByteArrayInputStream(bytes)) ?: throw IOException("无法解码图片：$mime")
+        prepareWindowsClipboard()
         setContentsSafely(MultiTransferable(text = null, image = image))
+    }
+
+    private suspend fun prepareWindowsClipboard() {
+        if (!WindowsClipboard.available) return
+        val cleared = withContext(Dispatchers.IO) { WindowsClipboard.clear() }
+        if (!cleared) throw ClipboardUnavailable(code = "stale")
     }
 
     private fun setContentsSafely(transferable: MultiTransferable) {

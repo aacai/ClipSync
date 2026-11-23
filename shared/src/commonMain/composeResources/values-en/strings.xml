@@ -181,6 +181,7 @@
     <string name="reason_denied">The browser denied clipboard permission, allow it in the address bar and retry</string>
     <string name="reason_insecure">Open this page over https or localhost</string>
     <string name="reason_unavailable">The system blocked clipboard access for a moment, try again</string>
+    <string name="reason_clipboard_stale">The clipboard still holds stale data or a delayed-rendering owner, retry</string>
     <string name="fb_sent">Synced %1$d characters</string>
     <string name="fb_received">Text from %1$s is now in the clipboard</string>
     <string name="fb_received_saved">Saved the text from %1$s to the list</string>

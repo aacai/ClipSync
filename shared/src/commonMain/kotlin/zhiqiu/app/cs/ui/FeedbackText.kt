@@ -149,6 +149,7 @@ internal fun clipboardReason(code: String?, detail: String?): String =
             "denied" -> stringResource(Res.string.reason_denied)
             "insecure" -> stringResource(Res.string.reason_insecure)
             "unavailable" -> detail ?: stringResource(Res.string.reason_unavailable)
+            "stale" -> stringResource(Res.string.reason_clipboard_stale)
             else -> detail ?: code?.takeUnless { looksLikeTypeName(it) }
                             ?: stringResource(Res.string.reason_unavailable)
         }

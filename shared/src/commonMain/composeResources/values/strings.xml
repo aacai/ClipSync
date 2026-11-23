@@ -182,6 +182,7 @@
     <string name="reason_denied">浏览器拒绝了剪贴板权限，请在地址栏允许后重试</string>
     <string name="reason_insecure">请通过 https 或 localhost 打开页面</string>
     <string name="reason_unavailable">系统暂时不让读写剪贴板，稍后再试</string>
+    <string name="reason_clipboard_stale">剪贴板里还挂着旧内容或延迟渲染没释放，请重试</string>
     <string name="fb_sent">已同步 %1$d 字</string>
     <string name="fb_received">收到 %1$s 的文本，已进剪贴板</string>
     <string name="fb_received_saved">收到 %1$s 的文本，已存进列表</string>
