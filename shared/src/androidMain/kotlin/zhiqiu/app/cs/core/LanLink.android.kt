@@ -66,11 +66,13 @@ internal actual fun createLanServer(
     socket.reuseAddress = true
     socket.bind(InetSocketAddress(port))
     val dir = File(blobDir).also { it.mkdirs() }
-    val info = LanInfo(socket.localPort, localLanAddresses(), fsToken)
-    val discovery = runCatching { startDiscovery(info, identity, roomHash, onPeer) }
-        .getOrElse { AutoCloseable { } }
+    val port = socket.localPort
+    val discovery =
+            runCatching { startDiscovery(port, fsToken, identity, roomHash, onPeer) }
+                    .getOrElse { AutoCloseable { } }
     val server = object : LanServer {
-        override val info = info
+        override val info
+            get() = LanInfo(port, localLanAddresses(), fsToken)
         override fun close() {
             discovery.close()
             socket.close()
@@ -90,7 +92,8 @@ internal actual fun createLanServer(
 }.getOrNull()
 
 private fun startDiscovery(
-    info: LanInfo,
+    port: Int,
+    fsToken: String,
     identity: LanIdentity,
     roomHash: String,
     onPeer: (LanBeacon) -> Unit,
@@ -99,22 +102,22 @@ private fun startDiscovery(
     socket.reuseAddress = true
     socket.broadcast = true
     socket.bind(InetSocketAddress(ClipProtocol.LAN_DISCOVERY_PORT))
-    val beacon =
-            ClipProtocol.encode(
-                    LanBeacon(
-                            id = identity.id,
-                            name = identity.name,
-                            os = identity.os,
-                            port = info.port,
-                            addrs = info.addrs,
-                            roomHash = roomHash,
-                            nonce = info.nonce,
-                    ),
-            )
     val seen = HashMap<String, Long>()
     thread(name = "clipsync-lan-discovery-send", isDaemon = true) {
         while (!socket.isClosed) {
-            val payload = beacon.toByteArray()
+            val payload =
+                    ClipProtocol.encode(
+                                    LanBeacon(
+                                            id = identity.id,
+                                            name = identity.name,
+                                            os = identity.os,
+                                            port = port,
+                                            addrs = localLanAddresses(),
+                                            roomHash = roomHash,
+                                            nonce = fsToken,
+                                    ),
+                            )
+                            .toByteArray()
             for (target in broadcastAddresses()) {
                 runCatching {
                     socket.send(DatagramPacket(payload, payload.size, target, ClipProtocol.LAN_DISCOVERY_PORT))
@@ -160,7 +163,7 @@ private fun localLanAddresses(): List<String> {
             .filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }
             .map { it.hostAddress }
     }.getOrDefault(emptyList())
-    val usable = all.filter { isLanAddress(it) }
+    val usable = all.filter { isLanAddress(it) }.toMutableList()
     val via = runCatching {
         val socket = java.net.DatagramSocket()
         socket.connect(java.net.InetAddress.getByName("8.8.8.8"), 80)
@@ -168,8 +171,13 @@ private fun localLanAddresses(): List<String> {
         socket.close()
         host
     }.getOrNull()
-    return if (via != null && via in usable) listOf(via) + usable.filter { it != via }
-    else usable.sortedByDescending { addressRank(it) }
+    if (via != null && isLanAddress(via)) {
+        usable.remove(via)
+        usable.add(0, via)
+    } else {
+        usable.sortByDescending { addressRank(it) }
+    }
+    return usable.distinct()
 }
 
 private fun isLanAddress(host: String): Boolean {

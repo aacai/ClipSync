@@ -387,7 +387,8 @@ internal class ClipSyncEngine(
         val uploadName = FileCrypto.uploadFileName()
         val lanBlobName = lanBlobNameForSha(sha)
         val selfInfo = lanServer?.info
-        val lanBase = selfInfo?.addrs?.firstOrNull()?.let { "http://$it:${selfInfo.port}" }
+        val lanHost = selfInfo?.addrs?.firstOrNull()
+        val lanPort = selfInfo?.port ?: ClipProtocol.LAN_PORT
         val lanReady =
                 if (pairedLan.isNotEmpty() && writeLanBlob(lanBlobName, encrypted.cipher)) {
                     lanSender?.pushBlob(pairedLan.values, lanBlobName, encrypted.cipher)
@@ -395,9 +396,15 @@ internal class ClipSyncEngine(
                 } else {
                     false
                 }
-        val record = if ((lanFirst || lanOnlyEnabled) && lanReady && lanBase != null) {
-            val link = "$lanBase/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$lanBlobName"
-            Uploaded(safeName, mime, sha, link, now() + LAN_LINK_TTL_MS)
+        val lanLink =
+                if (lanReady) {
+                    val host = lanHost ?: "127.0.0.1"
+                    "http://$host:$lanPort/${ClipProtocol.ROOT}/$roomHash/${ClipProtocol.BLOB_SEGMENT}/$lanBlobName"
+                } else {
+                    null
+                }
+        val record = if ((lanFirst || lanOnlyEnabled) && lanLink != null) {
+            Uploaded(safeName, mime, sha, lanLink, now() + LAN_LINK_TTL_MS)
         } else if (lanOnlyEnabled) {
             _fileIssues.emit(FileIssue.LanUnavailable(safeName))
             return null
