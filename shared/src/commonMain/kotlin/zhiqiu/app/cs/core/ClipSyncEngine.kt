@@ -403,23 +403,38 @@ internal class ClipSyncEngine(
                 } else {
                     null
                 }
-        val record = if ((lanFirst || lanOnlyEnabled) && lanLink != null) {
+        val record = if (lanOnlyEnabled) {
+            if (lanLink == null) {
+                _fileIssues.emit(FileIssue.LanUnavailable(safeName))
+                return null
+            }
             Uploaded(safeName, mime, sha, lanLink, now() + LAN_LINK_TTL_MS)
-        } else if (lanOnlyEnabled) {
-            _fileIssues.emit(FileIssue.LanUnavailable(safeName))
-            return null
         } else {
             val uploaded = runCatching {
                 transfer.upload(uploadName, encrypted.cipher) { sent, total ->
                     _transfer.value = TransferProgress(TransferProgress.Direction.Upload, sent, total, safeName)
                 }
-            }.getOrElse { e ->
-                _transfer.value = null
-                _fileIssues.emit(FileIssue.UploadFailed(safeName, e.message))
-                return null
             }
             _transfer.value = null
-            Uploaded(safeName, mime, sha, uploaded.url, uploaded.expiresAt(now()))
+            uploaded.fold(
+                onSuccess = { link ->
+                    Uploaded(safeName, mime, sha, link.url, link.expiresAt(now()))
+                },
+                onFailure = { e ->
+                    if (lanLink != null) {
+                        _fileIssues.emit(
+                            FileIssue.UploadFailed(
+                                safeName,
+                                "公网失败，已通过局域网发送：${e.message.orEmpty()}",
+                            ),
+                        )
+                        Uploaded(safeName, mime, sha, lanLink, now() + LAN_LINK_TTL_MS)
+                    } else {
+                        _fileIssues.emit(FileIssue.UploadFailed(safeName, e.message))
+                        return null
+                    }
+                },
+            )
         }
         liveUploads.remove(key)
         liveUploads[key] = record
