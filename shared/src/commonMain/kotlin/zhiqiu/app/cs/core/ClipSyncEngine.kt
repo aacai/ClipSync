@@ -209,6 +209,7 @@ internal class ClipSyncEngine(
         if ((!changed && lanServer != null) || !lanEnabled) return
         val config = desired ?: return
         closeLan()
+        delay(150)
         lanSender = LanSender(createSharedHttpClient(), roomHash)
         startLan(roomHash, config)
     }
